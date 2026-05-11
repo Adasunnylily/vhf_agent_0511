@@ -19,12 +19,32 @@ class ConstructHighRiskDatasetTests(unittest.TestCase):
         result = weak_label_risk("我船机舱冒烟，请求救助", "ship")
 
         self.assertEqual(result.risk_label, "high")
-        self.assertEqual(result.risk_type, "fire_smoke")
+        self.assertEqual(result.risk_type, "fire_or_explosion")
+        self.assertEqual(result.automation_label, "manual_immediate")
 
     def test_normal_weak_label(self) -> None:
         result = weak_label_risk("VTS，海丰32报告，已抛好锚", "ship")
 
         self.assertEqual(result.risk_label, "normal")
+        self.assertEqual(result.automation_label, "auto_reply")
+
+    def test_manual_advice_for_weather_query(self) -> None:
+        result = weak_label_risk("VTS，请问前方能见度和气象情况", "ship")
+
+        self.assertEqual(result.risk_category, "non_high_risk")
+        self.assertEqual(result.automation_label, "llm_advice")
+
+    def test_high_risk_anchor_dragging(self) -> None:
+        result = weak_label_risk("我船走锚，需要援助", "ship")
+
+        self.assertEqual(result.risk_label, "high")
+        self.assertEqual(result.risk_type, "anchor_dragging")
+
+    def test_operator_keywords_extracted_for_instruction(self) -> None:
+        result = weak_label_risk("请立即报告位置和人员数量", "operator")
+
+        self.assertIn("立即", result.matched_operator_keywords)
+        self.assertEqual(result.risk_label, "not_target")
 
     def test_non_ship_is_not_target(self) -> None:
         result = weak_label_risk("VTS收到，请保持守听", "operator")

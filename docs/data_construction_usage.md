@@ -36,6 +36,39 @@ python scripts/construct_high_risk_dataset.py run-all \
     └── label_stats.json
 ```
 
+`weak_labeled_manifest.csv` 会包含以下业务字段：
+
+```text
+role_pred                  ship / operator / mixed / unclear
+risk_category_pred         high_risk / non_high_risk / not_target
+risk_label_pred            high / normal / uncertain / not_target
+risk_type_pred             高危细分或非高危细分场景
+scenario_pred              具体场景
+automation_label_pred      manual_immediate / auto_reply / llm_advice / manual_or_rule_review / not_target
+ship_keyword_hits          船方关键词命中
+operator_keyword_hits      管理方关键词命中
+risk_evidence              分类证据关键词
+```
+
+高危细分覆盖：
+
+```text
+collision, grounding_or_reef, fire_or_explosion, listing_or_capsize,
+flooding_or_sinking, loss_control_or_mechanical_failure, anchor_dragging,
+person_overboard_or_medical, piracy_or_armed_attack,
+oil_or_dangerous_cargo_spill, aircraft_distress, confined_space_trapped
+```
+
+自动化标签含义：
+
+```text
+manual_immediate      高危，立即人工处理 + LLM建议
+auto_reply            非高危可自动化回复 + TTS
+llm_advice            非高危不可自动化，LLM给回复意见
+manual_or_rule_review 非高危但需规则/人工再确认
+not_target            非船方呼叫
+```
+
 ## 分步运行
 
 ### 1. 原始音频清单
@@ -105,6 +138,9 @@ python scripts/construct_high_risk_dataset.py review-manifest \
 human_role
 human_risk_label
 human_risk_type
+human_risk_category
+human_scenario
+human_automation_label
 human_reference_text
 notes
 ```

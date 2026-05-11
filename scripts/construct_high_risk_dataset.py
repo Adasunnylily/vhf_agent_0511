@@ -35,6 +35,19 @@ SHIP_PATTERNS = [
     "mayday",
     "求救",
     "救助",
+    "遇险",
+    "紧急",
+    "需要援助",
+    "准备离泊",
+    "预计靠泊时间",
+    "到达锚地",
+    "通过报告线",
+    "计划抛锚",
+    "请问",
+    "能否",
+    "是否",
+    "询问",
+    "咨询",
 ]
 OPERATOR_PATTERNS = [
     "vts收到",
@@ -45,6 +58,28 @@ OPERATOR_PATTERNS = [
     "请加强瞭望",
     "等待指令",
     "按规定",
+    "警告",
+    "指令",
+    "立即",
+    "报告位置",
+    "人员数量",
+    "伤亡情况",
+    "拖轮",
+    "消防船",
+    "救援",
+    "撤离",
+    "禁止",
+    "许可",
+    "允许",
+    "可以",
+    "建议",
+    "前往",
+    "泊位",
+    "锚地",
+    "转换频道",
+    "请注意",
+    "谨慎航行",
+    "限速",
 ]
 STRONG_SHIP_PATTERNS = [
     "我船",
@@ -58,51 +93,107 @@ STRONG_SHIP_PATTERNS = [
     "mayday",
     "求救",
     "救助",
+    "遇险",
+    "紧急",
+    "需要援助",
+    "准备离泊",
+    "通过报告线",
+    "计划抛锚",
+    "到达锚地",
 ]
-HIGH_KEYWORDS = [
-    "mayday",
-    "求救",
-    "救命",
-    "救助",
+HIGH_RISK_SCENARIOS: Dict[str, List[str]] = {
+    "collision": ["碰撞", "相撞", "撞上", "撞击"],
+    "grounding_or_reef": ["搁浅", "触礁"],
+    "fire_or_explosion": ["失火", "着火", "起火", "火灾", "冒烟", "爆炸"],
+    "listing_or_capsize": ["倾斜", "横倾", "左倾", "右倾", "倾覆", "翻沉"],
+    "flooding_or_sinking": ["进水", "下沉", "沉没", "快沉", "沉没危险"],
+    "loss_control_or_mechanical_failure": ["失控", "无法航行", "失去动力", "主机故障", "舵机故障", "机械故障", "需要拖轮"],
+    "anchor_dragging": ["走锚", "拖锚"],
+    "person_overboard_or_medical": ["人员落水", "伤病", "医疗援助", "人员受伤"],
+    "piracy_or_armed_attack": ["海盗", "袭击", "武装袭击"],
+    "oil_or_dangerous_cargo_spill": ["溢油", "污染", "危险货物泄漏", "危险货物入海", "泄漏"],
+    "aircraft_distress": ["航空器遇险", "飞机遇险", "直升机遇险"],
+    "confined_space_trapped": ["密闭舱室", "人员被困", "舱室被困"],
+}
+
+HIGH_DISTRESS_KEYWORDS = ["遇险", "mayday", "紧急", "需要援助", "求救", "救命", "救助"]
+
+NON_HIGH_RISK_SCENARIOS: Dict[str, List[str]] = {
+    "enter_or_leave_vts": ["进入vts", "驶出vts", "进入交管区", "驶出交管区"],
+    "berth_or_departure": ["靠泊", "离泊", "靠港", "进港", "出港"],
+    "anchoring": ["锚泊", "抛锚", "锚地"],
+    "channel_navigation_or_crossing": ["航道航行", "穿越航道", "过报告线", "通过报告线"],
+    "traffic_organization_or_avoidance": ["避让", "让清航道", "宽让", "保持距离"],
+    "pilot_or_tug_service": ["引航", "拖轮"],
+    "weather_hydro_navmark": ["气象", "水文", "航标", "水深", "能见度"],
+    "safety_broadcast": ["安全信息", "广播"],
+    "water_work_or_drill": ["水工作业", "演习", "试航", "过驳"],
+    "violation_correction": ["违章", "纠正", "超速", "逆行", "未报告"],
+}
+
+AUTO_REPLY_SCENARIOS: Dict[str, List[str]] = {
+    "berth_completed": ["靠泊完毕", "靠港完毕", "已靠泊", "已靠港", "已靠妥", "系泊"],
+    "anchor_completed": ["抛锚完毕", "抛好锚", "已抛锚", "到达锚地", "锚泊"],
+    "report_line": ["报告线", "通过报告线", "过报告线"],
+    "departure_report": ["离泊报备", "准备离泊", "离泊", "出港"],
+    "arrival_plan": ["进入vts", "准备靠港", "预计靠泊时间", "eta", "目的港"],
+}
+
+MANUAL_ADVICE_SCENARIOS: Dict[str, List[str]] = {
+    "navmark_depth_weather_query": ["询问", "请问", "能否", "是否", "气象", "水深", "航标", "能见度"],
+    "other_ship_dynamics_query": ["他船位置", "他船动态"],
+    "drill_trial_lightering": ["申请演习", "演习", "试航", "过驳"],
+    "bridge_or_ice_navigation": ["桥区", "冰区"],
+    "equipment_fault_not_loss_control": ["设备故障", "信号差", "频道干扰"],
+    "routine_avoidance_coordination": ["避让", "让清航道", "宽让", "保持距离"],
+}
+
+SHIP_REPORT_KEYWORDS = [
+    "报告",
+    "通过报告线",
+    "计划抛锚",
+    "申请靠泊",
+    "准备离泊",
+    "到达锚地",
+    "预计靠泊时间",
+    "抛锚完毕",
+    "靠泊完毕",
+    "吃水",
+    "船名",
+    "呼号",
+    "eta",
+    "目的港",
+]
+
+OPERATOR_INSTRUCTION_KEYWORDS = [
+    "警告",
+    "指令",
+    "立即",
+    "报告位置",
+    "人员数量",
+    "伤亡情况",
+    "火势",
     "进水",
-    "起火",
-    "失火",
-    "着火",
-    "冒烟",
-    "人员落水",
-    "救生筏",
-    "左倾",
-    "倾斜严重",
-    "严重倾斜",
-    "快沉",
-    "沉没",
-    "碰撞",
-    "搁浅",
-    "失控",
-    "失去动力",
-]
-NORMAL_KEYWORDS = [
-    "靠泊",
-    "靠港",
-    "到泊",
-    "码头",
-    "已靠妥",
-    "抛锚",
-    "锚泊",
-    "抛好锚",
-    "过报告线",
-    "报告线",
-    "报告船位",
-]
-UNCERTAIN_KEYWORDS = [
-    "故障",
-    "发生问题",
-    "团雾",
-    "浓雾",
-    "看不清",
-    "让清航道",
-    "避让",
-    "异常",
+    "堵漏",
+    "拖轮",
+    "消防船",
+    "救援",
+    "撤离",
+    "禁止",
+    "保持守听",
+    "许可",
+    "允许",
+    "可以",
+    "建议",
+    "前往",
+    "锚地",
+    "泊位",
+    "等待",
+    "报告动态",
+    "转换频道",
+    "请注意",
+    "谨慎航行",
+    "限速",
 ]
 
 
@@ -119,10 +210,31 @@ class RiskResult:
     risk_type: str
     confidence: float
     evidence: List[str]
+    risk_category: str
+    scenario: str
+    automation_label: str
+    matched_ship_keywords: List[str]
+    matched_operator_keywords: List[str]
 
 
 def normalize_text(text: str) -> str:
     return (text or "").lower().replace(" ", "").replace("，", "").replace(",", "")
+
+
+def match_keywords(text: str, keywords: Iterable[str]) -> List[str]:
+    normalized = normalize_text(text)
+    return [keyword for keyword in keywords if keyword.lower() in normalized]
+
+
+def match_scenario(text: str, scenario_map: Dict[str, List[str]]) -> tuple[str, List[str]]:
+    best_scenario = "unknown"
+    best_hits: List[str] = []
+    for scenario, keywords in scenario_map.items():
+        hits = match_keywords(text, keywords)
+        if len(hits) > len(best_hits):
+            best_scenario = scenario
+            best_hits = hits
+    return best_scenario, best_hits
 
 
 def read_csv(path: Path) -> List[Dict[str, str]]:
@@ -312,38 +424,96 @@ def classify_role(asr_text: str) -> RoleResult:
 
 
 def weak_label_risk(asr_text: str, role: str) -> RiskResult:
-    if role != "ship":
-        return RiskResult("not_target", "none", 0.90, [])
+    ship_keyword_hits = match_keywords(asr_text, SHIP_REPORT_KEYWORDS + HIGH_DISTRESS_KEYWORDS)
+    operator_keyword_hits = [] if role == "ship" else match_keywords(asr_text, OPERATOR_INSTRUCTION_KEYWORDS)
 
-    text = normalize_text(asr_text)
-    high_hits = [keyword for keyword in HIGH_KEYWORDS if keyword in text]
-    normal_hits = [keyword for keyword in NORMAL_KEYWORDS if keyword in text]
-    uncertain_hits = [keyword for keyword in UNCERTAIN_KEYWORDS if keyword in text]
+    if role != "ship":
+        return RiskResult(
+            risk_label="not_target",
+            risk_type="none",
+            confidence=0.90,
+            evidence=[],
+            risk_category="not_target",
+            scenario="not_target",
+            automation_label="not_target",
+            matched_ship_keywords=ship_keyword_hits,
+            matched_operator_keywords=operator_keyword_hits,
+        )
+
+    high_scenario, high_hits = match_scenario(asr_text, HIGH_RISK_SCENARIOS)
+    distress_hits = match_keywords(asr_text, HIGH_DISTRESS_KEYWORDS)
+    high_hits = unique_list([*distress_hits, *high_hits])
+    auto_scenario, auto_hits = match_scenario(asr_text, AUTO_REPLY_SCENARIOS)
+    manual_scenario, manual_hits = match_scenario(asr_text, MANUAL_ADVICE_SCENARIOS)
+    non_high_scenario, non_high_hits = match_scenario(asr_text, NON_HIGH_RISK_SCENARIOS)
 
     if high_hits:
-        return RiskResult("high", infer_high_type(high_hits), 0.88, high_hits)
-    if uncertain_hits:
-        return RiskResult("uncertain", "ambiguous_risk", 0.66, uncertain_hits)
-    if normal_hits:
-        return RiskResult("normal", "routine_report", 0.82, normal_hits)
-    return RiskResult("uncertain", "unknown", 0.35, [])
+        return RiskResult(
+            risk_label="high",
+            risk_type=high_scenario if high_scenario != "unknown" else "distress_call",
+            confidence=0.90,
+            evidence=high_hits,
+            risk_category="high_risk",
+            scenario=high_scenario if high_scenario != "unknown" else "distress_call",
+            automation_label="manual_immediate",
+            matched_ship_keywords=ship_keyword_hits,
+            matched_operator_keywords=operator_keyword_hits,
+        )
+    if auto_hits:
+        return RiskResult(
+            risk_label="normal",
+            risk_type=auto_scenario,
+            confidence=0.84,
+            evidence=auto_hits,
+            risk_category="non_high_risk",
+            scenario=auto_scenario,
+            automation_label="auto_reply",
+            matched_ship_keywords=ship_keyword_hits,
+            matched_operator_keywords=operator_keyword_hits,
+        )
+    if manual_hits:
+        return RiskResult(
+            risk_label="uncertain",
+            risk_type=manual_scenario,
+            confidence=0.70,
+            evidence=manual_hits,
+            risk_category="non_high_risk",
+            scenario=manual_scenario,
+            automation_label="llm_advice",
+            matched_ship_keywords=ship_keyword_hits,
+            matched_operator_keywords=operator_keyword_hits,
+        )
+    if non_high_hits:
+        return RiskResult(
+            risk_label="normal",
+            risk_type=non_high_scenario,
+            confidence=0.72,
+            evidence=non_high_hits,
+            risk_category="non_high_risk",
+            scenario=non_high_scenario,
+            automation_label="manual_or_rule_review",
+            matched_ship_keywords=ship_keyword_hits,
+            matched_operator_keywords=operator_keyword_hits,
+        )
+    return RiskResult(
+        risk_label="uncertain",
+        risk_type="unknown",
+        confidence=0.35,
+        evidence=[],
+        risk_category="non_high_risk",
+        scenario="unknown",
+        automation_label="llm_advice",
+        matched_ship_keywords=ship_keyword_hits,
+        matched_operator_keywords=operator_keyword_hits,
+    )
 
 
-def infer_high_type(hits: List[str]) -> str:
-    joined = "|".join(hits)
-    if any(word in joined for word in ["着火", "失火", "起火", "冒烟"]):
-        return "fire_smoke"
-    if "进水" in joined:
-        return "flooding"
-    if "人员落水" in joined:
-        return "person_overboard"
-    if "碰撞" in joined:
-        return "collision"
-    if "搁浅" in joined:
-        return "grounding"
-    if any(word in joined for word in ["失控", "失去动力"]):
-        return "loss_control_or_power"
-    return "emergency"
+def unique_list(items: Iterable[str]) -> List[str]:
+    result: List[str] = []
+    for item in items:
+        if item not in result:
+            result.append(item)
+    return result
 
 
 def build_weak_labels(asr_manifest: Path, output: Path, stats_output: Optional[Path]) -> None:
@@ -360,14 +530,25 @@ def build_weak_labels(asr_manifest: Path, output: Path, stats_output: Optional[P
                 "role_evidence": "|".join(role.evidence),
                 "risk_label_pred": risk.risk_label,
                 "risk_type_pred": risk.risk_type,
+                "risk_category_pred": risk.risk_category,
+                "scenario_pred": risk.scenario,
+                "automation_label_pred": risk.automation_label,
                 "weak_confidence": risk.confidence,
                 "risk_evidence": "|".join(risk.evidence),
+                "ship_keyword_hits": "|".join(risk.matched_ship_keywords),
+                "operator_keyword_hits": "|".join(risk.matched_operator_keywords),
             }
         )
         rows.append(merged)
         bump(stats["role"], role.role)
         bump(stats["risk_label"], risk.risk_label)
         bump(stats["risk_type"], risk.risk_type)
+        stats.setdefault("risk_category", {})
+        stats.setdefault("scenario", {})
+        stats.setdefault("automation_label", {})
+        bump(stats["risk_category"], risk.risk_category)
+        bump(stats["scenario"], risk.scenario)
+        bump(stats["automation_label"], risk.automation_label)
     write_csv(output, rows)
     if stats_output:
         stats_output.parent.mkdir(parents=True, exist_ok=True)
@@ -382,6 +563,7 @@ def bump(bucket: Dict[str, int], key: str) -> None:
 def priority_score(row: Dict[str, str]) -> int:
     risk = row.get("risk_label_pred", "")
     role = row.get("role_pred", "")
+    automation = row.get("automation_label_pred", "")
     confidence = float(row.get("weak_confidence") or 0)
     text = row.get("asr_text", "")
     score = 0
@@ -389,6 +571,10 @@ def priority_score(row: Dict[str, str]) -> int:
         score += 100
     if risk == "uncertain":
         score += 80
+    if automation == "llm_advice":
+        score += 45
+    if automation == "auto_reply":
+        score += 20
     if role in {"mixed", "unclear"}:
         score += 55
     if confidence < 0.6:
@@ -408,6 +594,9 @@ def build_review_manifest(weak_manifest: Path, output: Path, limit: int) -> None
                 "human_role": "",
                 "human_risk_label": "",
                 "human_risk_type": "",
+                "human_risk_category": "",
+                "human_scenario": "",
+                "human_automation_label": "",
                 "human_reference_text": "",
                 "notes": "",
             }
