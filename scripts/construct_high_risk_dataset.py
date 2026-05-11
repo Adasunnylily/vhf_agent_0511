@@ -340,8 +340,15 @@ def is_standard_pcm_wav(source: Path) -> bool:
         return False
 
 
-def normalize_to_16k_wav(source: Path, target: Path) -> Path:
+def normalize_to_16k_wav(source: Path, target: Path, timeout_sec: int = 600) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() and is_standard_pcm_wav(target):
+        try:
+            if target.stat().st_mtime >= source.stat().st_mtime:
+                return target
+        except OSError:
+            pass
+
     if is_standard_pcm_wav(source):
         if source.resolve() != target.resolve():
             shutil.copy2(source, target)
@@ -352,6 +359,10 @@ def normalize_to_16k_wav(source: Path, target: Path) -> Path:
         raise RuntimeError("未找到 ffmpeg，无法把音频统一转换为 16k mono PCM wav。")
     cmd = [
         ffmpeg,
+        "-hide_banner",
+        "-nostdin",
+        "-loglevel",
+        "error",
         "-y",
         "-i",
         str(source),
@@ -363,7 +374,29 @@ def normalize_to_16k_wav(source: Path, target: Path) -> Path:
         "pcm_s16le",
         str(target),
     ]
-    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        subprocess.run(
+            cmd,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout_sec if timeout_sec > 0 else None,
+            text=True,
+        )
+    except subprocess.TimeoutExpired as exc:
+        if target.exists():
+            target.unlink()
+        raise RuntimeError(
+            f"ffmpeg 转码超时 {timeout_sec}s: {source}. "
+            "这通常表示单个原始音频太长或格式异常；可以先用 --raw-limit 抽样，"
+            "或调大 --normalize-timeout-sec。"
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        if target.exists():
+            target.unlink()
+        stderr = (exc.stderr or "").strip()
+        detail = f" stderr: {stderr[-1000:]}" if stderr else ""
+        raise RuntimeError(f"ffmpeg 转码失败: {source}.{detail}") from exc
     return target
 
 
@@ -410,10 +443,19 @@ def split_vad(
     max_segment_ms: int,
     energy_threshold: int,
     keep_existing: bool = False,
+    normalize_timeout_sec: int = 600,
+    force_normalize: bool = False,
+    raw_limit: int = 0,
 ) -> None:
     if not keep_existing:
         clear_generated_dir(clip_dir)
-        clear_generated_dir(normalized_dir)
+        if force_normalize:
+            clear_generated_dir(normalized_dir)
+        else:
+            normalized_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        clip_dir.mkdir(parents=True, exist_ok=True)
+        normalized_dir.mkdir(parents=True, exist_ok=True)
 
     vad = WavEnergyVAD(
         frame_ms=frame_ms,
@@ -423,12 +465,18 @@ def split_vad(
         energy_threshold=energy_threshold,
     )
     rows: List[Dict[str, object]] = []
-    for raw in read_csv(raw_manifest):
+    raw_rows = read_csv(raw_manifest)
+    if raw_limit > 0:
+        raw_rows = raw_rows[:raw_limit]
+    for raw_index, raw in enumerate(raw_rows, start=1):
         audio_id = raw["audio_id"]
         source = Path(raw["audio_path"])
         normalized = normalized_dir / f"{audio_id}.wav"
-        normalize_to_16k_wav(source, normalized)
+        print(f"[vad-split] {raw_index}/{len(raw_rows)} normalize {audio_id}: {source}", flush=True)
+        normalize_to_16k_wav(source, normalized, timeout_sec=normalize_timeout_sec)
+        print(f"[vad-split] {raw_index}/{len(raw_rows)} detect {audio_id}", flush=True)
         detected = vad.detect(normalized)
+        print(f"[vad-split] {raw_index}/{len(raw_rows)} {audio_id} -> {len(detected)} segments", flush=True)
         for index, segment in enumerate(detected, start=1):
             segment_id = f"{audio_id}_seg_{index:04d}"
             clip_path = clip_dir / f"{segment_id}.wav"
@@ -958,6 +1006,9 @@ def run_all(args: argparse.Namespace) -> None:
         max_segment_ms=args.max_segment_ms,
         energy_threshold=args.energy_threshold,
         keep_existing=args.keep_existing,
+        normalize_timeout_sec=args.normalize_timeout_sec,
+        force_normalize=args.force_normalize,
+        raw_limit=args.raw_limit,
     )
     transcribe_segments(
         vad_manifest=vad_manifest,
@@ -992,6 +1043,18 @@ def add_common_vad_args(parser: argparse.ArgumentParser) -> None:
         help="0 means do not force fixed-length cuts; use silence gaps as utterance boundaries.",
     )
     parser.add_argument("--energy-threshold", type=int, default=450)
+    parser.add_argument(
+        "--normalize-timeout-sec",
+        type=int,
+        default=600,
+        help="Timeout for ffmpeg normalization per raw audio file. 0 means no timeout.",
+    )
+    parser.add_argument(
+        "--force-normalize",
+        action="store_true",
+        help="Clear and rebuild normalized wav cache before VAD splitting.",
+    )
+    parser.add_argument("--raw-limit", type=int, default=0, help="Only process the first N raw audio files. 0 means all.")
 
 
 def add_common_asr_args(parser: argparse.ArgumentParser) -> None:
@@ -1084,6 +1147,9 @@ def main() -> None:
             args.max_segment_ms,
             args.energy_threshold,
             keep_existing=args.keep_existing,
+            normalize_timeout_sec=args.normalize_timeout_sec,
+            force_normalize=args.force_normalize,
+            raw_limit=args.raw_limit,
         )
     elif args.command == "asr-transcribe":
         transcribe_segments(

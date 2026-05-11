@@ -9,6 +9,7 @@ from scripts.construct_high_risk_dataset import (
     classify_role,
     is_standard_pcm_wav,
     load_model_analysis,
+    normalize_to_16k_wav,
     priority_score,
     weak_label_risk,
 )
@@ -103,6 +104,20 @@ class ConstructHighRiskDatasetTests(unittest.TestCase):
                 wav_file.writeframes(b"\x00\x00" * 160)
 
             self.assertTrue(is_standard_pcm_wav(path))
+
+    def test_normalize_reuses_existing_pcm_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            source = base / "source.wav"
+            target = base / "normalized.wav"
+            write_silent_wav(source)
+            write_silent_wav(target)
+            before_mtime = target.stat().st_mtime
+
+            returned = normalize_to_16k_wav(source, target)
+
+            self.assertEqual(returned, target)
+            self.assertEqual(target.stat().st_mtime, before_mtime)
 
     def test_raw_manifest_excludes_generated_pipeline_audio(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
