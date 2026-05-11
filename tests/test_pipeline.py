@@ -86,6 +86,17 @@ class AudioPipelineTests(unittest.TestCase):
             self.assertGreaterEqual(len(segments), 3)
             self.assertTrue(all(seg.end_ms - seg.start_ms <= 8040 for seg in segments))
 
+    def test_vad_can_disable_fixed_length_split(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            wav_path = Path(tmpdir) / "long.wav"
+            write_long_demo_wav(wav_path, seconds=20)
+            vad = WavEnergyVAD(max_segment_ms=0, energy_threshold=1)
+
+            segments = vad.detect(wav_path)
+
+            self.assertEqual(len(segments), 1)
+            self.assertGreaterEqual(segments[0].end_ms - segments[0].start_ms, 19000)
+
 
 if __name__ == "__main__":
     unittest.main()

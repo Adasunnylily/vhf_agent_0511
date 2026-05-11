@@ -21,7 +21,7 @@ class WavEnergyVAD:
         min_speech_ms: int = 600,
         silence_ms: int = 900,
         energy_threshold: int = 450,
-        max_segment_ms: int = 8000,
+        max_segment_ms: int = 0,
     ) -> None:
         self.frame_ms = frame_ms
         self.min_speech_ms = min_speech_ms
@@ -42,7 +42,7 @@ class WavEnergyVAD:
             frame_size = max(1, int(sample_rate * self.frame_ms / 1000))
             silence_frames = max(1, int(self.silence_ms / self.frame_ms))
             min_frames = max(1, int(self.min_speech_ms / self.frame_ms))
-            max_frames = max(1, int(self.max_segment_ms / self.frame_ms))
+            max_frames = max(1, int(self.max_segment_ms / self.frame_ms)) if self.max_segment_ms > 0 else 0
 
             segments: List[DetectedSegment] = []
             speech_start = None
@@ -79,7 +79,7 @@ class WavEnergyVAD:
                         speech_start = None
                         silent_run = 0
 
-                if speech_start is not None and frame_index - speech_start + 1 >= max_frames:
+                if max_frames > 0 and speech_start is not None and frame_index - speech_start + 1 >= max_frames:
                     speech_end = frame_index
                     if speech_end - speech_start + 1 >= min_frames:
                         segments.append(
@@ -110,6 +110,8 @@ class WavEnergyVAD:
             return segments
 
     def _split_long_segment(self, total_ms: int) -> List[DetectedSegment]:
+        if self.max_segment_ms <= 0:
+            return [DetectedSegment(start_ms=0, end_ms=total_ms)]
         if total_ms <= self.max_segment_ms:
             return [DetectedSegment(start_ms=0, end_ms=total_ms)]
 

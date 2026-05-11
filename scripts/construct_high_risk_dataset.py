@@ -948,9 +948,14 @@ def run_all(args: argparse.Namespace) -> None:
 
 def add_common_vad_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--frame-ms", type=int, default=30)
-    parser.add_argument("--silence-ms", type=int, default=900)
+    parser.add_argument("--silence-ms", type=int, default=1200)
     parser.add_argument("--min-speech-ms", type=int, default=600)
-    parser.add_argument("--max-segment-ms", type=int, default=8000)
+    parser.add_argument(
+        "--max-segment-ms",
+        type=int,
+        default=0,
+        help="0 means do not force fixed-length cuts; use silence gaps as utterance boundaries.",
+    )
     parser.add_argument("--energy-threshold", type=int, default=450)
 
 

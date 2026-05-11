@@ -43,7 +43,19 @@ python scripts/construct_high_risk_dataset.py vad-split \
   --raw-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/raw_audio_manifest.csv \
   --output /root/autodl-tmp/vhf-data/data_pipeline/manifests/vad_segments_manifest.csv \
   --clip-dir /root/autodl-tmp/vhf-data/data_pipeline/clips/vad_segments \
-  --normalized-dir /root/autodl-tmp/vhf-data/data_pipeline/clips/normalized
+  --normalized-dir /root/autodl-tmp/vhf-data/data_pipeline/clips/normalized \
+  --silence-ms 1200 \
+  --max-segment-ms 0
+```
+
+这里切出来的是“有声话轮”，不是“说话人声纹分离”。不要按 7 秒固定窗口切，因为会把一句完整船方呼叫切碎。默认 `--max-segment-ms 0` 表示不做固定时长强切，只用静音间隔作为边界。
+
+后续的船方/管理方判断来自：
+
+```text
+ASR文本 -> LLM角色判断
+或 音频片段 -> 音频大模型角色判断
+或 人工核实
 ```
 
 ## 第二步：先跑部分样本，选择ASR模型

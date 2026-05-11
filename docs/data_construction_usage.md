@@ -91,11 +91,22 @@ python scripts/construct_high_risk_dataset.py vad-split \
   --output /root/autodl-tmp/vhf-data/data_pipeline/manifests/vad_segments_manifest.csv \
   --clip-dir /root/autodl-tmp/vhf-data/data_pipeline/clips/vad_segments \
   --normalized-dir /root/autodl-tmp/vhf-data/data_pipeline/clips/normalized \
-  --max-segment-ms 8000 \
+  --silence-ms 1200 \
+  --max-segment-ms 0 \
   --energy-threshold 450
 ```
 
 注意：即使原文件后缀是 `.wav`，脚本也会检查是否为标准 `16k / mono / PCM s16le`。如果是 A-law、mu-law 等非 PCM WAV，会自动用 `ffmpeg` 转码后再 VAD，避免 `wave.Error: unknown format`。
+
+`--max-segment-ms 0` 表示不按固定时长强切，而是根据静音间隔切分话轮。这样得到的是“连续说话片段/话轮”，不是声纹级说话人分离。船方/管理方划分会在 ASR 之后由 LLM/音频大模型或人工核实完成。
+
+如果一个人连续讲很久导致片段过长，再临时设置：
+
+```bash
+--max-segment-ms 30000
+```
+
+不要再用 7000/8000 这类短固定窗口做数据集标签，否则会破坏完整船方呼叫。
 
 ### 3. 先抽样选择ASR模型
 
