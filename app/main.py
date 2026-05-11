@@ -6,6 +6,7 @@ from fastapi import FastAPI, Response
 from fastapi.responses import HTMLResponse
 
 from app.config import settings
+from app.frontend import render_dashboard
 from app.services.asr import FunASRAdapter, FunASRStreamingAdapter
 from app.services.demo_inspection import InspectionTaskSimulator
 from app.services.demo_scenarios import ScenarioSimulator
@@ -101,6 +102,7 @@ async def on_startup() -> None:
 
 @app.get("/", response_class=HTMLResponse)
 async def root() -> str:
+    return render_dashboard(settings)
     return f"""
 <!DOCTYPE html>
 <html lang="zh-CN">
