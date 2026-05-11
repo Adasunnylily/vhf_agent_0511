@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import csv
 import json
+import mimetypes
 import os
 import sys
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -84,6 +87,12 @@ def make_error_rows(rows: List[Dict[str, str]], spec: Dict[str, Any], error: Exc
     ]
 
 
+def audio_to_data_url(path: Path, mime_type: str = "") -> str:
+    detected_mime = mime_type or mimetypes.guess_type(path.name)[0] or "audio/wav"
+    encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
+    return f"data:{detected_mime};base64,{encoded}"
+
+
 def run_funasr_model(
     spec: Dict[str, Any],
     rows: List[Dict[str, str]],
@@ -107,6 +116,77 @@ def run_funasr_model(
         try:
             result = adapter.transcribe(Path(row["clip_path"]))
             outputs.append(make_result_row(row, spec, result, provider="funasr"))
+            print(f"{model_name} {index}/{len(rows)} {row['segment_id']} {result.text[:50]}", flush=True)
+        except Exception as exc:
+            if fail_fast:
+                raise
+            outputs.append(make_error_rows([row], spec, exc)[0])
+            print(f"{model_name} {index}/{len(rows)} {row['segment_id']} ERROR {exc}", flush=True)
+    return outputs
+
+
+def run_qwen_asr_model(
+    spec: Dict[str, Any],
+    rows: List[Dict[str, str]],
+    fail_fast: bool,
+) -> List[Dict[str, object]]:
+    try:
+        from openai import OpenAI
+    except ImportError as exc:
+        raise RuntimeError("缺少 openai SDK，请先安装：pip install openai") from exc
+
+    api_key_env = str(spec.get("api_key_env", "DASHSCOPE_API_KEY"))
+    api_key = os.getenv(api_key_env)
+    if not api_key:
+        raise RuntimeError(f"缺少环境变量 {api_key_env}。")
+
+    base_url = str(spec.get("base_url") or os.getenv("DASHSCOPE_BASE_URL") or "https://dashscope.aliyuncs.com/compatible-mode/v1")
+    client = OpenAI(api_key=api_key, base_url=base_url)
+    model_name = str(spec["name"])
+    prompt = str(spec.get("prompt", ""))
+    max_file_mb = float(spec.get("max_file_mb", 10))
+    outputs: List[Dict[str, object]] = []
+    for index, row in enumerate(rows, start=1):
+        try:
+            clip_path = Path(row["clip_path"])
+            file_mb = clip_path.stat().st_size / (1024 * 1024)
+            if max_file_mb > 0 and file_mb > max_file_mb:
+                raise RuntimeError(f"Qwen3-ASR-Flash OpenAI兼容模式建议音频小于 {max_file_mb:g}MB，当前 {file_mb:.2f}MB。")
+
+            messages: List[Dict[str, object]] = []
+            if prompt:
+                messages.append({"role": "system", "content": [{"type": "text", "text": prompt}]})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_audio",
+                            "input_audio": {
+                                "data": audio_to_data_url(clip_path, str(spec.get("mime_type", ""))),
+                            },
+                        }
+                    ],
+                }
+            )
+            completion = client.chat.completions.create(
+                model=str(spec["model"]),
+                messages=messages,  # type: ignore[arg-type]
+                stream=False,
+                extra_body={
+                    "asr_options": {
+                        "language": str(spec.get("language", "zh")),
+                        "enable_itn": bool(spec.get("enable_itn", True)),
+                    }
+                },
+            )
+            text = completion.choices[0].message.content or ""
+            result = ASRResult(
+                text=sanitize_asr_text(str(text)),
+                confidence=0.0,
+                engine=f"qwen_asr:{spec['model']}",
+            )
+            outputs.append(make_result_row(row, spec, result, provider="qwen_asr"))
             print(f"{model_name} {index}/{len(rows)} {row['segment_id']} {result.text[:50]}", flush=True)
         except Exception as exc:
             if fail_fast:
@@ -207,6 +287,64 @@ def run_gemini_audio_model(
     return outputs
 
 
+def run_doubao_seed_asr_model(
+    spec: Dict[str, Any],
+    rows: List[Dict[str, str]],
+    fail_fast: bool,
+) -> List[Dict[str, object]]:
+    try:
+        import requests
+    except ImportError as exc:
+        raise RuntimeError("缺少 requests，请先安装：pip install requests") from exc
+
+    api_key_env = str(spec.get("api_key_env", "VOLCENGINE_ASR_API_KEY"))
+    api_key = os.getenv(api_key_env)
+    if not api_key:
+        raise RuntimeError(f"缺少环境变量 {api_key_env}。")
+
+    endpoint = str(spec.get("endpoint", "https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash"))
+    resource_id = str(spec.get("resource_id", "volc.bigasr.auc_turbo"))
+    uid = str(spec.get("uid") or os.getenv("VOLCENGINE_ASR_UID") or "vhf_agent_0511")
+    timeout_sec = int(spec.get("timeout_sec", 300))
+    model_name = str(spec["name"])
+    outputs: List[Dict[str, object]] = []
+    for index, row in enumerate(rows, start=1):
+        try:
+            clip_path = Path(row["clip_path"])
+            request_id = str(uuid.uuid4())
+            headers = {
+                "X-Api-Key": api_key,
+                "X-Api-Resource-Id": resource_id,
+                "X-Api-Request-Id": request_id,
+                "X-Api-Sequence": "-1",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "user": {"uid": uid},
+                "audio": {"data": base64.b64encode(clip_path.read_bytes()).decode("utf-8")},
+                "request": {"model_name": str(spec.get("model_name", "bigmodel"))},
+            }
+            response = requests.post(endpoint, headers=headers, json=payload, timeout=timeout_sec)
+            response.raise_for_status()
+            data = response.json()
+            text = str(data.get("result", {}).get("text", ""))
+            if not text:
+                raise RuntimeError(f"豆包ASR返回中没有 result.text: {str(data)[:500]}")
+            result = ASRResult(
+                text=sanitize_asr_text(text),
+                confidence=0.0,
+                engine=f"doubao_seed_asr:{resource_id}",
+            )
+            outputs.append(make_result_row(row, spec, result, provider="doubao_seed_asr"))
+            print(f"{model_name} {index}/{len(rows)} {row['segment_id']} {result.text[:50]}", flush=True)
+        except Exception as exc:
+            if fail_fast:
+                raise
+            outputs.append(make_error_rows([row], spec, exc)[0])
+            print(f"{model_name} {index}/{len(rows)} {row['segment_id']} ERROR {exc}", flush=True)
+    return outputs
+
+
 def read_external_results(spec: Dict[str, Any], rows: List[Dict[str, str]]) -> List[Dict[str, object]]:
     result_path_raw = str(spec.get("result_path", "")).strip()
     if not result_path_raw:
@@ -274,10 +412,14 @@ def run_model(
     provider = str(spec.get("provider", "funasr"))
     if provider == "funasr":
         return run_funasr_model(spec, rows, device, hub, batch_size_s, fail_fast)
+    if provider == "qwen_asr":
+        return run_qwen_asr_model(spec, rows, fail_fast)
     if provider == "openai_audio":
         return run_openai_audio_model(spec, rows, fail_fast)
     if provider == "gemini_audio":
         return run_gemini_audio_model(spec, rows, fail_fast)
+    if provider == "doubao_seed_asr":
+        return run_doubao_seed_asr_model(spec, rows, fail_fast)
     if provider == "external_csv":
         return read_external_results(spec, rows)
     raise ValueError(f"不支持的ASR provider: {provider} ({spec.get('name')})")

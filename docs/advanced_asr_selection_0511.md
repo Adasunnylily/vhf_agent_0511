@@ -14,16 +14,18 @@
 | `funasr` | SenseVoice、Paraformer 等本地模型 | 是 |
 | `openai_audio` | OpenAI `gpt-4o-mini-transcribe`、`gpt-4o-transcribe`、`whisper-1`、diarize 模型 | 是，需要 `OPENAI_API_KEY` |
 | `gemini_audio` | Gemini 音频理解/转写，默认候选含 `gemini-3-flash-preview` 和 `gemini-2.5-flash` | 是，需要 `GEMINI_API_KEY` 或 `GOOGLE_API_KEY` |
-| `external_csv` | 豆包、Qwen、Seed-ASR、ElevenLabs 等外部结果导入 | 先用厂商工具跑，再导入 |
+| `qwen_asr` | Qwen3-ASR-Flash / DashScope OpenAI-compatible 音频转写 | 是，需要 `DASHSCOPE_API_KEY` |
+| `doubao_seed_asr` | 火山引擎 Seed-ASR / 大模型录音文件极速版 | 是，需要 `VOLCENGINE_ASR_API_KEY` |
+| `external_csv` | 其他豆包/Qwen/Seed/ElevenLabs 结果导入 | 先用厂商工具跑，再导入 |
 
-豆包/Qwen 先不在这里硬编码 API，是因为不同账号、地区、部署方式和鉴权方式差异比较大。当前最稳妥的方法是：先把它们的结果整理成统一 CSV，再和本地/OpenAI/Gemini 结果合并到同一张对比表。
+如果你的 Qwen/豆包账号走的是私有化部署、专属资源或旧版鉴权，仍然可以用 `external_csv` 导入。
 
 ## 2. 安装额外 SDK
 
-本地 FunASR 环境已经存在时，不需要重复执行环境配置脚本。只在需要 OpenAI/Gemini 时安装对应 SDK：
+本地 FunASR 环境已经存在时，不需要重复执行环境配置脚本。只在需要云端模型时安装对应 SDK：
 
 ```bash
-pip install openai google-genai
+pip install openai google-genai requests
 ```
 
 设置 key：
@@ -31,6 +33,8 @@ pip install openai google-genai
 ```bash
 export OPENAI_API_KEY="你的OpenAI Key"
 export GEMINI_API_KEY="你的Gemini Key"
+export DASHSCOPE_API_KEY="你的阿里百炼 DashScope Key"
+export VOLCENGINE_ASR_API_KEY="你的火山引擎大模型语音识别 API Key"
 ```
 
 ## 3. 抽样跑本地 + OpenAI + Gemini
@@ -42,6 +46,18 @@ python scripts/run_asr_model_selection.py \
   --vad-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/vad_segments_manifest.csv \
   --config configs/asr_models_advanced_0511.json \
   --models sensevoice_small,openai_gpt4o_mini_transcribe,openai_gpt4o_transcribe,openai_whisper_1,gemini_3_flash_preview_audio \
+  --output-dir /root/autodl-tmp/vhf-data/data_pipeline/asr_selection_advanced \
+  --limit 30 \
+  --device cuda:0
+```
+
+加入 Qwen 和豆包 Seed：
+
+```bash
+python scripts/run_asr_model_selection.py \
+  --vad-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/vad_segments_manifest.csv \
+  --config configs/asr_models_advanced_0511.json \
+  --models sensevoice_small,qwen3_asr_flash,doubao_seed_asr_flash,openai_gpt4o_mini_transcribe,gemini_3_flash_preview_audio \
   --output-dir /root/autodl-tmp/vhf-data/data_pipeline/asr_selection_advanced \
   --limit 30 \
   --device cuda:0
@@ -114,6 +130,16 @@ python scripts/run_asr_model_selection.py \
 ## 6. 人工选择标准
 
 先看 `asr_selection_wide.csv`：
+
+```bash
+python - <<'PY'
+import pandas as pd
+path = "/root/autodl-tmp/vhf-data/data_pipeline/asr_selection_advanced/asr_selection_wide.csv"
+df = pd.read_csv(path)
+cols = ["segment_id", "clip_path"] + [c for c in df.columns if c.startswith("asr_text__") or c.startswith("language_guard__")]
+print(df[cols].head(30).to_string(index=False))
+PY
+```
 
 - 船名、呼号、泊位、锚地、频道号是否准确。
 - `MAYDAY`、碰撞、搁浅、进水、走锚、失火、人员落水等高危词是否漏识别。

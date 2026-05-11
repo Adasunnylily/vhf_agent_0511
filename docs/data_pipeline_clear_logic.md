@@ -83,7 +83,7 @@ python scripts/run_asr_model_selection.py \
 python scripts/run_asr_model_selection.py \
   --vad-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/vad_segments_manifest.csv \
   --config configs/asr_models_advanced_0511.json \
-  --models sensevoice_small,openai_gpt4o_mini_transcribe,openai_whisper_1,gemini_3_flash_preview_audio \
+  --models sensevoice_small,qwen3_asr_flash,doubao_seed_asr_flash,openai_gpt4o_mini_transcribe,openai_whisper_1,gemini_3_flash_preview_audio \
   --output-dir /root/autodl-tmp/vhf-data/data_pipeline/asr_selection_advanced \
   --limit 30 \
   --device cuda:0

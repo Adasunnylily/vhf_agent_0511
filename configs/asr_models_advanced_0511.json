@@ -65,6 +65,27 @@
       "prompt": "请将这段VHF海事通信音频逐字转写。语言只可能是中文，夹杂少量英文船名、呼号、MAYDAY、VTS、ETA、AIS等海事术语；没有日语或韩语。不要翻译，不要总结，不要解释，不要输出日文或韩文。保留英文缩写、数字、船名、泊位、锚地、频道号。常见词包括：靠泊、离泊、抛锚、进港、出港、走锚、碰撞、搁浅、进水、失火、人员落水、保持守听。"
     },
     {
+      "name": "qwen3_asr_flash",
+      "provider": "qwen_asr",
+      "model": "qwen3-asr-flash",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "language": "zh",
+      "enable_itn": true,
+      "max_file_mb": 10,
+      "prompt": "这是一段VHF海事通信音频。语言只可能是中文，夹杂少量英文船名、呼号、MAYDAY、VTS、ETA、AIS等海事术语；绝不会出现日语或韩语。请逐字转写原话，不要翻译，不要总结，不要补充。保留英文缩写、数字、船名、泊位、锚地、频道号。常见词包括：靠泊、离泊、抛锚、进港、出港、走锚、碰撞、搁浅、进水、失火、人员落水、保持守听。"
+    },
+    {
+      "name": "doubao_seed_asr_flash",
+      "provider": "doubao_seed_asr",
+      "model": "seed-asr",
+      "api_key_env": "VOLCENGINE_ASR_API_KEY",
+      "endpoint": "https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash",
+      "resource_id": "volc.bigasr.auc_turbo",
+      "model_name": "bigmodel",
+      "timeout_sec": 300
+    },
+    {
       "name": "qwen3_asr_external",
       "provider": "external_csv",
       "model": "Qwen3-ASR-1.7B",
