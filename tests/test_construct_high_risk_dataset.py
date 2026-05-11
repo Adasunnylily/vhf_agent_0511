@@ -1,6 +1,12 @@
 import unittest
 
-from scripts.construct_high_risk_dataset import classify_role, priority_score, weak_label_risk
+from scripts.construct_high_risk_dataset import (
+    choose_final_analysis,
+    classify_role,
+    load_model_analysis,
+    priority_score,
+    weak_label_risk,
+)
 
 
 class ConstructHighRiskDatasetTests(unittest.TestCase):
@@ -62,6 +68,41 @@ class ConstructHighRiskDatasetTests(unittest.TestCase):
         )
 
         self.assertGreaterEqual(score, 100)
+
+    def test_llm_analysis_overrides_rule_fallback(self) -> None:
+        final = choose_final_analysis(
+            segment_id="seg_1",
+            asr_text="收到，请保持守听",
+            llm_map={
+                "seg_1": load_model_analysis_row(
+                    role_label="ship",
+                    crisis_label="non_crisis",
+                    automation_label="auto_reply",
+                    scenario="anchor_completed",
+                )
+            },
+            audio_map={},
+        )
+
+        self.assertEqual(final.source, "llm_analysis")
+        self.assertEqual(final.role_label, "ship")
+        self.assertEqual(final.automation_label, "auto_reply")
+
+
+def load_model_analysis_row(role_label: str, crisis_label: str, automation_label: str, scenario: str):
+    from scripts.construct_high_risk_dataset import ModelAnalysis
+
+    return ModelAnalysis(
+        source="llm",
+        role_label=role_label,
+        role_confidence=0.9,
+        crisis_label=crisis_label,
+        crisis_confidence=0.8,
+        automation_label=automation_label,
+        scenario=scenario,
+        evidence=["test"],
+        rationale="unit test",
+    )
 
 
 if __name__ == "__main__":

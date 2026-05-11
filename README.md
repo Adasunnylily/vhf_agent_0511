@@ -10,6 +10,7 @@
 - 候选模型与无参考文本策略：[docs/asr_model_shortlist_0511.md](/Users/adasunnylily/Documents/New%20project/vhf-agent-0511/docs/asr_model_shortlist_0511.md)
 - 船方呼叫高危分类实现：[docs/high_risk_classifier_implementation.md](/Users/adasunnylily/Documents/New%20project/vhf-agent-0511/docs/high_risk_classifier_implementation.md)
 - 数据构造代码使用：[docs/data_construction_usage.md](/Users/adasunnylily/Documents/New%20project/vhf-agent-0511/docs/data_construction_usage.md)
+- 数据清晰逻辑与ASR选择：[docs/data_pipeline_clear_logic.md](/Users/adasunnylily/Documents/New%20project/vhf-agent-0511/docs/data_pipeline_clear_logic.md)
 - 模型配置：[configs/asr_models_0511.json](/Users/adasunnylily/Documents/New%20project/vhf-agent-0511/configs/asr_models_0511.json)
 
 这个子项目提供一个可扩展的后端 MVP，用于跑通以下链路：

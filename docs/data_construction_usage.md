@@ -30,24 +30,27 @@ python scripts/construct_high_risk_dataset.py run-all \
 │   ├── raw_audio_manifest.csv
 │   ├── vad_segments_manifest.csv
 │   ├── asr_segments_manifest.csv
-│   ├── weak_labeled_manifest.csv
+│   ├── machine_analysis_manifest.csv
 │   └── human_review_manifest.csv
 └── reports/
     └── label_stats.json
 ```
 
-`weak_labeled_manifest.csv` 会包含以下业务字段：
+`machine_analysis_manifest.csv` 会包含以下业务字段。这里的结果是“机器分析候选”，不是最终人工标签：
 
 ```text
+asr_model                  当前转写使用的ASR模型
+asr_text                   当前ASR模型输出文本
+analysis_source            llm_analysis / audio_model_analysis / rule_fallback
 role_pred                  ship / operator / mixed / unclear
-risk_category_pred         high_risk / non_high_risk / not_target
-risk_label_pred            high / normal / uncertain / not_target
-risk_type_pred             高危细分或非高危细分场景
-scenario_pred              具体场景
-automation_label_pred      manual_immediate / auto_reply / llm_advice / manual_or_rule_review / not_target
-ship_keyword_hits          船方关键词命中
-operator_keyword_hits      管理方关键词命中
-risk_evidence              分类证据关键词
+crisis_label_pred          crisis / non_crisis / uncertain / not_target
+automation_label_pred      manual_immediate / auto_reply / llm_advice / not_target
+scenario_pred              LLM/音频大模型/兜底规则给出的场景
+analysis_evidence          分析证据
+analysis_rationale         分析理由
+analysis_disagreement      LLM和音频大模型是否存在分歧
+ship_keyword_hits          兜底规则命中的船方关键词，仅供参考
+operator_keyword_hits      兜底规则命中的管理方关键词，仅供参考
 ```
 
 高危细分覆盖：
@@ -92,7 +95,27 @@ python scripts/construct_high_risk_dataset.py vad-split \
   --energy-threshold 450
 ```
 
-### 3. ASR 转写
+### 3. 先抽样选择ASR模型
+
+```bash
+python scripts/run_asr_model_selection.py \
+  --vad-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/vad_segments_manifest.csv \
+  --config configs/asr_models_0511.json \
+  --models sensevoice_small,paraformer_large_zh \
+  --output-dir /root/autodl-tmp/vhf-data/data_pipeline/asr_selection \
+  --limit 50 \
+  --device cuda:0
+```
+
+优先查看：
+
+```text
+/root/autodl-tmp/vhf-data/data_pipeline/asr_selection/asr_selection_wide.csv
+```
+
+同一条音频会并排展示多个ASR模型结果，便于人工判断哪个模型更适合当前VHF数据。
+
+### 4. 选定ASR模型后全量转写
 
 ```bash
 python scripts/construct_high_risk_dataset.py asr-transcribe \
@@ -112,20 +135,47 @@ python scripts/construct_high_risk_dataset.py asr-transcribe \
   --limit 50
 ```
 
-### 4. 角色识别 + 高危弱标签
+### 5. 导入LLM/音频大模型分析，生成机器分析候选
+
+如果暂时没有 LLM 或音频大模型结果，只用规则兜底：
 
 ```bash
 python scripts/construct_high_risk_dataset.py weak-label \
   --asr-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/asr_segments_manifest.csv \
-  --output /root/autodl-tmp/vhf-data/data_pipeline/manifests/weak_labeled_manifest.csv \
+  --output /root/autodl-tmp/vhf-data/data_pipeline/manifests/machine_analysis_manifest.csv \
   --stats-output /root/autodl-tmp/vhf-data/data_pipeline/reports/label_stats.json
 ```
 
-### 5. 生成人工复核表
+如果已有 LLM 分析结果：
+
+```bash
+python scripts/construct_high_risk_dataset.py weak-label \
+  --asr-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/asr_segments_manifest.csv \
+  --llm-analysis /root/autodl-tmp/vhf-data/data_pipeline/llm_analysis.csv \
+  --output /root/autodl-tmp/vhf-data/data_pipeline/manifests/machine_analysis_manifest.csv
+```
+
+如果已有音频大模型结果：
+
+```bash
+python scripts/construct_high_risk_dataset.py weak-label \
+  --asr-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/asr_segments_manifest.csv \
+  --llm-analysis /root/autodl-tmp/vhf-data/data_pipeline/llm_analysis.csv \
+  --audio-analysis /root/autodl-tmp/vhf-data/data_pipeline/audio_model_analysis.csv \
+  --output /root/autodl-tmp/vhf-data/data_pipeline/manifests/machine_analysis_manifest.csv
+```
+
+`llm_analysis.csv` 和 `audio_model_analysis.csv` 字段：
+
+```text
+segment_id,role_label,role_confidence,crisis_label,crisis_confidence,automation_label,scenario,evidence,rationale
+```
+
+### 6. 生成人工复核表
 
 ```bash
 python scripts/construct_high_risk_dataset.py review-manifest \
-  --weak-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/weak_labeled_manifest.csv \
+  --weak-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/machine_analysis_manifest.csv \
   --output /root/autodl-tmp/vhf-data/data_pipeline/manifests/human_review_manifest.csv \
   --limit 500
 ```
