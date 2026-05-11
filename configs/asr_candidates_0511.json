@@ -1,0 +1,77 @@
+{
+  "note": "0511候选ASR清单。没有人工参考文本时，本清单用于批量转写和抽样复核；不能直接给出真实准确率。",
+  "candidates": [
+    {
+      "name": "qwen3_asr_1_7b",
+      "display_name": "Qwen3-ASR-1.7B + Qwen3-ForcedAligner-0.6B",
+      "type": "local_or_api",
+      "priority": "high",
+      "reason": "中文、英文和多语种转写能力强，适合先在VHF切分音频上做批量转写和抽样复核。",
+      "needs_reference_for_accuracy": true
+    },
+    {
+      "name": "funasr_sensevoice_small",
+      "display_name": "FunASR / SenseVoiceSmall",
+      "type": "local",
+      "priority": "high",
+      "reason": "本项目已有FunASR适配，部署成本最低，适合作为AutoDL本地基线模型。",
+      "needs_reference_for_accuracy": true
+    },
+    {
+      "name": "funaudio_asr_1_5",
+      "display_name": "FunAudio-ASR-1.5",
+      "type": "local_or_api",
+      "priority": "medium",
+      "reason": "可作为FunASR/SenseVoice之外的中文ASR候选，但需先确认模型权重、推理代码和商用授权。",
+      "needs_reference_for_accuracy": true
+    },
+    {
+      "name": "doubao_asr_2_0",
+      "display_name": "Doubao-ASR-2.0",
+      "type": "api",
+      "priority": "high",
+      "reason": "中文场景表现通常值得优先试，适合和本地模型做云端强基线对比。",
+      "needs_reference_for_accuracy": true
+    },
+    {
+      "name": "openai_gpt_4o_mini_transcribe",
+      "display_name": "OpenAI gpt-4o-mini-transcribe",
+      "type": "api",
+      "priority": "medium",
+      "reason": "多语种鲁棒性好，适合作为英文、夹杂英文、噪声音频的对照基线。",
+      "needs_reference_for_accuracy": true
+    },
+    {
+      "name": "elevenlabs_scribe_v2",
+      "display_name": "ElevenLabs Scribe v2",
+      "type": "api",
+      "priority": "medium",
+      "reason": "可作为海外商业ASR对照模型，重点看英文、夹杂英文和噪声片段。",
+      "needs_reference_for_accuracy": true
+    },
+    {
+      "name": "whisper_large_v3",
+      "display_name": "Whisper large-v3",
+      "type": "local",
+      "priority": "medium",
+      "reason": "稳定开源基线，适合做离线对照；中文海事专名和短VHF口令需实测。",
+      "needs_reference_for_accuracy": true
+    },
+    {
+      "name": "glm_asr_nano",
+      "display_name": "GLM-ASR-Nano",
+      "type": "local_or_api",
+      "priority": "watch",
+      "reason": "轻量候选，适合延迟/成本敏感场景；是否达到80%需用本项目音频验证。",
+      "needs_reference_for_accuracy": true
+    },
+    {
+      "name": "funasr_nano",
+      "display_name": "FunASR-Nano",
+      "type": "local",
+      "priority": "watch",
+      "reason": "轻量候选，适合边缘部署或实时低延迟探索；准确率通常需和大模型拉开评估。",
+      "needs_reference_for_accuracy": true
+    }
+  ]
+}

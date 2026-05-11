@@ -1,0 +1,28 @@
+{
+  "models": [
+    {
+      "name": "sensevoice_small",
+      "provider": "funasr",
+      "model": "iic/SenseVoiceSmall",
+      "vad_model": "fsmn-vad",
+      "punc_model": "",
+      "language": "auto"
+    },
+    {
+      "name": "paraformer_large_zh",
+      "provider": "funasr",
+      "model": "iic/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+      "vad_model": "",
+      "punc_model": "",
+      "language": "zh"
+    },
+    {
+      "name": "paraformer_large_zh_no_vad_punc",
+      "provider": "funasr",
+      "model": "iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+      "vad_model": "fsmn-vad",
+      "punc_model": "",
+      "language": "zh"
+    }
+  ]
+}
