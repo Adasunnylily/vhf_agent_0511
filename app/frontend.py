@@ -329,8 +329,9 @@ def render_dashboard(settings: Settings) -> str:
                 <option value="compare">原音/降噪对比</option>
               </select>
               <input id="transcriptOverride" placeholder="演示转写覆盖文本" />
-              <button type="submit">上传识别</button>
+              <button id="uploadSubmit" type="submit">上传识别</button>
             </form>
+            <div id="uploadStatus" class="audio-box">等待选择音频</div>
             <div class="audio-box">
               <div class="compact-label">原音回放</div>
               <audio id="audioPlayer" controls></audio>
@@ -445,6 +446,31 @@ def render_dashboard(settings: Settings) -> str:
     function log(value) {{
       const line = typeof value === "string" ? value : JSON.stringify(value, null, 2);
       $("log").textContent = `[${{new Date().toLocaleTimeString()}}] ${{line}}\\n\\n` + $("log").textContent;
+    }}
+
+    function setUploadStatus(text, kind = "") {{
+      const node = $("uploadStatus");
+      node.textContent = text;
+      node.style.borderColor = kind === "red" ? "rgba(201,63,63,0.55)" : kind === "green" ? "rgba(28,143,101,0.55)" : "#a9bed2";
+      node.style.background = kind === "red" ? "#fff2f2" : kind === "green" ? "#f2fbf7" : "#f4f8fc";
+    }}
+
+    async function requestJson(url, options = {{}}) {{
+      const resp = await fetch(url, options);
+      const text = await resp.text();
+      let data = {{}};
+      if (text) {{
+        try {{
+          data = JSON.parse(text);
+        }} catch (error) {{
+          data = {{ raw: text }};
+        }}
+      }}
+      if (!resp.ok) {{
+        const message = data.detail ? JSON.stringify(data.detail) : (data.raw || resp.statusText);
+        throw new Error(`${{resp.status}} ${{message}}`);
+      }}
+      return data;
     }}
 
     function setBadge(text, kind = "") {{
@@ -568,20 +594,22 @@ def render_dashboard(settings: Settings) -> str:
     async function pollTask(taskId, shouldClassify = true) {{
       setSteps(1, "active");
       for (let i = 0; i < 80; i++) {{
-        const resp = await fetch(`/api/tasks/${{taskId}}`);
-        const data = await resp.json();
+        const data = await requestJson(`/api/tasks/${{taskId}}`);
         if (data.status === "running") {{
           setBadge("ASR处理中");
+          setUploadStatus(`任务运行中：${{taskId}}`);
           setSteps(1, "active");
         }}
         if (data.status === "completed") {{
           setSteps(2, "active");
           if (shouldClassify) classifyTask(data);
+          setUploadStatus("识别完成", "green");
           log({{ task_id: taskId, status: "completed" }});
           return data;
         }}
         if (data.status === "failed") {{
           setBadge("任务失败", "red");
+          setUploadStatus(`识别失败：${{data.error || "后端任务失败"}}`, "red");
           log(data);
           return data;
         }}
@@ -593,20 +621,37 @@ def render_dashboard(settings: Settings) -> str:
     $("uploadForm").onsubmit = async (event) => {{
       event.preventDefault();
       const file = $("audioFile").files[0];
-      if (!file) return;
+      if (!file) {{
+        setUploadStatus("请先选择音频文件", "red");
+        log("未选择音频文件");
+        return;
+      }}
       $("audioPlayer").src = URL.createObjectURL(file);
       state.activeText = "";
       setBadge("音频接入");
+      setUploadStatus(`准备上传：${{file.name}}`);
       setSteps(0, "active");
       const formData = new FormData();
       formData.append("file", file);
       formData.append("channel_id", $("channelId").value);
       formData.append("denoise_mode", $("denoiseMode").value);
       if ($("transcriptOverride").value.trim()) formData.append("transcript_override", $("transcriptOverride").value.trim());
-      const resp = await fetch("/api/audio/upload", {{ method: "POST", body: formData }});
-      const data = await resp.json();
-      log(data);
-      if (data.task_id) await pollTask(data.task_id);
+      $("uploadSubmit").disabled = true;
+      $("uploadSubmit").textContent = "上传中";
+      try {{
+        setUploadStatus("正在提交到后端");
+        const data = await requestJson("/api/audio/upload", {{ method: "POST", body: formData }});
+        setUploadStatus(`任务已创建：${{data.task_id || "unknown"}}`);
+        log(data);
+        if (data.task_id) await pollTask(data.task_id);
+      }} catch (error) {{
+        setBadge("上传失败", "red");
+        setUploadStatus(`上传失败：${{error.message}}`, "red");
+        log(`上传失败：${{error.message}}`);
+      }} finally {{
+        $("uploadSubmit").disabled = false;
+        $("uploadSubmit").textContent = "上传识别";
+      }}
     }};
 
     document.querySelectorAll("[data-demo]").forEach((node) => {{
