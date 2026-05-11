@@ -12,7 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.services.asr import ASRResult, FunASRAdapter, sanitize_asr_text  # noqa: E402
+from app.services.asr import ASRResult, FunASRAdapter, detect_unexpected_language_marks, sanitize_asr_text  # noqa: E402
 
 
 def read_csv(path: Path) -> List[Dict[str, str]]:
@@ -55,6 +55,7 @@ def make_result_row(
     provider: str,
     error: str = "",
 ) -> Dict[str, object]:
+    language_marks = detect_unexpected_language_marks(result.text)
     return {
         "segment_id": row["segment_id"],
         "clip_path": row["clip_path"],
@@ -64,6 +65,8 @@ def make_result_row(
         "asr_text": result.text,
         "asr_confidence": result.confidence,
         "asr_error": error,
+        "language_guard_flag": "1" if language_marks else "0",
+        "language_guard_notes": "|".join(language_marks),
     }
 
 
@@ -299,6 +302,7 @@ def build_wide_rows(base_rows: List[Dict[str, str]], long_rows: List[Dict[str, o
         grouped[segment_id][f"asr_text__{model_name}"] = item.get("asr_text", "")
         grouped[segment_id][f"asr_confidence__{model_name}"] = item.get("asr_confidence", "")
         grouped[segment_id][f"asr_error__{model_name}"] = item.get("asr_error", "")
+        grouped[segment_id][f"language_guard__{model_name}"] = item.get("language_guard_notes", "")
     return list(grouped.values())
 
 

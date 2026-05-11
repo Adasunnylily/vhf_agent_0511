@@ -113,6 +113,8 @@ segment_id,clip_path,asr_text__sensevoice_small,asr_text__paraformer_large_zh
 
 选定模型后，再做全量 ASR。
 
+当前配置会把 ASR 语言默认限定为 `zh`：中文为主，保留少量英文船名、呼号和 `MAYDAY/VTS/ETA/AIS` 等术语。高级 OpenAI/Gemini 配置还会通过 prompt 明确说明“不是日语/韩语场景”。如果输出中出现日文假名或韩文字符，结果表会在 `language_guard__模型名` 或 `language_guard_notes` 中标记，便于人工筛掉幻觉样本。
+
 ## 第三步：选定ASR后全量转写
 
 例如选择 `SenseVoiceSmall`：

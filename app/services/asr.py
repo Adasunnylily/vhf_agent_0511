@@ -38,6 +38,16 @@ def sanitize_asr_text(text: str) -> str:
     return text.strip()
 
 
+def detect_unexpected_language_marks(text: str) -> List[str]:
+    """Flag scripts that should not appear in zh/en VHF transcripts."""
+    marks: List[str] = []
+    if re.search(r"[\u3040-\u30ff]", text):
+        marks.append("japanese_kana")
+    if re.search(r"[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]", text):
+        marks.append("korean_hangul")
+    return marks
+
+
 class BaseASRAdapter:
     def transcribe(
         self,

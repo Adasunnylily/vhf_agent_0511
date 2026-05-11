@@ -7,8 +7,10 @@ from pathlib import Path
 from scripts.run_asr_model_selection import (
     build_wide_rows,
     load_model_specs,
+    make_result_row,
     read_external_results,
 )
+from app.services.asr import ASRResult
 
 
 class RunAsrModelSelectionTests(unittest.TestCase):
@@ -76,6 +78,21 @@ class RunAsrModelSelectionTests(unittest.TestCase):
             self.assertEqual(long_rows[0]["asr_text"], "VTS宁远8报告已靠泊三号码头")
             self.assertEqual(wide_rows[0]["asr_text__qwen3_asr_external"], "VTS宁远8报告已靠泊三号码头")
             self.assertEqual(wide_rows[0]["asr_error__qwen3_asr_external"], "")
+
+    def test_language_guard_flags_japanese_and_korean_scripts(self) -> None:
+        row = {"segment_id": "seg_1", "clip_path": "/tmp/seg_1.wav"}
+        spec = {"name": "model_a"}
+
+        result_row = make_result_row(
+            row=row,
+            spec=spec,
+            provider="test",
+            result=ASRResult(text="こちらVTS 안녕하세요", confidence=0.0, engine="test"),
+        )
+
+        self.assertEqual(result_row["language_guard_flag"], "1")
+        self.assertIn("japanese_kana", result_row["language_guard_notes"])
+        self.assertIn("korean_hangul", result_row["language_guard_notes"])
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@
       "model": "iic/SenseVoiceSmall",
       "vad_model": "fsmn-vad",
       "punc_model": "",
-      "language": "auto"
+      "language": "zh"
     },
     {
       "name": "paraformer_large_zh",
@@ -22,7 +22,7 @@
       "model": "gpt-4o-mini-transcribe",
       "api_key_env": "OPENAI_API_KEY",
       "language": "zh",
-      "prompt": "这是一段VHF海事通信音频，可能包含中文、英文船名、呼号、MAYDAY、VTS、靠泊、抛锚、走锚、碰撞、进水、失火等表达。请准确转写原话。"
+      "prompt": "这是一段VHF海事通信音频。语言只可能是中文，夹杂少量英文船名、呼号、MAYDAY、VTS、ETA、AIS等海事术语；绝不会出现日语或韩语。请逐字转写原话，不要翻译，不要总结，不要补充。保留英文缩写、数字、船名、泊位、锚地、频道号。常见词包括：靠泊、离泊、抛锚、进港、出港、走锚、碰撞、搁浅、进水、失火、人员落水、保持守听。"
     },
     {
       "name": "openai_gpt4o_transcribe",
@@ -30,7 +30,7 @@
       "model": "gpt-4o-transcribe",
       "api_key_env": "OPENAI_API_KEY",
       "language": "zh",
-      "prompt": "这是一段VHF海事通信音频，可能包含中文、英文船名、呼号、MAYDAY、VTS、靠泊、抛锚、走锚、碰撞、进水、失火等表达。请准确转写原话。"
+      "prompt": "这是一段VHF海事通信音频。语言只可能是中文，夹杂少量英文船名、呼号、MAYDAY、VTS、ETA、AIS等海事术语；绝不会出现日语或韩语。请逐字转写原话，不要翻译，不要总结，不要补充。保留英文缩写、数字、船名、泊位、锚地、频道号。常见词包括：靠泊、离泊、抛锚、进港、出港、走锚、碰撞、搁浅、进水、失火、人员落水、保持守听。"
     },
     {
       "name": "openai_gpt4o_transcribe_diarize",
@@ -39,7 +39,8 @@
       "api_key_env": "OPENAI_API_KEY",
       "language": "zh",
       "response_format": "diarized_json",
-      "chunking_strategy": "auto"
+      "chunking_strategy": "auto",
+      "prompt": "这是一段VHF海事通信音频。语言只可能是中文，夹杂少量英文船名、呼号、MAYDAY、VTS、ETA、AIS等海事术语；绝不会出现日语或韩语。请逐字转写，并尽量保留说话人分段。"
     },
     {
       "name": "openai_whisper_1",
@@ -47,21 +48,21 @@
       "model": "whisper-1",
       "api_key_env": "OPENAI_API_KEY",
       "language": "zh",
-      "prompt": "这是一段VHF海事通信音频，可能包含中文、英文船名、呼号、MAYDAY、VTS、靠泊、抛锚、走锚、碰撞、进水、失火等表达。请准确转写原话。"
+      "prompt": "这是一段VHF海事通信音频。语言只可能是中文，夹杂少量英文船名、呼号、MAYDAY、VTS、ETA、AIS等海事术语；绝不会出现日语或韩语。请逐字转写原话，不要翻译，不要总结，不要补充。保留英文缩写、数字、船名、泊位、锚地、频道号。常见词包括：靠泊、离泊、抛锚、进港、出港、走锚、碰撞、搁浅、进水、失火、人员落水、保持守听。"
     },
     {
       "name": "gemini_3_flash_preview_audio",
       "provider": "gemini_audio",
       "model": "gemini-3-flash-preview",
       "api_key_env": "GEMINI_API_KEY",
-      "prompt": "请将这段VHF海事通信音频准确转写为中文文本。保留船名、呼号、MAYDAY、VTS、靠泊、抛锚、走锚、碰撞、进水、失火等关键词。只输出转写文本，不要解释。"
+      "prompt": "请将这段VHF海事通信音频逐字转写。语言只可能是中文，夹杂少量英文船名、呼号、MAYDAY、VTS、ETA、AIS等海事术语；没有日语或韩语。不要翻译，不要总结，不要解释，不要输出日文或韩文。保留英文缩写、数字、船名、泊位、锚地、频道号。常见词包括：靠泊、离泊、抛锚、进港、出港、走锚、碰撞、搁浅、进水、失火、人员落水、保持守听。"
     },
     {
       "name": "gemini_2_5_flash_audio",
       "provider": "gemini_audio",
       "model": "gemini-2.5-flash",
       "api_key_env": "GEMINI_API_KEY",
-      "prompt": "请将这段VHF海事通信音频准确转写为中文文本。保留船名、呼号、MAYDAY、VTS、靠泊、抛锚、走锚、碰撞、进水、失火等关键词。只输出转写文本，不要解释。"
+      "prompt": "请将这段VHF海事通信音频逐字转写。语言只可能是中文，夹杂少量英文船名、呼号、MAYDAY、VTS、ETA、AIS等海事术语；没有日语或韩语。不要翻译，不要总结，不要解释，不要输出日文或韩文。保留英文缩写、数字、船名、泊位、锚地、频道号。常见词包括：靠泊、离泊、抛锚、进港、出港、走锚、碰撞、搁浅、进水、失火、人员落水、保持守听。"
     },
     {
       "name": "qwen3_asr_external",

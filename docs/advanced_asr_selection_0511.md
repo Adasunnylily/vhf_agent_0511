@@ -53,6 +53,16 @@ python scripts/run_asr_model_selection.py \
 --fail-fast
 ```
 
+这些高级模型配置已经加入海事通信 prompt：限定“中文为主、少量英文船名/呼号/MAYDAY/VTS/ETA/AIS，绝不输出日语或韩语”，并要求逐字转写、不要总结。OpenAI 类模型会同时传 `language=zh` 和 `prompt`；Gemini 类模型会把同样的场景约束放进音频理解 prompt。
+
+结果表还会增加语言审计列：
+
+```text
+language_guard__模型名
+```
+
+如果模型输出日文假名或韩文字符，会标记 `japanese_kana` / `korean_hangul`。这类结果建议直接视为该模型在当前 VHF 数据上的幻觉样本，优先人工复核。
+
 ## 4. 尝试 OpenAI 说话人结果
 
 如果想测试大模型直接处理“连续混合语音里的多说话人”，可以单独跑 diarize 候选：

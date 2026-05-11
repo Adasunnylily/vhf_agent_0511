@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.services.asr import FunASRAdapter  # noqa: E402
+from app.services.asr import FunASRAdapter, detect_unexpected_language_marks  # noqa: E402
 from app.services.audio_utils import slice_wav_segment  # noqa: E402
 from app.services.vad import WavEnergyVAD  # noqa: E402
 
@@ -571,12 +571,15 @@ def transcribe_segments(
     for index, row in enumerate(rows, start=1):
         clip_path = Path(row["clip_path"])
         result = asr.transcribe(clip_path)
+        language_marks = detect_unexpected_language_marks(result.text)
         merged = dict(row)
         merged.update(
             {
                 "asr_text": result.text,
                 "asr_model": result.engine,
                 "asr_confidence": result.confidence,
+                "language_guard_flag": "1" if language_marks else "0",
+                "language_guard_notes": "|".join(language_marks),
             }
         )
         output_rows.append(merged)
@@ -1103,7 +1106,7 @@ def add_common_asr_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--punc-model", default="")
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--hub", default="ms")
-    parser.add_argument("--language", default="auto")
+    parser.add_argument("--language", default="zh")
     parser.add_argument("--batch-size-s", type=int, default=30)
     parser.add_argument("--limit", type=int, default=0)
 

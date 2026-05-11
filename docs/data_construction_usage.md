@@ -157,6 +157,8 @@ python scripts/run_asr_model_selection.py \
 
 同一条音频会并排展示多个ASR模型结果，便于人工判断哪个模型更适合当前VHF数据。
 
+ASR 默认语言已经设为 `zh`，适合“中文为主、少量英文船名/呼号/海事缩写”的 VHF 通信。高级模型评测配置会额外用 prompt 限定：这不是日语/韩语场景，不要输出日文或韩文。模型评测结果中会记录 `language_guard__模型名`，如果出现日文假名或韩文字符，会被标记出来。
+
 ### 4. 选定ASR模型后全量转写
 
 ```bash
@@ -176,6 +178,8 @@ python scripts/construct_high_risk_dataset.py asr-transcribe \
   --output /root/autodl-tmp/vhf-data/data_pipeline/manifests/asr_segments_manifest_sample.csv \
   --limit 50
 ```
+
+全量 ASR 输出会记录 `language_guard_flag` / `language_guard_notes`，用于筛查日语/韩语幻觉。
 
 ### 5. 导入LLM/音频大模型分析，生成机器分析候选
 

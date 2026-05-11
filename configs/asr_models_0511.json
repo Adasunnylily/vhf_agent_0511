@@ -6,7 +6,7 @@
       "model": "iic/SenseVoiceSmall",
       "vad_model": "fsmn-vad",
       "punc_model": "",
-      "language": "auto"
+      "language": "zh"
     },
     {
       "name": "paraformer_large_zh",

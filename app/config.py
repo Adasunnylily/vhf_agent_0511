@@ -26,7 +26,7 @@ class Settings:
     asr_hub: str = os.getenv("VHF_ASR_HUB", "ms")
     asr_batch_size_s: int = int(os.getenv("VHF_ASR_BATCH_SIZE_S", "30"))
     asr_model_revision: str = os.getenv("VHF_ASR_MODEL_REVISION", "")
-    asr_language: str = os.getenv("VHF_ASR_LANGUAGE", "auto")
+    asr_language: str = os.getenv("VHF_ASR_LANGUAGE", "zh")
     asr_use_itn: bool = os.getenv("VHF_ASR_USE_ITN", "1") == "1"
     asr_vad_max_single_segment_time: int = int(
         os.getenv("VHF_ASR_VAD_MAX_SINGLE_SEGMENT_TIME", "30000")
