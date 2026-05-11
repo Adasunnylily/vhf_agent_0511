@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import threading
 from typing import Any, Dict, List, Optional
 
 
@@ -105,6 +106,8 @@ class FunASRAdapter(BaseASRAdapter):
         self.vad_max_single_segment_time = vad_max_single_segment_time
         self._model = None
         self._postprocess = None
+        self._model_lock = threading.Lock()
+        self._generate_lock = threading.Lock()
 
     def transcribe(
         self,
@@ -119,12 +122,13 @@ class FunASRAdapter(BaseASRAdapter):
             )
 
         model = self._ensure_model()
-        results = model.generate(
-            input=str(file_path),
-            batch_size_s=self.batch_size_s,
-            language=self.language,
-            use_itn=self.use_itn,
-        )
+        with self._generate_lock:
+            results = model.generate(
+                input=str(file_path),
+                batch_size_s=self.batch_size_s,
+                language=self.language,
+                use_itn=self.use_itn,
+            )
         text = self._extract_text(results)
         text = self._post_process_text(text)
         confidence = self._extract_confidence(results)
@@ -138,37 +142,41 @@ class FunASRAdapter(BaseASRAdapter):
         if self._model is not None:
             return self._model
 
-        try:
-            from funasr import AutoModel
-        except ImportError as exc:
-            raise RuntimeError(
-                "FunASR 未安装，请先在服务器执行依赖安装。"
-            ) from exc
+        with self._model_lock:
+            if self._model is not None:
+                return self._model
 
-        try:
-            from funasr.utils.postprocess_utils import rich_transcription_postprocess
-        except ImportError:
-            rich_transcription_postprocess = None
+            try:
+                from funasr import AutoModel
+            except ImportError as exc:
+                raise RuntimeError(
+                    "FunASR 未安装，请先在服务器执行依赖安装。"
+                ) from exc
 
-        kwargs: Dict[str, Any] = {
-            "model": self.model_name,
-            "device": self.device,
-            "hub": self.hub,
-            "disable_update": True,
-        }
-        if self.vad_model:
-            kwargs["vad_model"] = self.vad_model
-            kwargs["vad_kwargs"] = {
-                "max_single_segment_time": self.vad_max_single_segment_time
+            try:
+                from funasr.utils.postprocess_utils import rich_transcription_postprocess
+            except ImportError:
+                rich_transcription_postprocess = None
+
+            kwargs: Dict[str, Any] = {
+                "model": self.model_name,
+                "device": self.device,
+                "hub": self.hub,
+                "disable_update": True,
             }
-        if self.punc_model:
-            kwargs["punc_model"] = self.punc_model
-        if self.model_revision:
-            kwargs["model_revision"] = self.model_revision
+            if self.vad_model:
+                kwargs["vad_model"] = self.vad_model
+                kwargs["vad_kwargs"] = {
+                    "max_single_segment_time": self.vad_max_single_segment_time
+                }
+            if self.punc_model:
+                kwargs["punc_model"] = self.punc_model
+            if self.model_revision:
+                kwargs["model_revision"] = self.model_revision
 
-        self._model = AutoModel(**kwargs)
-        self._postprocess = rich_transcription_postprocess
-        return self._model
+            self._model = AutoModel(**kwargs)
+            self._postprocess = rich_transcription_postprocess
+            return self._model
 
     def _extract_text(self, results: Any) -> str:
         if isinstance(results, list) and results:
@@ -233,6 +241,8 @@ class FunASRStreamingAdapter(BaseStreamingASRAdapter):
         self.encoder_chunk_look_back = encoder_chunk_look_back
         self.decoder_chunk_look_back = decoder_chunk_look_back
         self._model = None
+        self._model_lock = threading.Lock()
+        self._generate_lock = threading.Lock()
 
     def transcribe_stream(
         self,
@@ -243,14 +253,15 @@ class FunASRStreamingAdapter(BaseStreamingASRAdapter):
         outputs: List[ASRResult] = []
         for index, chunk in enumerate(chunks):
             is_final = index == len(chunks) - 1
-            results = model.generate(
-                input=chunk,
-                cache=cache,
-                is_final=is_final,
-                chunk_size=self.chunk_size,
-                encoder_chunk_look_back=self.encoder_chunk_look_back,
-                decoder_chunk_look_back=self.decoder_chunk_look_back,
-            )
+            with self._generate_lock:
+                results = model.generate(
+                    input=chunk,
+                    cache=cache,
+                    is_final=is_final,
+                    chunk_size=self.chunk_size,
+                    encoder_chunk_look_back=self.encoder_chunk_look_back,
+                    decoder_chunk_look_back=self.decoder_chunk_look_back,
+                )
             text = self._extract_text(results)
             outputs.append(
                 ASRResult(
@@ -264,21 +275,24 @@ class FunASRStreamingAdapter(BaseStreamingASRAdapter):
     def _ensure_model(self) -> Any:
         if self._model is not None:
             return self._model
-        try:
-            from funasr import AutoModel
-        except ImportError as exc:
-            raise RuntimeError("FunASR 未安装，请先在服务器执行依赖安装。") from exc
+        with self._model_lock:
+            if self._model is not None:
+                return self._model
+            try:
+                from funasr import AutoModel
+            except ImportError as exc:
+                raise RuntimeError("FunASR 未安装，请先在服务器执行依赖安装。") from exc
 
-        kwargs: Dict[str, Any] = {
-            "model": self.model_name,
-            "device": self.device,
-            "hub": self.hub,
-            "disable_update": True,
-        }
-        if self.model_revision:
-            kwargs["model_revision"] = self.model_revision
-        self._model = AutoModel(**kwargs)
-        return self._model
+            kwargs: Dict[str, Any] = {
+                "model": self.model_name,
+                "device": self.device,
+                "hub": self.hub,
+                "disable_update": True,
+            }
+            if self.model_revision:
+                kwargs["model_revision"] = self.model_revision
+            self._model = AutoModel(**kwargs)
+            return self._model
 
     def _extract_text(self, results: Any) -> str:
         if isinstance(results, list) and results:
