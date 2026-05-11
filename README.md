@@ -8,6 +8,7 @@
 - ASR 模型评测：[docs/asr_model_eval_0511.md](/Users/adasunnylily/Documents/New%20project/vhf-agent-0511/docs/asr_model_eval_0511.md)
 - Git 同步：[docs/git_sync_0511.md](/Users/adasunnylily/Documents/New%20project/vhf-agent-0511/docs/git_sync_0511.md)
 - 候选模型与无参考文本策略：[docs/asr_model_shortlist_0511.md](/Users/adasunnylily/Documents/New%20project/vhf-agent-0511/docs/asr_model_shortlist_0511.md)
+- 船方呼叫高危分类实现：[docs/high_risk_classifier_implementation.md](/Users/adasunnylily/Documents/New%20project/vhf-agent-0511/docs/high_risk_classifier_implementation.md)
 - 模型配置：[configs/asr_models_0511.json](/Users/adasunnylily/Documents/New%20project/vhf-agent-0511/configs/asr_models_0511.json)
 
 这个子项目提供一个可扩展的后端 MVP，用于跑通以下链路：
