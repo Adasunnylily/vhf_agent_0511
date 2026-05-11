@@ -95,6 +95,8 @@ python scripts/construct_high_risk_dataset.py vad-split \
   --energy-threshold 450
 ```
 
+注意：即使原文件后缀是 `.wav`，脚本也会检查是否为标准 `16k / mono / PCM s16le`。如果是 A-law、mu-law 等非 PCM WAV，会自动用 `ffmpeg` 转码后再 VAD，避免 `wave.Error: unknown format`。
+
 ### 3. 先抽样选择ASR模型
 
 ```bash

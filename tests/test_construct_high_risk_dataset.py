@@ -1,8 +1,12 @@
 import unittest
+import tempfile
+import wave
+from pathlib import Path
 
 from scripts.construct_high_risk_dataset import (
     choose_final_analysis,
     classify_role,
+    is_standard_pcm_wav,
     load_model_analysis,
     priority_score,
     weak_label_risk,
@@ -87,6 +91,17 @@ class ConstructHighRiskDatasetTests(unittest.TestCase):
         self.assertEqual(final.source, "llm_analysis")
         self.assertEqual(final.role_label, "ship")
         self.assertEqual(final.automation_label, "auto_reply")
+
+    def test_standard_pcm_wav_detection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.wav"
+            with wave.open(str(path), "wb") as wav_file:
+                wav_file.setnchannels(1)
+                wav_file.setsampwidth(2)
+                wav_file.setframerate(16000)
+                wav_file.writeframes(b"\x00\x00" * 160)
+
+            self.assertTrue(is_standard_pcm_wav(path))
 
 
 def load_model_analysis_row(role_label: str, crisis_label: str, automation_label: str, scenario: str):

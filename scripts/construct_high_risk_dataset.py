@@ -6,6 +6,8 @@ import json
 import shutil
 import subprocess
 import sys
+import contextlib
+import wave
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
@@ -316,17 +318,30 @@ def parse_evidence(value: object) -> List[str]:
     return [text]
 
 
+def is_standard_pcm_wav(source: Path) -> bool:
+    if source.suffix.lower() != ".wav":
+        return False
+    try:
+        with contextlib.closing(wave.open(str(source), "rb")) as wav_file:
+            return (
+                wav_file.getframerate() == 16000
+                and wav_file.getnchannels() == 1
+                and wav_file.getsampwidth() == 2
+            )
+    except Exception:
+        return False
+
+
 def normalize_to_16k_wav(source: Path, target: Path) -> Path:
-    if source.suffix.lower() == ".wav":
-        target.parent.mkdir(parents=True, exist_ok=True)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if is_standard_pcm_wav(source):
         if source.resolve() != target.resolve():
             shutil.copy2(source, target)
         return target
 
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
-        raise RuntimeError("未找到 ffmpeg，无法把非 wav 音频转换为 16k mono PCM wav。")
-    target.parent.mkdir(parents=True, exist_ok=True)
+        raise RuntimeError("未找到 ffmpeg，无法把音频统一转换为 16k mono PCM wav。")
     cmd = [
         ffmpeg,
         "-y",
