@@ -70,6 +70,20 @@ python scripts/run_asr_model_selection.py \
   --device cuda:0
 ```
 
+如果要加入 OpenAI Whisper/GPT 转写、Gemini，以及导入豆包/Qwen 等外部模型结果，用高级配置：
+
+```bash
+python scripts/run_asr_model_selection.py \
+  --vad-manifest /root/autodl-tmp/vhf-data/data_pipeline/manifests/vad_segments_manifest.csv \
+  --config configs/asr_models_advanced_0511.json \
+  --models sensevoice_small,openai_gpt4o_mini_transcribe,openai_whisper_1,gemini_3_flash_preview_audio \
+  --output-dir /root/autodl-tmp/vhf-data/data_pipeline/asr_selection_advanced \
+  --limit 30 \
+  --device cuda:0
+```
+
+详细说明见 `docs/advanced_asr_selection_0511.md`。
+
 输出：
 
 ```text

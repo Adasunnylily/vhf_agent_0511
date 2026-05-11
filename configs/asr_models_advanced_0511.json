@@ -1,0 +1,79 @@
+{
+  "models": [
+    {
+      "name": "sensevoice_small",
+      "provider": "funasr",
+      "model": "iic/SenseVoiceSmall",
+      "vad_model": "fsmn-vad",
+      "punc_model": "",
+      "language": "auto"
+    },
+    {
+      "name": "paraformer_large_zh",
+      "provider": "funasr",
+      "model": "iic/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+      "vad_model": "",
+      "punc_model": "",
+      "language": "zh"
+    },
+    {
+      "name": "openai_gpt4o_mini_transcribe",
+      "provider": "openai_audio",
+      "model": "gpt-4o-mini-transcribe",
+      "api_key_env": "OPENAI_API_KEY",
+      "language": "zh",
+      "prompt": "这是一段VHF海事通信音频，可能包含中文、英文船名、呼号、MAYDAY、VTS、靠泊、抛锚、走锚、碰撞、进水、失火等表达。请准确转写原话。"
+    },
+    {
+      "name": "openai_gpt4o_transcribe",
+      "provider": "openai_audio",
+      "model": "gpt-4o-transcribe",
+      "api_key_env": "OPENAI_API_KEY",
+      "language": "zh",
+      "prompt": "这是一段VHF海事通信音频，可能包含中文、英文船名、呼号、MAYDAY、VTS、靠泊、抛锚、走锚、碰撞、进水、失火等表达。请准确转写原话。"
+    },
+    {
+      "name": "openai_gpt4o_transcribe_diarize",
+      "provider": "openai_audio",
+      "model": "gpt-4o-transcribe-diarize",
+      "api_key_env": "OPENAI_API_KEY",
+      "language": "zh",
+      "response_format": "diarized_json",
+      "chunking_strategy": "auto"
+    },
+    {
+      "name": "openai_whisper_1",
+      "provider": "openai_audio",
+      "model": "whisper-1",
+      "api_key_env": "OPENAI_API_KEY",
+      "language": "zh",
+      "prompt": "这是一段VHF海事通信音频，可能包含中文、英文船名、呼号、MAYDAY、VTS、靠泊、抛锚、走锚、碰撞、进水、失火等表达。请准确转写原话。"
+    },
+    {
+      "name": "gemini_3_flash_preview_audio",
+      "provider": "gemini_audio",
+      "model": "gemini-3-flash-preview",
+      "api_key_env": "GEMINI_API_KEY",
+      "prompt": "请将这段VHF海事通信音频准确转写为中文文本。保留船名、呼号、MAYDAY、VTS、靠泊、抛锚、走锚、碰撞、进水、失火等关键词。只输出转写文本，不要解释。"
+    },
+    {
+      "name": "gemini_2_5_flash_audio",
+      "provider": "gemini_audio",
+      "model": "gemini-2.5-flash",
+      "api_key_env": "GEMINI_API_KEY",
+      "prompt": "请将这段VHF海事通信音频准确转写为中文文本。保留船名、呼号、MAYDAY、VTS、靠泊、抛锚、走锚、碰撞、进水、失火等关键词。只输出转写文本，不要解释。"
+    },
+    {
+      "name": "qwen3_asr_external",
+      "provider": "external_csv",
+      "model": "Qwen3-ASR-1.7B",
+      "result_path": "/root/autodl-tmp/vhf-data/data_pipeline/asr_external/qwen3_asr_results.csv"
+    },
+    {
+      "name": "doubao_asr_2_external",
+      "provider": "external_csv",
+      "model": "Doubao-ASR-2.0",
+      "result_path": "/root/autodl-tmp/vhf-data/data_pipeline/asr_external/doubao_asr_2_results.csv"
+    }
+  ]
+}
