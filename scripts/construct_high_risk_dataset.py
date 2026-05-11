@@ -22,6 +22,14 @@ from app.services.vad import WavEnergyVAD  # noqa: E402
 
 
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".flac", ".aac", ".pcm", ".ogg"}
+DEFAULT_EXCLUDED_AUDIO_DIR_PARTS = {
+    "data_pipeline",
+    "vad_segments",
+    "normalized",
+    "asr_selection",
+    "outputs",
+    "clips",
+}
 
 SHIP_PATTERNS = [
     "vts",
@@ -359,11 +367,24 @@ def normalize_to_16k_wav(source: Path, target: Path) -> Path:
     return target
 
 
-def build_raw_manifest(audio_dir: Path, output: Path, channel_id: str) -> None:
+def has_excluded_part(path: Path, excluded_parts: set[str]) -> bool:
+    normalized_parts = {part.lower() for part in path.parts}
+    return bool(normalized_parts.intersection(excluded_parts))
+
+
+def clear_generated_dir(path: Path) -> None:
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def build_raw_manifest(audio_dir: Path, output: Path, channel_id: str, include_generated: bool = False) -> None:
+    excluded_parts = set() if include_generated else DEFAULT_EXCLUDED_AUDIO_DIR_PARTS
     files = sorted(
         path
         for path in audio_dir.rglob("*")
         if path.is_file() and path.suffix.lower() in AUDIO_EXTENSIONS
+        and not has_excluded_part(path.relative_to(audio_dir), excluded_parts)
     )
     rows = [
         {
@@ -388,7 +409,12 @@ def split_vad(
     min_speech_ms: int,
     max_segment_ms: int,
     energy_threshold: int,
+    keep_existing: bool = False,
 ) -> None:
+    if not keep_existing:
+        clear_generated_dir(clip_dir)
+        clear_generated_dir(normalized_dir)
+
     vad = WavEnergyVAD(
         frame_ms=frame_ms,
         silence_ms=silence_ms,
@@ -419,6 +445,10 @@ def split_vad(
                     "duration_ms": segment.end_ms - segment.start_ms,
                     "source_audio_path": str(source.resolve()),
                     "normalized_audio_path": str(normalized.resolve()),
+                    "segmentation_mode": "vad_turn",
+                    "forced_max_segment_ms": max_segment_ms,
+                    "silence_ms": silence_ms,
+                    "energy_threshold": energy_threshold,
                 }
             )
     write_csv(
@@ -434,6 +464,10 @@ def split_vad(
             "duration_ms",
             "source_audio_path",
             "normalized_audio_path",
+            "segmentation_mode",
+            "forced_max_segment_ms",
+            "silence_ms",
+            "energy_threshold",
         ],
     )
     print(f"wrote {len(rows)} vad segment rows -> {output}")
@@ -912,7 +946,7 @@ def run_all(args: argparse.Namespace) -> None:
     review_manifest = manifests / "human_review_manifest.csv"
     stats_output = base / "reports" / "label_stats.json"
 
-    build_raw_manifest(args.audio_dir, raw_manifest, args.channel_id)
+    build_raw_manifest(args.audio_dir, raw_manifest, args.channel_id, include_generated=args.include_generated_audio)
     split_vad(
         raw_manifest=raw_manifest,
         output=vad_manifest,
@@ -923,6 +957,7 @@ def run_all(args: argparse.Namespace) -> None:
         min_speech_ms=args.min_speech_ms,
         max_segment_ms=args.max_segment_ms,
         energy_threshold=args.energy_threshold,
+        keep_existing=args.keep_existing,
     )
     transcribe_segments(
         vad_manifest=vad_manifest,
@@ -978,12 +1013,18 @@ def parse_args() -> argparse.Namespace:
     raw.add_argument("--audio-dir", required=True, type=Path)
     raw.add_argument("--output", required=True, type=Path)
     raw.add_argument("--channel-id", default="beilun_vhf_01")
+    raw.add_argument(
+        "--include-generated-audio",
+        action="store_true",
+        help="Include generated data_pipeline/clips files. Default excludes generated audio to avoid reprocessing old segments.",
+    )
 
     vad = sub.add_parser("vad-split")
     vad.add_argument("--raw-manifest", required=True, type=Path)
     vad.add_argument("--output", required=True, type=Path)
     vad.add_argument("--clip-dir", required=True, type=Path)
     vad.add_argument("--normalized-dir", required=True, type=Path)
+    vad.add_argument("--keep-existing", action="store_true", help="Do not clear old generated clips before splitting.")
     add_common_vad_args(vad)
 
     asr = sub.add_parser("asr-transcribe")
@@ -1010,6 +1051,12 @@ def parse_args() -> argparse.Namespace:
     all_cmd.add_argument("--review-limit", type=int, default=500)
     all_cmd.add_argument("--llm-analysis", type=Path, default=None)
     all_cmd.add_argument("--audio-analysis", type=Path, default=None)
+    all_cmd.add_argument("--keep-existing", action="store_true", help="Do not clear old generated clips before splitting.")
+    all_cmd.add_argument(
+        "--include-generated-audio",
+        action="store_true",
+        help="Include generated data_pipeline/clips files. Default excludes generated audio to avoid reprocessing old segments.",
+    )
     add_common_vad_args(all_cmd)
     add_common_asr_args(all_cmd)
 
@@ -1019,7 +1066,12 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     if args.command == "raw-manifest":
-        build_raw_manifest(args.audio_dir, args.output, args.channel_id)
+        build_raw_manifest(
+            args.audio_dir,
+            args.output,
+            args.channel_id,
+            include_generated=args.include_generated_audio,
+        )
     elif args.command == "vad-split":
         split_vad(
             args.raw_manifest,
@@ -1031,6 +1083,7 @@ def main() -> None:
             args.min_speech_ms,
             args.max_segment_ms,
             args.energy_threshold,
+            keep_existing=args.keep_existing,
         )
     elif args.command == "asr-transcribe":
         transcribe_segments(

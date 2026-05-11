@@ -83,6 +83,8 @@ python scripts/construct_high_risk_dataset.py raw-manifest \
   --channel-id beilun_vhf_01
 ```
 
+如果你把 `--audio-dir` 指到 `/root/autodl-tmp/vhf-data` 这种大目录，脚本默认会排除 `data_pipeline/`、`clips/`、`vad_segments/`、`normalized/` 等生成目录，避免把上一次生成的 7 秒旧切片又当成原始音频扫进去。
+
 ### 2. VAD 切分
 
 ```bash
@@ -97,6 +99,12 @@ python scripts/construct_high_risk_dataset.py vad-split \
 ```
 
 注意：即使原文件后缀是 `.wav`，脚本也会检查是否为标准 `16k / mono / PCM s16le`。如果是 A-law、mu-law 等非 PCM WAV，会自动用 `ffmpeg` 转码后再 VAD，避免 `wave.Error: unknown format`。
+
+`vad-split` 默认会清理 `--clip-dir` 和 `--normalized-dir` 里的旧生成文件，避免旧的 7 秒切片残留。只有你明确想保留旧结果时才加：
+
+```bash
+--keep-existing
+```
 
 `--max-segment-ms 0` 表示不按固定时长强切，而是根据静音间隔切分话轮。这样得到的是“连续说话片段/话轮”，不是声纹级说话人分离。船方/管理方划分会在 ASR 之后由 LLM/音频大模型或人工核实完成。
 

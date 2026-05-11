@@ -4,6 +4,7 @@ import wave
 from pathlib import Path
 
 from scripts.construct_high_risk_dataset import (
+    build_raw_manifest,
     choose_final_analysis,
     classify_role,
     is_standard_pcm_wav,
@@ -103,6 +104,23 @@ class ConstructHighRiskDatasetTests(unittest.TestCase):
 
             self.assertTrue(is_standard_pcm_wav(path))
 
+    def test_raw_manifest_excludes_generated_pipeline_audio(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            raw_dir = base / "raw_audio"
+            generated_dir = base / "data_pipeline" / "clips" / "vad_segments"
+            raw_dir.mkdir(parents=True)
+            generated_dir.mkdir(parents=True)
+            write_silent_wav(raw_dir / "source.wav")
+            write_silent_wav(generated_dir / "old_seg.wav")
+            output = base / "manifest.csv"
+
+            build_raw_manifest(base, output, "test_channel")
+
+            text = output.read_text(encoding="utf-8-sig")
+            self.assertIn("source.wav", text)
+            self.assertNotIn("old_seg.wav", text)
+
 
 def load_model_analysis_row(role_label: str, crisis_label: str, automation_label: str, scenario: str):
     from scripts.construct_high_risk_dataset import ModelAnalysis
@@ -118,6 +136,14 @@ def load_model_analysis_row(role_label: str, crisis_label: str, automation_label
         evidence=["test"],
         rationale="unit test",
     )
+
+
+def write_silent_wav(path: Path) -> None:
+    with wave.open(str(path), "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(16000)
+        wav_file.writeframes(b"\x00\x00" * 160)
 
 
 if __name__ == "__main__":
