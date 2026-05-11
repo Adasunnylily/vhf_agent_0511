@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import wave
+import struct
 from pathlib import Path
 
 from app.config import Settings
@@ -26,6 +27,26 @@ def write_long_demo_wav(file_path: Path, seconds: int = 20) -> None:
         wav_file.setsampwidth(2)
         wav_file.setframerate(16000)
         wav_file.writeframes(b"\x10\x10" * 16000 * seconds)
+
+
+def write_energy_pattern_wav(file_path: Path) -> None:
+    sample_rate = 16000
+    pattern = [
+        (600, 0.5),
+        (2500, 1.0),
+        (600, 0.7),
+        (2500, 1.0),
+        (600, 0.5),
+    ]
+    with wave.open(str(file_path), "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        frames = bytearray()
+        for amplitude, seconds in pattern:
+            for _ in range(int(sample_rate * seconds)):
+                frames.extend(struct.pack("<h", amplitude))
+        wav_file.writeframes(bytes(frames))
 
 
 class FakeASRAdapter(BaseASRAdapter):
@@ -96,6 +117,23 @@ class AudioPipelineTests(unittest.TestCase):
 
             self.assertEqual(len(segments), 1)
             self.assertGreaterEqual(segments[0].end_ms - segments[0].start_ms, 19000)
+
+    def test_adaptive_vad_splits_above_radio_noise_floor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            wav_path = Path(tmpdir) / "radio_noise.wav"
+            write_energy_pattern_wav(wav_path)
+            vad = WavEnergyVAD(
+                threshold_mode="adaptive",
+                energy_threshold=450,
+                silence_ms=300,
+                min_speech_ms=300,
+                max_segment_ms=0,
+            )
+
+            segments = vad.detect(wav_path)
+
+            self.assertEqual(len(segments), 2)
+            self.assertGreater(vad.last_threshold, 600)
 
 
 if __name__ == "__main__":

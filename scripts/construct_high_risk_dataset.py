@@ -442,6 +442,10 @@ def split_vad(
     min_speech_ms: int,
     max_segment_ms: int,
     energy_threshold: int,
+    threshold_mode: str,
+    noise_percentile: float,
+    speech_percentile: float,
+    threshold_ratio: float,
     keep_existing: bool = False,
     normalize_timeout_sec: int = 600,
     force_normalize: bool = False,
@@ -463,6 +467,10 @@ def split_vad(
         min_speech_ms=min_speech_ms,
         max_segment_ms=max_segment_ms,
         energy_threshold=energy_threshold,
+        threshold_mode=threshold_mode,
+        noise_percentile=noise_percentile,
+        speech_percentile=speech_percentile,
+        threshold_ratio=threshold_ratio,
     )
     rows: List[Dict[str, object]] = []
     raw_rows = read_csv(raw_manifest)
@@ -476,7 +484,11 @@ def split_vad(
         normalize_to_16k_wav(source, normalized, timeout_sec=normalize_timeout_sec)
         print(f"[vad-split] {raw_index}/{len(raw_rows)} detect {audio_id}", flush=True)
         detected = vad.detect(normalized)
-        print(f"[vad-split] {raw_index}/{len(raw_rows)} {audio_id} -> {len(detected)} segments", flush=True)
+        print(
+            f"[vad-split] {raw_index}/{len(raw_rows)} {audio_id} -> "
+            f"{len(detected)} segments, threshold={vad.last_threshold:.1f}",
+            flush=True,
+        )
         for index, segment in enumerate(detected, start=1):
             segment_id = f"{audio_id}_seg_{index:04d}"
             clip_path = clip_dir / f"{segment_id}.wav"
@@ -497,6 +509,11 @@ def split_vad(
                     "forced_max_segment_ms": max_segment_ms,
                     "silence_ms": silence_ms,
                     "energy_threshold": energy_threshold,
+                    "threshold_mode": threshold_mode,
+                    "threshold_used": f"{vad.last_threshold:.1f}",
+                    "noise_percentile": noise_percentile,
+                    "speech_percentile": speech_percentile,
+                    "threshold_ratio": threshold_ratio,
                 }
             )
     write_csv(
@@ -516,6 +533,11 @@ def split_vad(
             "forced_max_segment_ms",
             "silence_ms",
             "energy_threshold",
+            "threshold_mode",
+            "threshold_used",
+            "noise_percentile",
+            "speech_percentile",
+            "threshold_ratio",
         ],
     )
     print(f"wrote {len(rows)} vad segment rows -> {output}")
@@ -1005,6 +1027,10 @@ def run_all(args: argparse.Namespace) -> None:
         min_speech_ms=args.min_speech_ms,
         max_segment_ms=args.max_segment_ms,
         energy_threshold=args.energy_threshold,
+        threshold_mode=args.threshold_mode,
+        noise_percentile=args.noise_percentile,
+        speech_percentile=args.speech_percentile,
+        threshold_ratio=args.threshold_ratio,
         keep_existing=args.keep_existing,
         normalize_timeout_sec=args.normalize_timeout_sec,
         force_normalize=args.force_normalize,
@@ -1043,6 +1069,20 @@ def add_common_vad_args(parser: argparse.ArgumentParser) -> None:
         help="0 means do not force fixed-length cuts; use silence gaps as utterance boundaries.",
     )
     parser.add_argument("--energy-threshold", type=int, default=450)
+    parser.add_argument(
+        "--threshold-mode",
+        choices=["adaptive", "fixed"],
+        default="adaptive",
+        help="adaptive estimates the noise floor for each file; fixed uses --energy-threshold only.",
+    )
+    parser.add_argument("--noise-percentile", type=float, default=20.0)
+    parser.add_argument("--speech-percentile", type=float, default=90.0)
+    parser.add_argument(
+        "--threshold-ratio",
+        type=float,
+        default=0.35,
+        help="Adaptive threshold = noise + (speech - noise) * ratio.",
+    )
     parser.add_argument(
         "--normalize-timeout-sec",
         type=int,
@@ -1146,6 +1186,10 @@ def main() -> None:
             args.min_speech_ms,
             args.max_segment_ms,
             args.energy_threshold,
+            args.threshold_mode,
+            args.noise_percentile,
+            args.speech_percentile,
+            args.threshold_ratio,
             keep_existing=args.keep_existing,
             normalize_timeout_sec=args.normalize_timeout_sec,
             force_normalize=args.force_normalize,

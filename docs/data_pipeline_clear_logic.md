@@ -44,11 +44,18 @@ python scripts/construct_high_risk_dataset.py vad-split \
   --output /root/autodl-tmp/vhf-data/data_pipeline/manifests/vad_segments_manifest.csv \
   --clip-dir /root/autodl-tmp/vhf-data/data_pipeline/clips/vad_segments \
   --normalized-dir /root/autodl-tmp/vhf-data/data_pipeline/clips/normalized \
+  --threshold-mode adaptive \
   --silence-ms 1200 \
   --max-segment-ms 0
 ```
 
 这里切出来的是“有声话轮”，不是“说话人声纹分离”。不要按 7 秒固定窗口切，因为会把一句完整船方呼叫切碎。默认 `--max-segment-ms 0` 表示不做固定时长强切，只用静音间隔作为边界。
+
+如果发现“切分结果还是整段原音频”，通常是 VHF 底噪超过固定阈值导致整段都被判成有声。当前默认使用 `--threshold-mode adaptive`，会按每个文件估计噪声底并在 manifest 里写入 `threshold_used`。仍然不切时先试：
+
+```bash
+--silence-ms 600 --threshold-ratio 0.45
+```
 
 后续的船方/管理方判断来自：
 

@@ -93,6 +93,7 @@ python scripts/construct_high_risk_dataset.py vad-split \
   --output /root/autodl-tmp/vhf-data/data_pipeline/manifests/vad_segments_manifest.csv \
   --clip-dir /root/autodl-tmp/vhf-data/data_pipeline/clips/vad_segments \
   --normalized-dir /root/autodl-tmp/vhf-data/data_pipeline/clips/normalized \
+  --threshold-mode adaptive \
   --silence-ms 1200 \
   --max-segment-ms 0 \
   --energy-threshold 450
@@ -100,13 +101,33 @@ python scripts/construct_high_risk_dataset.py vad-split \
 
 注意：即使原文件后缀是 `.wav`，脚本也会检查是否为标准 `16k / mono / PCM s16le`。如果是 A-law、mu-law 等非 PCM WAV，会自动用 `ffmpeg` 转码后再 VAD，避免 `wave.Error: unknown format`。
 
-`vad-split` 默认会清理 `--clip-dir` 和 `--normalized-dir` 里的旧生成文件，避免旧的 7 秒切片残留。只有你明确想保留旧结果时才加：
+`vad-split` 默认会清理 `--clip-dir` 里的旧生成文件，避免旧的 7 秒切片残留；`--normalized-dir` 会作为转码缓存保留，中断后重跑不会从头转码。只有你明确想保留旧切分结果时才加：
 
 ```bash
 --keep-existing
 ```
 
 `--max-segment-ms 0` 表示不按固定时长强切，而是根据静音间隔切分话轮。这样得到的是“连续说话片段/话轮”，不是声纹级说话人分离。船方/管理方划分会在 ASR 之后由 LLM/音频大模型或人工核实完成。
+
+VHF 连续录音里经常有底噪、频道噪声和对讲机尾音，固定能量阈值容易把整段都当成“有声”。默认 `--threshold-mode adaptive` 会按每个原始音频的能量分布估计噪声底，再决定说话阈值。输出 manifest 中会记录 `threshold_used`，方便你核查当前文件实际用了多高的阈值。
+
+如果仍然只切出 1 段，优先试：
+
+```bash
+--silence-ms 600 --threshold-ratio 0.45
+```
+
+更激进一点：
+
+```bash
+--silence-ms 450 --threshold-ratio 0.55
+```
+
+如果切得太碎，则调回：
+
+```bash
+--silence-ms 1200 --threshold-ratio 0.30
+```
 
 如果一个人连续讲很久导致片段过长，再临时设置：
 
