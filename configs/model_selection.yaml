@@ -1,0 +1,30 @@
+manifest_csv: "/root/autodl-tmp/vhf-data/data_pipeline/manifests/vad_segments_manifest.csv"
+output_dir: "/root/autodl-tmp/vhf-data/data_pipeline/model_selection_0520"
+sample_limit: 50
+
+asr_candidates_config: "configs/asr_models_advanced_0511.json"
+asr_candidates:
+  - "qwen3_asr_flash"
+  - "doubao_seed_asr_flash"
+  - "openai_gpt4o_mini_transcribe"
+  - "gemini_2_5_flash_audio"
+
+evaluation:
+  prefer_provider_order:
+    - "qwen_asr"
+    - "openai_audio"
+    - "doubao_seed_asr"
+    - "gemini_audio"
+  weight:
+    language_guard_penalty: 3.0
+    empty_text_penalty: 2.0
+    short_text_penalty: 1.0
+
+pipeline_compare:
+  enabled: true
+  asr_llm_csv: "/root/autodl-tmp/vhf-data/data_pipeline/pipeline_outputs/asr_llm_results.csv"
+  mllm_direct_csv: "/root/autodl-tmp/vhf-data/data_pipeline/pipeline_outputs/mllm_direct_results.csv"
+  key_fields:
+    - "primary_label"
+    - "risk_level"
+    - "auto_reply_allowed"

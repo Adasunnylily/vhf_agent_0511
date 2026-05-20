@@ -301,21 +301,6 @@ def render_dashboard(settings: Settings) -> str:
       font-size: 11px;
     }
     .search { margin-bottom: 8px; }
-    .compare-list {
-      display: grid;
-      gap: 8px;
-      max-height: 280px;
-      overflow: auto;
-    }
-    .compare-card {
-      border: 1px solid #d4e1ec;
-      border-radius: 12px;
-      padding: 10px;
-      background: #fff;
-    }
-    .compare-card strong { display: block; margin-bottom: 6px; }
-    .compare-card p { margin: 0 0 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
-    .compare-meta { display: grid; gap: 4px; color: #21425c; font-size: 12px; }
     .log {
       min-height: 156px;
       max-height: 240px;
@@ -489,11 +474,6 @@ def render_dashboard(settings: Settings) -> str:
           <div class="work-card" style="margin-top:12px;">
             <h3>点验通知</h3>
             <div id="noticeList" class="list"></div>
-          </div>
-
-          <div class="work-card" style="margin-top:12px;">
-            <h3>API 比选</h3>
-            <div id="compareList" class="compare-list"></div>
           </div>
 
           <div class="work-card" style="margin-top:12px;">
@@ -777,33 +757,10 @@ def render_dashboard(settings: Settings) -> str:
       });
     }
 
-    function renderCompareOptions(items) {
-      const container = $("compareList");
-      container.innerHTML = items.map((item) => `
-        <div class="compare-card">
-          <strong>${item.provider}</strong>
-          <p>${item.recommended_role}</p>
-          <div class="compare-meta">
-            <span><b>模型：</b>${item.model}</span>
-            <span><b>适合：</b>${item.fit_for}</span>
-            <span><b>部署：</b>${item.local_deploy}</span>
-          </div>
-          <div class="ship-meta" style="margin-top:8px;">
-            ${(item.strengths || []).slice(0, 2).map((text) => `<span class="mini">${text}</span>`).join("")}
-          </div>
-          <div class="toolbar" style="margin-top:8px;">
-            <button type="button" class="secondary" data-doc="${item.official_url}">官方文档</button>
-          </div>
-        </div>
-      `).join("");
-      container.querySelectorAll("[data-doc]").forEach((button) => {
-        button.addEventListener("click", () => window.open(button.dataset.doc, "_blank"));
-      });
-    }
-
     async function pollTask(taskId) {
       for (let attempt = 0; attempt < 120; attempt += 1) {
         const task = await requestJson(`/api/tasks/${taskId}`);
+        setStatus(`处理中: ${task.status}（轮询 ${attempt + 1}）`);
         if (task.status === "completed") return task;
         if (task.status === "failed") throw new Error(task.error || "任务失败");
         await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -911,13 +868,9 @@ def render_dashboard(settings: Settings) -> str:
     }
 
     async function loadInitialData() {
-      const [ships, compare] = await Promise.all([
-        requestJson("/api/inspection/ships"),
-        requestJson("/api/asr/compare-options")
-      ]);
+      const ships = await requestJson("/api/inspection/ships");
       state.ships = ships.items || [];
       renderShips();
-      renderCompareOptions(compare.items || []);
     }
 
     function resetFlow() {
@@ -966,50 +919,63 @@ def render_dashboard(settings: Settings) -> str:
 
       $("uploadForm").addEventListener("submit", async (event) => {
         event.preventDefault();
-        const file = $("audioFile").files[0];
-        if (!file) {
-          setUploadStatus("请选择音频文件", "red");
-          return;
+        try {
+          const file = $("audioFile").files[0];
+          if (!file) {
+            setStatus("请选择音频文件", "red");
+            return;
+          }
+          const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
+          connectSocket(channelId);
+          resetFlow();
+          setStatus("上传中...", "");
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("channel_id", channelId);
+          formData.append("denoise_mode", $("denoiseMode").value);
+          const createTask = await requestJson("/api/audio/upload", { method: "POST", body: formData });
+          logLine(createTask);
+          setSteps(1, "active");
+          const task = await pollTask(createTask.task_id);
+          setStatus("识别完成", "green");
+          renderOutcome(task);
+        } catch (error) {
+          const message = error && error.message ? error.message : String(error);
+          setStatus(`识别失败: ${message}`, "red");
+          setBadge("失败", "red");
+          logLine(`UPLOAD ERROR: ${message}`);
         }
-        const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
-        connectSocket(channelId);
-        resetFlow();
-        setStatus("上传中...", "");
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("channel_id", channelId);
-        formData.append("denoise_mode", $("denoiseMode").value);
-        const createTask = await requestJson("/api/audio/upload", { method: "POST", body: formData });
-        logLine(createTask);
-        setSteps(1, "active");
-        const task = await pollTask(createTask.task_id);
-        setStatus("识别完成", "green");
-        renderOutcome(task);
       });
 
       $("inspectionForm").addEventListener("submit", async (event) => {
         event.preventDefault();
-        const channelId = $("inspectionChannel").value.trim() || "__DEFAULT_CHANNEL__";
-        connectSocket(channelId);
-        setBadge("点验处理中", "amber");
-        const formData = new FormData();
-        formData.append("channel_id", channelId);
-        formData.append("area_name", $("areaName").value.trim());
-        formData.append("min_draft_m", $("minDraft").value.trim());
-        formData.append("min_tonnage_t", $("minTonnage").value.trim());
-        formData.append("notice_template", $("noticeTemplate").value);
-        formData.append("area_geometry", getCurrentGeometry());
-        const createTask = await requestJson("/api/inspection/run", { method: "POST", body: formData });
-        logLine(createTask);
-        const task = await pollTask(createTask.task_id);
-        const notices = (task.meta && task.meta.notices) || [];
-        state.notices = notices.concat(state.notices);
-        renderNotices();
-        setBadge("点验完成", "green");
-        $("asrText").textContent = `点验范围：${task.meta.area_name}\n命中目标：${task.meta.matched_count} 艘`;
-        $("llmSuggestion").textContent = notices.map((item) => item.notice_text).join("\n") || "无匹配船舶";
-        state.activeReply = notices[0] ? notices[0].notice_text : "";
-        updateStats();
+        try {
+          const channelId = $("inspectionChannel").value.trim() || "__DEFAULT_CHANNEL__";
+          connectSocket(channelId);
+          setBadge("点验处理中", "amber");
+          const formData = new FormData();
+          formData.append("channel_id", channelId);
+          formData.append("area_name", $("areaName").value.trim());
+          formData.append("min_draft_m", $("minDraft").value.trim());
+          formData.append("min_tonnage_t", $("minTonnage").value.trim());
+          formData.append("notice_template", $("noticeTemplate").value);
+          formData.append("area_geometry", getCurrentGeometry());
+          const createTask = await requestJson("/api/inspection/run", { method: "POST", body: formData });
+          logLine(createTask);
+          const task = await pollTask(createTask.task_id);
+          const notices = (task.meta && task.meta.notices) || [];
+          state.notices = notices.concat(state.notices);
+          renderNotices();
+          setBadge("点验完成", "green");
+          $("asrText").textContent = `点验范围：${task.meta.area_name}\n命中目标：${task.meta.matched_count} 艘`;
+          $("llmSuggestion").textContent = notices.map((item) => item.notice_text).join("\n") || "无匹配船舶";
+          state.activeReply = notices[0] ? notices[0].notice_text : "";
+          updateStats();
+        } catch (error) {
+          const message = error && error.message ? error.message : String(error);
+          setBadge("点验失败", "red");
+          logLine(`INSPECTION ERROR: ${message}`);
+        }
       });
     }
 
@@ -1027,7 +993,8 @@ def render_dashboard(settings: Settings) -> str:
     }
 
     init().catch((error) => {
-      logLine(`INIT ERROR: ${error.message}`);
+      const message = error && error.message ? error.message : String(error);
+      logLine(`INIT ERROR: ${message}`);
       setBadge("初始化失败", "red");
     });
   </script>
