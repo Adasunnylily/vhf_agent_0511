@@ -4,7 +4,7 @@ from app.config import Settings
 
 
 def render_dashboard(settings: Settings) -> str:
-    return f"""
+    template = r"""
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -12,352 +12,404 @@ def render_dashboard(settings: Settings) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>数字值班员</title>
   <style>
-    :root {{
-      --bg: #07131f;
-      --surface: #0e1d2c;
-      --surface-2: #13283b;
-      --panel: #f8fbff;
-      --panel-2: #eef5fb;
-      --line: #c9d8e7;
-      --line-dark: rgba(143, 181, 217, 0.22);
-      --text: #102033;
-      --muted: #65778c;
-      --white: #f8fbff;
-      --cyan: #2bb3c0;
-      --blue: #2368d1;
-      --green: #1c8f65;
-      --amber: #b97812;
-      --red: #c93f3f;
-      --shadow: 0 16px 38px rgba(4, 18, 32, 0.18);
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{
+    :root {
+      --bg: #07121d;
+      --ocean: #0b2235;
+      --ocean-2: #113755;
+      --panel: #f7fbff;
+      --panel-2: #eff5fb;
+      --line: #d3e0ec;
+      --text: #102235;
+      --muted: #617689;
+      --white: #f7fbff;
+      --cyan: #2cb2c3;
+      --blue: #1e63d6;
+      --green: #148457;
+      --amber: #bf7d17;
+      --red: #d04b46;
+      --shadow: 0 18px 42px rgba(6, 20, 34, 0.18);
+    }
+    * { box-sizing: border-box; }
+    body {
       margin: 0;
       min-height: 100vh;
       font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at 25% 0%, rgba(43, 179, 192, 0.18), transparent 32%),
-        linear-gradient(180deg, #06111c 0%, #0a1724 44%, #edf3f8 44%, #edf3f8 100%);
-    }}
-    button, input, select, textarea {{ font: inherit; }}
-    button {{
-      border: 0;
-      border-radius: 8px;
-      min-height: 38px;
-      padding: 9px 13px;
-      background: var(--blue);
-      color: white;
-      cursor: pointer;
-      font-weight: 650;
-    }}
-    button.secondary {{ background: #e7eef7; color: #173047; }}
-    button.green {{ background: var(--green); }}
-    button.red {{ background: var(--red); }}
-    button.dark {{ background: #183247; }}
-    button:disabled {{ opacity: 0.5; cursor: not-allowed; }}
-    input, select, textarea {{
+        radial-gradient(circle at 18% 0%, rgba(44, 178, 195, 0.22), transparent 28%),
+        linear-gradient(180deg, #08131d 0%, #0a1825 32%, #eef3f7 32%, #eef3f7 100%);
+    }
+    button, input, select, textarea { font: inherit; }
+    input, select, textarea {
       width: 100%;
       border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 10px 11px;
-      background: #fff;
+      border-radius: 10px;
+      padding: 11px 12px;
+      background: white;
       color: var(--text);
       outline: none;
-    }}
-    textarea {{ min-height: 84px; resize: vertical; line-height: 1.5; }}
-    .shell {{ max-width: 1480px; margin: 0 auto; padding: 18px; }}
-    .topbar {{
+    }
+    textarea { resize: vertical; min-height: 84px; line-height: 1.5; }
+    button {
+      border: 0;
+      border-radius: 10px;
+      min-height: 40px;
+      padding: 10px 14px;
+      cursor: pointer;
+      color: white;
+      background: var(--blue);
+      font-weight: 650;
+    }
+    button.secondary { background: #e6eef8; color: #1c3952; }
+    button.green { background: var(--green); }
+    button.red { background: var(--red); }
+    button.dark { background: #163044; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .shell { max-width: 1500px; margin: 0 auto; padding: 18px; }
+    .topbar {
       display: grid;
-      grid-template-columns: minmax(260px, 1fr) auto;
-      gap: 18px;
+      grid-template-columns: minmax(280px, 1fr) auto;
+      gap: 16px;
       align-items: center;
+      margin-bottom: 14px;
       color: var(--white);
-      margin-bottom: 16px;
-    }}
-    .brand {{ display: flex; align-items: center; gap: 14px; }}
-    .mark {{
-      width: 52px; height: 52px; border-radius: 12px;
-      display: grid; place-items: center;
-      background: linear-gradient(135deg, #1b8ea0, #2368d1);
-      box-shadow: 0 12px 28px rgba(35, 104, 209, 0.28);
-      font-size: 24px; font-weight: 800;
-    }}
-    .brand h1 {{ margin: 0; font-size: 28px; letter-spacing: 0; }}
-    .brand-row {{ display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }}
-    .tag {{
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 5px 9px; border-radius: 999px;
-      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16);
-      color: rgba(248,251,255,0.86); font-size: 12px;
-    }}
-    .status-strip {{ display: grid; grid-template-columns: repeat(4, 128px); gap: 10px; }}
-    .stat {{
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.16);
-      border-radius: 10px; padding: 10px;
-    }}
-    .stat b {{ display: block; font-size: 19px; color: #fff; }}
-    .stat span {{ color: rgba(248,251,255,0.7); font-size: 12px; }}
-    .layout {{
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-mark {
+      width: 54px;
+      height: 54px;
       display: grid;
-      grid-template-columns: 330px minmax(430px, 1fr) 390px;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #2cb2c3, #1e63d6);
+      box-shadow: 0 16px 34px rgba(30, 99, 214, 0.28);
+      font-size: 24px;
+      font-weight: 800;
+    }
+    .brand h1 { margin: 0; font-size: 29px; letter-spacing: 0; }
+    .brand-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.08);
+      font-size: 12px;
+      color: rgba(247,251,255,0.9);
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, 130px);
+      gap: 10px;
+    }
+    .stat {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .stat strong {
+      display: block;
+      color: white;
+      font-size: 21px;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+    .stat span {
+      display: block;
+      color: rgba(247,251,255,0.74);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 330px minmax(520px, 1fr) 390px;
       gap: 14px;
       align-items: start;
-    }}
-    .panel {{
+    }
+    .panel {
       background: var(--panel);
-      border: 1px solid rgba(16, 32, 51, 0.08);
-      border-radius: 8px;
+      border-radius: 18px;
       box-shadow: var(--shadow);
+      border: 1px solid rgba(16, 34, 53, 0.08);
       overflow: hidden;
-    }}
-    .panel-head {{
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 13px 14px;
-      background: linear-gradient(180deg, #ffffff, #eef5fb);
+    }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      background: linear-gradient(180deg, #ffffff, #edf4fb);
       border-bottom: 1px solid var(--line);
-    }}
-    .panel-head h2 {{ margin: 0; font-size: 17px; }}
-    .panel-body {{ padding: 14px; }}
-    .tabs {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }}
-    .tab {{ background: #e8f0f7; color: #24435e; }}
-    .tab.active {{ background: var(--surface-2); color: white; }}
-    .mode {{ display: none; }}
-    .mode.active {{ display: block; }}
-    .form-grid {{ display: grid; gap: 10px; }}
-    .row-2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }}
-    .toolbar {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }}
-    .audio-box {{
-      margin-top: 10px; padding: 10px;
-      border: 1px dashed #a9bed2; border-radius: 8px; background: #f4f8fc;
-    }}
-    audio {{ width: 100%; height: 36px; }}
-    .pipeline {{
+    }
+    .panel-head h2 { margin: 0; font-size: 17px; }
+    .panel-body { padding: 14px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #e8f0f7;
+      color: #24435e;
+    }
+    .badge.green { background: #e5f6ee; color: #115d40; }
+    .badge.red { background: #ffe8e8; color: #952f2f; }
+    .badge.amber { background: #fff1d8; color: #87530a; }
+    .badge.dark { background: #183246; color: #eef7ff; }
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .tab.active { background: #183246; color: white; }
+    .mode { display: none; }
+    .mode.active { display: block; }
+    .form-grid { display: grid; gap: 10px; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .audio-box {
+      margin-top: 10px;
+      padding: 11px;
+      border-radius: 10px;
+      border: 1px dashed #b3c5d8;
+      background: #f5f9fc;
+    }
+    audio { width: 100%; height: 38px; }
+    .pipeline {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 8px;
-    }}
-    .step {{
-      min-height: 82px;
+    }
+    .step {
+      min-height: 88px;
       padding: 10px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 12px;
       background: #fff;
-      position: relative;
-    }}
-    .step.active {{ border-color: var(--blue); box-shadow: inset 0 0 0 1px rgba(35,104,209,0.15); }}
-    .step.done {{ border-color: rgba(28,143,101,0.55); background: #f3fbf7; }}
-    .step.warn {{ border-color: rgba(185,120,18,0.55); background: #fff9ec; }}
-    .step.danger {{ border-color: rgba(201,63,63,0.6); background: #fff2f2; }}
-    .step b {{ display: block; font-size: 13px; margin-bottom: 8px; }}
-    .step span {{ color: var(--muted); font-size: 12px; line-height: 1.4; }}
-    .decision {{
-      margin-top: 12px;
+    }
+    .step b { display: block; font-size: 13px; margin-bottom: 8px; }
+    .step span { color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .step.active { border-color: var(--blue); box-shadow: inset 0 0 0 1px rgba(30,99,214,0.16); }
+    .step.done { border-color: rgba(20,132,87,0.45); background: #f3fbf7; }
+    .step.warn { border-color: rgba(191,125,23,0.5); background: #fff9ef; }
+    .step.danger { border-color: rgba(208,75,70,0.5); background: #fff4f4; }
+    .decision-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px;
-    }}
-    .decision-card {{
-      border-radius: 8px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .decision-card {
+      min-height: 100px;
       padding: 12px;
+      border-radius: 12px;
       border: 1px solid var(--line);
-      background: #fff;
-      min-height: 94px;
-    }}
-    .decision-card b {{ display: block; font-size: 14px; margin-bottom: 8px; }}
-    .decision-card strong {{ font-size: 24px; display: block; }}
-    .decision-card small {{ color: var(--muted); }}
-    .danger-box {{ border-color: rgba(201,63,63,0.42); background: #fff5f5; }}
-    .auto-box {{ border-color: rgba(28,143,101,0.42); background: #f2fbf7; }}
-    .manual-box {{ border-color: rgba(185,120,18,0.42); background: #fff9ee; }}
-    .content-grid {{
+      background: white;
+    }
+    .decision-card b { display: block; font-size: 14px; margin-bottom: 9px; }
+    .decision-card strong { display: block; font-size: 24px; margin-bottom: 4px; }
+    .decision-card small { color: var(--muted); line-height: 1.4; }
+    .decision-card.risk { background: #fff3f3; border-color: rgba(208,75,70,0.42); }
+    .decision-card.auto { background: #f1faf6; border-color: rgba(20,132,87,0.42); }
+    .decision-card.manual { background: #fff8ef; border-color: rgba(191,125,23,0.42); }
+    .card-grid {
       display: grid;
       grid-template-columns: 1.08fr 0.92fr;
       gap: 12px;
       margin-top: 12px;
-    }}
-    .work-card {{
-      background: #fff;
+    }
+    .work-card {
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 12px;
       padding: 12px;
-    }}
-    .work-card h3 {{ margin: 0 0 10px; font-size: 15px; }}
-    .asr-text {{
-      min-height: 114px;
-      padding: 11px;
-      border-radius: 8px;
-      border: 1px solid #d5e2ed;
+      background: #fff;
+    }
+    .work-card h3 { margin: 0 0 10px; font-size: 15px; }
+    .text-box {
+      min-height: 126px;
+      border-radius: 10px;
+      border: 1px solid #d7e2ec;
       background: #f8fbfe;
+      padding: 11px;
       line-height: 1.65;
       white-space: pre-wrap;
       word-break: break-word;
-    }}
-    .suggestion {{
-      min-height: 114px;
-      padding: 11px;
-      border-radius: 8px;
-      border: 1px solid #d8e3ed;
+    }
+    .suggest-box {
+      min-height: 126px;
+      border-radius: 10px;
+      border: 1px solid #d7e2ec;
       background: #fbfdff;
-      line-height: 1.62;
-    }}
-    .record-search {{ margin-bottom: 8px; }}
-    .record-list {{ max-height: 278px; overflow: auto; display: grid; gap: 8px; }}
-    .record {{
-      border: 1px solid #d6e2ed;
-      border-radius: 8px;
-      background: #fff;
-      padding: 9px;
-      cursor: pointer;
-    }}
-    .record b {{ display: block; font-size: 13px; margin-bottom: 5px; }}
-    .record span {{ display: block; color: var(--muted); font-size: 12px; line-height: 1.45; }}
-    .map {{
-      height: 312px;
-      border: 1px solid #9db4c8;
-      border-radius: 8px;
+      padding: 11px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .map {
+      height: 320px;
+      border-radius: 12px;
+      border: 1px solid #99b3c8;
       background:
         linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px),
         linear-gradient(0deg, rgba(255,255,255,0.08) 1px, transparent 1px),
-        linear-gradient(135deg, #154d66, #0a2e44 54%, #164958);
-      background-size: 28px 28px, 28px 28px, auto;
+        linear-gradient(135deg, #14465f, #0a2b40 58%, #103949);
+      background-size: 30px 30px, 30px 30px, auto;
       position: relative;
       overflow: hidden;
-    }}
-    canvas {{ width: 100%; height: 100%; display: block; }}
-    .map-tools {{
+    }
+    canvas { width: 100%; height: 100%; display: block; }
+    .map-tools {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 8px;
       margin: 10px 0;
-    }}
-    .ship-list {{ display: grid; gap: 8px; max-height: 212px; overflow: auto; }}
-    .ship {{
-      border: 1px solid #d6e2ed;
-      border-radius: 8px;
-      padding: 9px;
+    }
+    .list {
+      display: grid;
+      gap: 8px;
+      max-height: 250px;
+      overflow: auto;
+    }
+    .item {
+      border: 1px solid #d5e1ec;
+      border-radius: 10px;
       background: #fff;
+      padding: 10px;
+    }
+    .item b { display: block; font-size: 13px; margin-bottom: 5px; }
+    .item span { display: block; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .ship {
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 8px;
       align-items: center;
-    }}
-    .ship b {{ font-size: 13px; }}
-    .ship span {{ color: var(--muted); font-size: 12px; }}
-    .notice-list {{ display: grid; gap: 8px; max-height: 260px; overflow: auto; }}
-    .notice {{
-      border: 1px solid #cddce8;
-      border-radius: 8px;
-      background: #fff;
-      padding: 10px;
-      line-height: 1.55;
-    }}
-    .badge {{
-      display: inline-flex; align-items: center; gap: 5px;
-      border-radius: 999px; padding: 4px 8px;
-      font-size: 12px; font-weight: 700;
-      background: #e8f0f7; color: #24435e;
-    }}
-    .badge.red {{ background: #ffe7e7; color: #9f2d2d; }}
-    .badge.green {{ background: #e4f7ef; color: #116647; }}
-    .badge.amber {{ background: #fff0d2; color: #83520c; }}
-    .log {{
-      min-height: 150px;
-      max-height: 230px;
+    }
+    .ship-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .mini {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: #edf4fb;
+      color: #264963;
+      font-size: 11px;
+    }
+    .search { margin-bottom: 8px; }
+    .compare-list {
+      display: grid;
+      gap: 8px;
+      max-height: 280px;
       overflow: auto;
+    }
+    .compare-card {
+      border: 1px solid #d4e1ec;
+      border-radius: 12px;
       padding: 10px;
-      border-radius: 8px;
-      color: #dce9f7;
+      background: #fff;
+    }
+    .compare-card strong { display: block; margin-bottom: 6px; }
+    .compare-card p { margin: 0 0 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .compare-meta { display: grid; gap: 4px; color: #21425c; font-size: 12px; }
+    .log {
+      min-height: 156px;
+      max-height: 240px;
+      overflow: auto;
+      border-radius: 12px;
       background: #07131f;
+      color: #d9e8f6;
+      padding: 10px;
+      white-space: pre-wrap;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 12px;
-      white-space: pre-wrap;
       line-height: 1.45;
-    }}
-    .compact-label {{ font-size: 12px; color: var(--muted); margin-bottom: 5px; }}
-    .hidden {{ display: none; }}
-    @media (max-width: 1180px) {{
-      .layout {{ grid-template-columns: 1fr; }}
-      .status-strip {{ grid-template-columns: repeat(2, 1fr); }}
-      .pipeline {{ grid-template-columns: 1fr 1fr; }}
-      .content-grid, .decision {{ grid-template-columns: 1fr; }}
-      .topbar {{ grid-template-columns: 1fr; }}
-    }}
+    }
+    .hidden { display: none; }
+    @media (max-width: 1220px) {
+      .layout { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(3, 1fr); }
+      .pipeline { grid-template-columns: 1fr 1fr; }
+      .decision-grid, .card-grid { grid-template-columns: 1fr; }
+      .topbar { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
       <div class="brand">
-        <div class="mark">值</div>
+        <div class="brand-mark">值</div>
         <div>
           <h1>数字值班员</h1>
-          <div class="brand-row">
+          <div class="brand-tags">
             <span class="tag">VHF</span>
-            <span class="tag">ASR</span>
-            <span class="tag">LLM建议</span>
-            <span class="tag">TTS</span>
+            <span class="tag">高危拦截</span>
+            <span class="tag">自动回复</span>
+            <span class="tag">人工建议</span>
             <span class="tag">AIS点验</span>
+            <span class="tag">TTS</span>
           </div>
         </div>
       </div>
-      <div class="status-strip">
-        <div class="stat"><b id="statRisk">0</b><span>高危事件</span></div>
-        <div class="stat"><b id="statAuto">0</b><span>自动回复</span></div>
-        <div class="stat"><b id="statManual">0</b><span>人工处理</span></div>
-        <div class="stat"><b id="statRecords">0</b><span>汇报记录</span></div>
+      <div class="stats">
+        <div class="stat"><strong id="statRisk">0</strong><span>高危事件</span></div>
+        <div class="stat"><strong id="statAuto">0</strong><span>自动回复</span></div>
+        <div class="stat"><strong id="statManual">0</strong><span>人工处理</span></div>
+        <div class="stat"><strong id="statRecords">0</strong><span>汇报索引</span></div>
+        <div class="stat"><strong id="statInspection">0</strong><span>点验通知</span></div>
       </div>
     </header>
 
     <section class="layout">
       <aside class="panel">
-        <div class="panel-head"><h2>任务入口</h2><span class="badge">在线</span></div>
+        <div class="panel-head">
+          <h2>任务入口</h2>
+          <span class="badge green">ONLINE</span>
+        </div>
         <div class="panel-body">
           <div class="tabs">
-            <button class="tab active" type="button" data-mode="audioMode">音频</button>
-            <button class="tab" type="button" data-mode="inspectionMode">点验</button>
+            <button type="button" class="tab active" data-mode="audioMode">音频处置</button>
+            <button type="button" class="tab" data-mode="inspectionMode">点验通知</button>
           </div>
 
           <section id="audioMode" class="mode active">
             <form id="uploadForm" class="form-grid">
-              <input id="channelId" name="channel_id" value="{settings.default_channel_id}" placeholder="频道 ID" />
+              <input id="channelId" value="__DEFAULT_CHANNEL__" placeholder="频道 ID" />
               <input id="audioFile" type="file" accept=".wav,.mp3,.flac,.m4a,.aac,.pcm" />
               <select id="denoiseMode">
                 <option value="off">原音识别</option>
                 <option value="on">降噪识别</option>
-                <option value="compare">原音/降噪对比</option>
+                <option value="compare">原音 / 降噪对比</option>
               </select>
-              <input id="transcriptOverride" placeholder="演示转写覆盖文本" />
-              <button id="uploadSubmit" type="submit">上传识别</button>
+              <button id="uploadSubmit" type="submit">开始处置</button>
             </form>
-            <div id="uploadStatus" class="audio-box">等待选择音频</div>
+            <div id="uploadStatus" class="audio-box">等待音频</div>
             <div class="audio-box">
-              <div class="compact-label">原音回放</div>
+              <div class="badge dark" style="margin-bottom:8px;">原音回放</div>
               <audio id="audioPlayer" controls></audio>
-            </div>
-            <div class="toolbar" style="margin-top:10px">
-              <button type="button" class="secondary" data-demo="smoke_fire">高危演示</button>
-              <button type="button" class="secondary" data-demo="static_report">自动回复</button>
-              <button type="button" class="secondary" data-demo="manual_business">人工建议</button>
             </div>
           </section>
 
           <section id="inspectionMode" class="mode">
-            <div class="map" id="mapBox"><canvas id="mapCanvas" width="640" height="420"></canvas></div>
+            <div class="map"><canvas id="mapCanvas" width="620" height="360"></canvas></div>
             <div class="map-tools">
-              <button type="button" class="secondary active" id="drawRect">框选</button>
+              <button type="button" class="secondary" id="drawRect">框选</button>
               <button type="button" class="secondary" id="drawLine">过线</button>
               <button type="button" class="secondary" id="clearMap">清除</button>
             </div>
             <form id="inspectionForm" class="form-grid">
-              <input id="inspectionChannel" value="{settings.default_channel_id}" placeholder="频道 ID" />
+              <input id="inspectionChannel" value="__DEFAULT_CHANNEL__" placeholder="频道 ID" />
               <input id="areaName" value="北仑主航道A3段" placeholder="范围名称" />
               <div class="row-2">
                 <input id="minDraft" value="10" placeholder="最小吃水 m" />
                 <input id="minTonnage" value="5000" placeholder="最小吨位 t" />
               </div>
-              <textarea id="noticeTemplate">{"{船名}"}，VTS提醒：你船即将通过{"{区域}"}，请保持安全航速，加强瞭望并保持守听。</textarea>
+              <textarea id="noticeTemplate">{船名}，数字值班员提醒：你船已进入{区域}关注范围，请保持安全航速，加强瞭望并保持守听。</textarea>
               <button type="submit">生成点验通知</button>
             </form>
           </section>
@@ -365,36 +417,51 @@ def render_dashboard(settings: Settings) -> str:
       </aside>
 
       <section class="panel">
-        <div class="panel-head"><h2>业务流转</h2><span id="currentState" class="badge">待命</span></div>
+        <div class="panel-head">
+          <h2>处置流转</h2>
+          <span id="currentState" class="badge">待命</span>
+        </div>
         <div class="panel-body">
           <div class="pipeline">
-            <div class="step active" id="stepInput"><b>01 音频输入</b><span>原音保留</span></div>
-            <div class="step" id="stepAsr"><b>02 ASR</b><span>转写/切分</span></div>
-            <div class="step" id="stepRisk"><b>03 高危分类</b><span>秒级拦截</span></div>
-            <div class="step" id="stepDecision"><b>04 自动化判断</b><span>动转静/人工</span></div>
-            <div class="step" id="stepOutput"><b>05 TTS处置</b><span>一键播报</span></div>
+            <div class="step active" id="stepInput"><b>01 输入</b><span>原音保留、建立任务</span></div>
+            <div class="step" id="stepAsr"><b>02 转写</b><span>ASR / 切段 / 留痕</span></div>
+            <div class="step" id="stepRisk"><b>03 风险判断</b><span>高危拦截 / 常规分流</span></div>
+            <div class="step" id="stepDecision"><b>04 回复决策</b><span>自动回复 / 人工建议</span></div>
+            <div class="step" id="stepOutput"><b>05 播报</b><span>TTS 播放 / 留档索引</span></div>
           </div>
 
-          <div class="decision">
-            <div class="decision-card danger-box"><b>高危</b><strong id="riskLabel">否</strong><small id="riskReason">等待识别</small></div>
-            <div class="decision-card auto-box"><b>自动回复</b><strong id="autoLabel">否</strong><small id="autoReason">等待识别</small></div>
-            <div class="decision-card manual-box"><b>人工处理</b><strong id="manualLabel">待命</strong><small id="manualReason">等待识别</small></div>
+          <div class="decision-grid">
+            <div class="decision-card risk">
+              <b>高危情况</b>
+              <strong id="riskLabel">待定</strong>
+              <small id="riskReason">等待识别结果</small>
+            </div>
+            <div class="decision-card auto">
+              <b>自动回复</b>
+              <strong id="autoLabel">待定</strong>
+              <small id="autoReason">等待识别结果</small>
+            </div>
+            <div class="decision-card manual">
+              <b>人工处理</b>
+              <strong id="manualLabel">待命</strong>
+              <small id="manualReason">等待识别结果</small>
+            </div>
           </div>
 
-          <div class="content-grid">
+          <div class="card-grid">
             <div class="work-card">
-              <h3>ASR内容</h3>
-              <div id="asrText" class="asr-text">等待音频或场景输入</div>
-              <div class="toolbar" style="margin-top:10px">
-                <button type="button" class="secondary" id="copyAsr">复制ASR</button>
-                <button type="button" class="secondary" id="saveRecord">存入列表</button>
+              <h3>ASR 结果</h3>
+              <div id="asrText" class="text-box">等待音频或点验任务</div>
+              <div class="toolbar" style="margin-top:10px;">
+                <button type="button" class="secondary" id="copyAsr">复制</button>
+                <button type="button" class="secondary" id="saveRecord">存入索引</button>
               </div>
             </div>
             <div class="work-card">
-              <h3>LLM处置建议</h3>
-              <div id="llmSuggestion" class="suggestion">等待分类结果</div>
-              <div class="toolbar" style="margin-top:10px">
-                <button type="button" class="green" id="playTts">一键TTS</button>
+              <h3>处置建议 / 回复</h3>
+              <div id="llmSuggestion" class="suggest-box">等待处置决策</div>
+              <div class="toolbar" style="margin-top:10px;">
+                <button type="button" class="green" id="playTts">一键 TTS</button>
                 <button type="button" class="red" id="manualTakeover">人工接管</button>
               </div>
             </div>
@@ -403,22 +470,33 @@ def render_dashboard(settings: Settings) -> str:
       </section>
 
       <aside class="panel">
-        <div class="panel-head"><h2>值班台</h2><span class="badge" id="clock">--:--:--</span></div>
+        <div class="panel-head">
+          <h2>值班侧栏</h2>
+          <span id="clock" class="badge dark">--:--:--</span>
+        </div>
         <div class="panel-body">
           <div class="work-card">
             <h3>汇报索引</h3>
-            <input id="recordSearch" class="record-search" placeholder="搜索船名/靠泊/抛锚/风险" />
-            <div id="recordList" class="record-list"></div>
+            <input id="recordSearch" class="search" placeholder="搜索船名 / 靠泊 / 抛锚 / 高危" />
+            <div id="recordList" class="list"></div>
           </div>
-          <div class="work-card" style="margin-top:12px">
+
+          <div class="work-card" style="margin-top:12px;">
+            <h3>AIS 点验目标</h3>
+            <div id="shipList" class="list"></div>
+          </div>
+
+          <div class="work-card" style="margin-top:12px;">
             <h3>点验通知</h3>
-            <div id="noticeList" class="notice-list"></div>
+            <div id="noticeList" class="list"></div>
           </div>
-          <div class="work-card" style="margin-top:12px">
-            <h3>AIS目标</h3>
-            <div id="shipList" class="ship-list"></div>
+
+          <div class="work-card" style="margin-top:12px;">
+            <h3>API 比选</h3>
+            <div id="compareList" class="compare-list"></div>
           </div>
-          <div class="work-card" style="margin-top:12px">
+
+          <div class="work-card" style="margin-top:12px;">
             <h3>运行日志</h3>
             <div id="log" class="log">READY</div>
           </div>
@@ -428,360 +506,532 @@ def render_dashboard(settings: Settings) -> str:
   </main>
 
   <script>
-    const state = {{
+    const state = {
+      activeText: "",
+      activeReply: "",
+      activeRecordType: "",
       records: [],
       notices: [],
       ships: [],
-      activeText: "",
-      activeReply: "",
-      counts: {{ risk: 0, auto: 0, manual: 0 }},
+      counts: { risk: 0, auto: 0, manual: 0 },
       drawMode: "rect",
       drawing: false,
       startPoint: null,
-      shapes: []
-    }};
+      shapes: [],
+      ws: null
+    };
 
     const $ = (id) => document.getElementById(id);
 
-    function log(value) {{
-      const line = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-      $("log").textContent = `[${{new Date().toLocaleTimeString()}}] ${{line}}\\n\\n` + $("log").textContent;
-    }}
+    function logLine(value) {
+      const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      $("log").textContent = `[${new Date().toLocaleTimeString()}] ${text}\n\n` + $("log").textContent;
+    }
 
-    function setUploadStatus(text, kind = "") {{
+    async function requestJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const text = await response.text();
+      let data = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch (error) {
+          data = { raw: text };
+        }
+      }
+      if (!response.ok) {
+        throw new Error(data.detail ? JSON.stringify(data.detail) : (data.raw || response.statusText));
+      }
+      return data;
+    }
+
+    function setStatus(text, kind = "") {
       const node = $("uploadStatus");
       node.textContent = text;
-      node.style.borderColor = kind === "red" ? "rgba(201,63,63,0.55)" : kind === "green" ? "rgba(28,143,101,0.55)" : "#a9bed2";
-      node.style.background = kind === "red" ? "#fff2f2" : kind === "green" ? "#f2fbf7" : "#f4f8fc";
-    }}
+      node.style.background = kind === "red" ? "#fff3f3" : kind === "green" ? "#f2fbf7" : "#f5f9fc";
+      node.style.borderColor = kind === "red" ? "rgba(208,75,70,0.48)" : kind === "green" ? "rgba(20,132,87,0.48)" : "#b3c5d8";
+    }
 
-    async function requestJson(url, options = {{}}) {{
-      const resp = await fetch(url, options);
-      const text = await resp.text();
-      let data = {{}};
-      if (text) {{
-        try {{
-          data = JSON.parse(text);
-        }} catch (error) {{
-          data = {{ raw: text }};
-        }}
-      }}
-      if (!resp.ok) {{
-        const message = data.detail ? JSON.stringify(data.detail) : (data.raw || resp.statusText);
-        throw new Error(`${{resp.status}} ${{message}}`);
-      }}
-      return data;
-    }}
-
-    function setBadge(text, kind = "") {{
-      $("currentState").className = `badge ${{kind}}`;
+    function setBadge(text, kind = "") {
+      $("currentState").className = `badge ${kind}`.trim();
       $("currentState").textContent = text;
-    }}
+    }
 
-    function setSteps(stage, kind = "") {{
-      ["stepInput","stepAsr","stepRisk","stepDecision","stepOutput"].forEach((id, index) => {{
+    function setSteps(activeIndex, mode = "active") {
+      ["stepInput","stepAsr","stepRisk","stepDecision","stepOutput"].forEach((id, index) => {
         const node = $(id);
         node.className = "step";
-        if (index < stage) node.classList.add("done");
-        if (index === stage) node.classList.add(kind || "active");
-      }});
-    }}
+        if (index < activeIndex) node.classList.add("done");
+        if (index === activeIndex) node.classList.add(mode);
+      });
+    }
 
-    function updateStats() {{
+    function updateStats() {
       $("statRisk").textContent = state.counts.risk;
       $("statAuto").textContent = state.counts.auto;
       $("statManual").textContent = state.counts.manual;
       $("statRecords").textContent = state.records.length;
-    }}
+      $("statInspection").textContent = state.notices.length;
+    }
 
-    function speak(text) {{
+    function speak(text) {
       if (!text) return;
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.92;
-      window.speechSynthesis.speak(utterance);
-    }}
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "zh-CN";
+      utter.rate = 0.94;
+      utter.pitch = 1.0;
+      window.speechSynthesis.speak(utter);
+    }
 
-    function flattenSegments(segments) {{
+    function flattenSegments(segments) {
       if (!Array.isArray(segments)) return [];
-      if (segments.length && segments[0].items) {{
+      if (segments.length && segments[0].items) {
         return segments.flatMap((group) => group.items || []);
-      }}
+      }
       return segments;
-    }}
+    }
 
-    function fallbackOpinion(text) {{
-      if (/离泊|出港|开航|目的地|航行计划|天气/.test(text)) {{
-        return "VTS收到。建议值班员核实船舶计划、通航态势和天气条件后，再给出明确指令。";
-      }}
-      return "VTS收到。建议值班员复核通话语义、船名、位置和当前态势后，给出保守回复。";
-    }}
+    function buildManualAdvice(text) {
+      if (/离泊|出港|开航|申请/.test(text)) {
+        return "建议人工核实离泊条件、周边态势和当前通航窗口后，再决定是否同意。";
+      }
+      if (/碰撞|失控|故障|搁浅/.test(text)) {
+        return "建议人工立即核实 AIS 与通航态势，必要时点名相关船舶并发出避让提醒。";
+      }
+      return "建议值班员复核船名、位置、业务动作和当前通航态势后，再给出正式回复。";
+    }
 
-    function classifyTask(task) {{
-      const segments = flattenSegments(task.segments);
-      const text = segments.map((item) => item.text).filter(Boolean).join("\\n") || "未获取到ASR文本";
+    function buildAutoReply(text) {
+      if (/抛锚|锚泊/.test(text)) {
+        return "VTS收到，锚泊信息已记录，请保持守听并按规定报告后续动态。";
+      }
+      if (/靠泊|靠港|码头|直接进去/.test(text)) {
+        return "VTS收到，靠泊信息已记录，请保持守听，如计划变化请及时补充报告。";
+      }
+      return "VTS收到，常规动态转静态报告已记录，请保持守听。";
+    }
+
+    function deriveOutcome(task) {
+      const segments = flattenSegments(task.segments || []);
+      const text = segments.map((segment) => segment.text || "").filter(Boolean).join("\n");
       const events = Array.isArray(task.events) ? task.events : [];
-      const primary = events[0] || null;
-      const highRisk = events.some((event) => event.risk_level === "L1" || event.risk_level === "L2");
-      const auto = events.some((event) => event.is_auto_reply === true);
-      const manual = highRisk || !auto;
-      const reply = primary?.broadcast_text || (auto ? "VTS收到，请保持守听，按计划靠泊或锚泊作业。" : fallbackOpinion(text));
-      const suggestion = primary?.suggestion || (auto ? "识别为由动转静标准报告，可记录汇报信息并生成自动回复。" : fallbackOpinion(text));
+      const highRisk = events.find((event) => ["L1", "L2"].includes(event.risk_level));
+      const autoEvent = events.find((event) => event.is_auto_reply || event.action_type === "auto_reply");
+      if (highRisk) {
+        return {
+          type: "risk",
+          text,
+          reply: highRisk.suggestion || "检测到高危情况，建议立即人工接管。",
+          tts: highRisk.broadcast_text || highRisk.suggestion || "",
+          reason: highRisk.summary || highRisk.event_type || "高危事件",
+        };
+      }
+      if (autoEvent) {
+        return {
+          type: "auto",
+          text,
+          reply: buildAutoReply(text),
+          tts: buildAutoReply(text),
+          reason: autoEvent.summary || autoEvent.event_type || "常规自动回复",
+        };
+      }
+      return {
+        type: "manual",
+        text,
+        reply: buildManualAdvice(text),
+        tts: buildManualAdvice(text),
+        reason: "未命中高危或自动回复条件",
+      };
+    }
 
-      state.activeText = text;
-      state.activeReply = reply;
-      $("asrText").textContent = text;
-      $("llmSuggestion").textContent = suggestion + "\\n\\n播报稿：" + reply;
+    function renderOutcome(task) {
+      const outcome = deriveOutcome(task);
+      state.activeText = outcome.text || "未识别到有效文本";
+      state.activeReply = outcome.reply || "";
+      state.activeRecordType = outcome.type;
 
-      $("riskLabel").textContent = highRisk ? "是" : "否";
-      $("riskReason").textContent = primary?.event_type || "未命中高危";
-      $("autoLabel").textContent = auto ? "是" : "否";
-      $("autoReason").textContent = auto ? "由动转静报告" : "不满足自动化条件";
-      $("manualLabel").textContent = manual ? "需要" : "无需";
-      $("manualReason").textContent = highRisk ? "高危人工接管" : auto ? "可自动播报" : "LLM建议人工复核";
+      $("asrText").textContent = state.activeText;
+      $("llmSuggestion").textContent = state.activeReply || "等待后续结果";
 
-      if (highRisk) {{
+      if (outcome.type === "risk") {
+        setSteps(2, "danger");
+        setBadge("高危拦截", "red");
+        $("riskLabel").textContent = "是";
+        $("riskReason").textContent = outcome.reason;
+        $("autoLabel").textContent = "否";
+        $("autoReason").textContent = "高危情况不进入自动回复";
+        $("manualLabel").textContent = "立即处理";
+        $("manualReason").textContent = "需要人工接管并按建议处置";
         state.counts.risk += 1;
         state.counts.manual += 1;
-        setBadge("高危人工处理", "red");
-        setSteps(4, "danger");
-      }} else if (auto) {{
+      } else if (outcome.type === "auto") {
+        setSteps(3, "done");
+        setBadge("自动回复", "green");
+        $("riskLabel").textContent = "否";
+        $("riskReason").textContent = "未命中高危规则";
+        $("autoLabel").textContent = "是";
+        $("autoReason").textContent = outcome.reason;
+        $("manualLabel").textContent = "无需";
+        $("manualReason").textContent = "系统可生成标准回复并播报";
         state.counts.auto += 1;
-        setBadge("自动回复就绪", "green");
-        setSteps(4, "done");
-      }} else {{
+      } else {
+        setSteps(3, "warn");
+        setBadge("人工复核", "amber");
+        $("riskLabel").textContent = "否";
+        $("riskReason").textContent = "未命中高危规则";
+        $("autoLabel").textContent = "否";
+        $("autoReason").textContent = "不满足自动回复条件";
+        $("manualLabel").textContent = "建议处理";
+        $("manualReason").textContent = outcome.reason;
         state.counts.manual += 1;
-        setBadge("人工建议就绪", "amber");
-        setSteps(4, "warn");
-      }}
-      addRecord({{ text, reply, event: primary, status: highRisk ? "高危" : auto ? "自动回复" : "人工建议" }});
+      }
       updateStats();
-    }}
+    }
 
-    function addRecord(record) {{
-      const item = {{
-        id: `R${{String(state.records.length + 1).padStart(4, "0")}}`,
-        time: new Date().toLocaleTimeString(),
-        ...record
-      }};
-      state.records.unshift(item);
-      renderRecords();
-    }}
-
-    function renderRecords() {{
-      const q = $("recordSearch").value.trim();
-      const rows = state.records.filter((item) => !q || (item.text + item.reply + item.status).includes(q));
-      $("recordList").innerHTML = rows.map((item) => `
-        <div class="record" data-id="${{item.id}}">
-          <b>${{item.id}} · ${{item.status}} · ${{item.time}}</b>
-          <span>${{item.text.slice(0, 86)}}</span>
-        </div>
-      `).join("") || `<div class="record"><span>暂无记录</span></div>`;
-      document.querySelectorAll(".record[data-id]").forEach((node) => {{
-        node.onclick = () => {{
-          const item = state.records.find((record) => record.id === node.dataset.id);
-          if (!item) return;
-          state.activeText = item.text;
-          state.activeReply = item.reply;
-          $("asrText").textContent = item.text;
-          $("llmSuggestion").textContent = item.reply;
-        }};
-      }});
+    function saveRecord() {
+      if (!state.activeText) return;
+      state.records.unshift({
+        id: `rec_${Date.now()}`,
+        type: state.activeRecordType || "manual",
+        text: state.activeText,
+        reply: state.activeReply,
+        createdAt: new Date().toLocaleString()
+      });
+      renderRecords($("recordSearch").value);
       updateStats();
-    }}
+      logLine("已存入汇报索引");
+    }
 
-    async function pollTask(taskId, shouldClassify = true) {{
-      setSteps(1, "active");
-      for (let i = 0; i < 80; i++) {{
-        const data = await requestJson(`/api/tasks/${{taskId}}`);
-        if (data.status === "running") {{
-          setBadge("ASR处理中");
-          setUploadStatus(`任务运行中：${{taskId}}`);
-          setSteps(1, "active");
-        }}
-        if (data.status === "completed") {{
-          setSteps(2, "active");
-          if (shouldClassify) classifyTask(data);
-          setUploadStatus("识别完成", "green");
-          log({{ task_id: taskId, status: "completed" }});
-          return data;
-        }}
-        if (data.status === "failed") {{
-          setBadge("任务失败", "red");
-          setUploadStatus(`识别失败：${{data.error || "后端任务失败"}}`, "red");
-          log(data);
-          return data;
-        }}
-        await new Promise((resolve) => setTimeout(resolve, 1200));
-      }}
-      setBadge("等待超时", "amber");
-    }}
-
-    $("uploadForm").onsubmit = async (event) => {{
-      event.preventDefault();
-      const file = $("audioFile").files[0];
-      if (!file) {{
-        setUploadStatus("请先选择音频文件", "red");
-        log("未选择音频文件");
+    function renderRecords(keyword = "") {
+      const container = $("recordList");
+      const needle = keyword.trim();
+      const items = state.records.filter((record) => !needle || `${record.text} ${record.reply}`.includes(needle));
+      if (!items.length) {
+        container.innerHTML = '<div class="item"><span>暂无索引记录</span></div>';
         return;
-      }}
-      $("audioPlayer").src = URL.createObjectURL(file);
-      state.activeText = "";
-      setBadge("音频接入");
-      setUploadStatus(`准备上传：${{file.name}}`);
-      setSteps(0, "active");
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("channel_id", $("channelId").value);
-      formData.append("denoise_mode", $("denoiseMode").value);
-      if ($("transcriptOverride").value.trim()) formData.append("transcript_override", $("transcriptOverride").value.trim());
-      $("uploadSubmit").disabled = true;
-      $("uploadSubmit").textContent = "上传中";
-      try {{
-        setUploadStatus("正在提交到后端");
-        const data = await requestJson("/api/audio/upload", {{ method: "POST", body: formData }});
-        setUploadStatus(`任务已创建：${{data.task_id || "unknown"}}`);
-        log(data);
-        if (data.task_id) await pollTask(data.task_id);
-      }} catch (error) {{
-        setBadge("上传失败", "red");
-        setUploadStatus(`上传失败：${{error.message}}`, "red");
-        log(`上传失败：${{error.message}}`);
-      }} finally {{
-        $("uploadSubmit").disabled = false;
-        $("uploadSubmit").textContent = "上传识别";
-      }}
-    }};
+      }
+      container.innerHTML = items.map((record) => `
+        <div class="item">
+          <b>${record.type === "risk" ? "高危人工处理" : record.type === "auto" ? "自动回复" : "人工建议"}</b>
+          <span>${record.createdAt}</span>
+          <span>${record.text.slice(0, 120)}</span>
+          <div class="toolbar" style="margin-top:8px;">
+            <button type="button" class="secondary" data-record-text="${encodeURIComponent(record.text)}">查看ASR</button>
+            <button type="button" class="green" data-record-reply="${encodeURIComponent(record.reply || '')}">播放TTS</button>
+          </div>
+        </div>
+      `).join("");
+      container.querySelectorAll("[data-record-text]").forEach((button) => {
+        button.addEventListener("click", () => {
+          $("asrText").textContent = decodeURIComponent(button.dataset.recordText || "");
+        });
+      });
+      container.querySelectorAll("[data-record-reply]").forEach((button) => {
+        button.addEventListener("click", () => {
+          speak(decodeURIComponent(button.dataset.recordReply || ""));
+        });
+      });
+    }
 
-    document.querySelectorAll("[data-demo]").forEach((node) => {{
-      node.onclick = async () => {{
-        const scenarioId = node.dataset.demo;
-        const formData = new FormData();
-        formData.append("channel_id", $("channelId").value);
-        setBadge("场景输入");
-        setSteps(0, "active");
-        const resp = await fetch(`/api/demo/scenario/${{scenarioId}}`, {{ method: "POST", body: formData }});
-        const data = await resp.json();
-        log(data);
-        if (data.task_id) await pollTask(data.task_id);
-      }};
-    }});
+    function renderShips() {
+      const container = $("shipList");
+      if (!state.ships.length) {
+        container.innerHTML = '<div class="item"><span>等待加载 AIS 目标</span></div>';
+        return;
+      }
+      container.innerHTML = state.ships.map((ship) => `
+        <div class="item ship">
+          <div>
+            <b>${ship.ship_name}</b>
+            <span>${ship.position_label} · ${ship.destination}</span>
+            <div class="ship-meta">
+              <span class="mini">${ship.ship_type}</span>
+              <span class="mini">吨位 ${ship.tonnage_t}t</span>
+              <span class="mini">吃水 ${ship.draft_m}m</span>
+            </div>
+          </div>
+          <span class="badge">${ship.position_label.includes("A3") ? "A3" : "AIS"}</span>
+        </div>
+      `).join("");
+    }
 
-    $("playTts").onclick = () => speak(state.activeReply || $("llmSuggestion").textContent);
-    $("manualTakeover").onclick = () => {{
-      state.counts.manual += 1;
-      setBadge("人工接管", "red");
-      updateStats();
-      log("人工接管已记录");
-    }};
-    $("copyAsr").onclick = () => navigator.clipboard?.writeText(state.activeText || "");
-    $("saveRecord").onclick = () => addRecord({{ text: state.activeText || $("asrText").textContent, reply: state.activeReply, status: "手动存档" }});
-    $("recordSearch").oninput = renderRecords;
+    function renderNotices() {
+      const container = $("noticeList");
+      if (!state.notices.length) {
+        container.innerHTML = '<div class="item"><span>等待点验通知</span></div>';
+        return;
+      }
+      container.innerHTML = state.notices.map((notice) => `
+        <div class="item">
+          <b>${notice.ship.ship_name}</b>
+          <span>${notice.ship.position_label} · 吃水 ${notice.ship.draft_m}m · 吨位 ${notice.ship.tonnage_t}t</span>
+          <span>${notice.notice_text}</span>
+          <div class="toolbar" style="margin-top:8px;">
+            <button type="button" class="green" data-notice="${encodeURIComponent(notice.notice_text)}">播放TTS</button>
+          </div>
+        </div>
+      `).join("");
+      container.querySelectorAll("[data-notice]").forEach((button) => {
+        button.addEventListener("click", () => speak(decodeURIComponent(button.dataset.notice || "")));
+      });
+    }
 
-    document.querySelectorAll(".tab").forEach((tab) => {{
-      tab.onclick = () => {{
-        document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
-        document.querySelectorAll(".mode").forEach((item) => item.classList.remove("active"));
-        tab.classList.add("active");
-        $(tab.dataset.mode).classList.add("active");
-      }};
-    }});
+    function renderCompareOptions(items) {
+      const container = $("compareList");
+      container.innerHTML = items.map((item) => `
+        <div class="compare-card">
+          <strong>${item.provider}</strong>
+          <p>${item.recommended_role}</p>
+          <div class="compare-meta">
+            <span><b>模型：</b>${item.model}</span>
+            <span><b>适合：</b>${item.fit_for}</span>
+            <span><b>部署：</b>${item.local_deploy}</span>
+          </div>
+          <div class="ship-meta" style="margin-top:8px;">
+            ${(item.strengths || []).slice(0, 2).map((text) => `<span class="mini">${text}</span>`).join("")}
+          </div>
+          <div class="toolbar" style="margin-top:8px;">
+            <button type="button" class="secondary" data-doc="${item.official_url}">官方文档</button>
+          </div>
+        </div>
+      `).join("");
+      container.querySelectorAll("[data-doc]").forEach((button) => {
+        button.addEventListener("click", () => window.open(button.dataset.doc, "_blank"));
+      });
+    }
 
-    function drawMap() {{
+    async function pollTask(taskId) {
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        const task = await requestJson(`/api/tasks/${taskId}`);
+        if (task.status === "completed") return task;
+        if (task.status === "failed") throw new Error(task.error || "任务失败");
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
+      throw new Error("任务轮询超时");
+    }
+
+    function connectSocket(channelId) {
+      if (state.ws) {
+        state.ws.close();
+      }
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      const ws = new WebSocket(`${protocol}://${window.location.host}/api/ws/monitor/${channelId}`);
+      state.ws = ws;
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          logLine(payload);
+          if (payload.type === "inspection_notice" && payload.payload) {
+            state.notices.unshift(payload.payload);
+            renderNotices();
+            updateStats();
+          }
+        } catch (error) {
+          logLine(event.data);
+        }
+      };
+      ws.onopen = () => logLine(`WS connected: ${channelId}`);
+      ws.onclose = () => logLine(`WS closed: ${channelId}`);
+    }
+
+    function drawMap() {
       const canvas = $("mapCanvas");
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = "rgba(165,220,232,0.38)";
-      ctx.lineWidth = 1;
-      for (let x = 40; x < canvas.width; x += 80) {{ ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }}
-      for (let y = 36; y < canvas.height; y += 68) {{ ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }}
-      ctx.strokeStyle = "#78d8e3";
-      ctx.lineWidth = 3;
-      state.shapes.forEach((shape) => {{
-        ctx.beginPath();
-        if (shape.type === "rect") ctx.strokeRect(shape.x, shape.y, shape.w, shape.h);
-        if (shape.type === "line") {{ ctx.moveTo(shape.x1, shape.y1); ctx.lineTo(shape.x2, shape.y2); ctx.stroke(); }}
-      }});
-      state.ships.forEach((ship, index) => {{
-        const x = 90 + (index * 128) % 470;
-        const y = 72 + (index * 84) % 260;
-        ctx.fillStyle = index % 2 ? "#f5c45d" : "#9be7d0";
-        ctx.beginPath();
-        ctx.moveTo(x, y - 9); ctx.lineTo(x + 17, y + 8); ctx.lineTo(x - 13, y + 10); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = "#fff";
-        ctx.font = "13px sans-serif";
-        ctx.fillText(ship.ship_name || ship.shipName, x + 18, y + 5);
-      }});
-    }}
+      ctx.strokeStyle = "rgba(122, 211, 232, 0.9)";
+      ctx.fillStyle = "rgba(54, 186, 221, 0.18)";
+      ctx.lineWidth = 2;
 
-    function canvasPoint(event) {{
-      const rect = $("mapCanvas").getBoundingClientRect();
-      return {{
-        x: (event.clientX - rect.left) * $("mapCanvas").width / rect.width,
-        y: (event.clientY - rect.top) * $("mapCanvas").height / rect.height
-      }};
-    }}
+      ctx.beginPath();
+      ctx.moveTo(64, 300);
+      ctx.bezierCurveTo(180, 245, 298, 230, 540, 120);
+      ctx.stroke();
 
-    $("mapCanvas").onmousedown = (event) => {{ state.drawing = true; state.startPoint = canvasPoint(event); }};
-    $("mapCanvas").onmouseup = (event) => {{
-      if (!state.drawing || !state.startPoint) return;
-      const end = canvasPoint(event);
-      const start = state.startPoint;
-      if (state.drawMode === "rect") state.shapes.push({{ type: "rect", x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), w: Math.abs(end.x - start.x), h: Math.abs(end.y - start.y) }});
-      if (state.drawMode === "line") state.shapes.push({{ type: "line", x1: start.x, y1: start.y, x2: end.x, y2: end.y }});
-      state.drawing = false;
+      state.shapes.forEach((shape) => {
+        if (shape.type === "rect") {
+          const x = Math.min(shape.x1, shape.x2);
+          const y = Math.min(shape.y1, shape.y2);
+          const w = Math.abs(shape.x2 - shape.x1);
+          const h = Math.abs(shape.y2 - shape.y1);
+          ctx.fillRect(x, y, w, h);
+          ctx.strokeRect(x, y, w, h);
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(shape.x1, shape.y1);
+          ctx.lineTo(shape.x2, shape.y2);
+          ctx.stroke();
+        }
+      });
+    }
+
+    function getCurrentGeometry() {
+      if (!state.shapes.length) return "";
+      return JSON.stringify(state.shapes[state.shapes.length - 1]);
+    }
+
+    function setupMap() {
+      const canvas = $("mapCanvas");
+      ["drawRect", "drawLine"].forEach((id) => {
+        $(id).addEventListener("click", () => {
+          state.drawMode = id === "drawRect" ? "rect" : "line";
+          $("drawRect").classList.toggle("active", state.drawMode === "rect");
+          $("drawLine").classList.toggle("active", state.drawMode === "line");
+        });
+      });
+      $("clearMap").addEventListener("click", () => {
+        state.shapes = [];
+        drawMap();
+      });
+      canvas.addEventListener("mousedown", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        state.drawing = true;
+        state.startPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      });
+      canvas.addEventListener("mouseup", (event) => {
+        if (!state.drawing || !state.startPoint) return;
+        const rect = canvas.getBoundingClientRect();
+        const endPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+        state.shapes.push({
+          type: state.drawMode,
+          x1: Math.round(state.startPoint.x),
+          y1: Math.round(state.startPoint.y),
+          x2: Math.round(endPoint.x),
+          y2: Math.round(endPoint.y)
+        });
+        state.drawing = false;
+        state.startPoint = null;
+        drawMap();
+      });
       drawMap();
-    }};
-    $("drawRect").onclick = () => {{ state.drawMode = "rect"; $("drawRect").classList.add("active"); $("drawLine").classList.remove("active"); }};
-    $("drawLine").onclick = () => {{ state.drawMode = "line"; $("drawLine").classList.add("active"); $("drawRect").classList.remove("active"); }};
-    $("clearMap").onclick = () => {{ state.shapes = []; drawMap(); }};
+    }
 
-    async function loadShips() {{
-      const resp = await fetch("/api/inspection/ships");
-      const data = await resp.json();
-      state.ships = data.items || [];
-      $("shipList").innerHTML = state.ships.map((ship) => `
-        <div class="ship"><div><b>${{ship.ship_name}}</b><span>吃水 ${{ship.draft_m}}m · ${{ship.destination}}</span></div><span class="badge">${{ship.position_label}}</span></div>
-      `).join("");
-      drawMap();
-    }}
+    function updateClock() {
+      $("clock").textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    }
 
-    $("inspectionForm").onsubmit = async (event) => {{
-      event.preventDefault();
-      const formData = new FormData();
-      formData.append("channel_id", $("inspectionChannel").value);
-      formData.append("area_name", $("areaName").value);
-      formData.append("min_draft_m", $("minDraft").value);
-      formData.append("notice_template", $("noticeTemplate").value);
-      const resp = await fetch("/api/inspection/run", {{ method: "POST", body: formData }});
-      const data = await resp.json();
-      log(data);
-      if (data.task_id) {{
-        const task = await pollTask(data.task_id, false);
-        const notices = task?.meta?.notices || [];
-        state.notices = notices;
-        $("noticeList").innerHTML = notices.map((item) => `
-          <div class="notice">
-            <b>${{item.ship.ship_name}}</b><br />
-            ${{item.notice_text}}
-            <div class="toolbar" style="margin-top:8px"><button type="button" class="green" data-say="${{item.notice_id}}">TTS</button></div>
-          </div>
-        `).join("") || `<div class="notice">暂无命中船舶</div>`;
-        document.querySelectorAll("[data-say]").forEach((btn) => {{
-          btn.onclick = () => {{
-            const item = state.notices.find((notice) => notice.notice_id === btn.dataset.say);
-            if (item) speak(item.notice_text);
-          }};
-        }});
-      }}
-    }};
+    async function loadInitialData() {
+      const [ships, compare] = await Promise.all([
+        requestJson("/api/inspection/ships"),
+        requestJson("/api/asr/compare-options")
+      ]);
+      state.ships = ships.items || [];
+      renderShips();
+      renderCompareOptions(compare.items || []);
+    }
 
-    setInterval(() => $("clock").textContent = new Date().toLocaleTimeString(), 1000);
-    updateStats();
-    renderRecords();
-    loadShips();
+    function resetFlow() {
+      setSteps(0, "active");
+      setBadge("处理中", "");
+      $("riskLabel").textContent = "待定";
+      $("riskReason").textContent = "处理中";
+      $("autoLabel").textContent = "待定";
+      $("autoReason").textContent = "处理中";
+      $("manualLabel").textContent = "待命";
+      $("manualReason").textContent = "处理中";
+      $("asrText").textContent = "处理中";
+      $("llmSuggestion").textContent = "处理中";
+    }
+
+    function setupTabs() {
+      document.querySelectorAll(".tab").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+          document.querySelectorAll(".mode").forEach((item) => item.classList.remove("active"));
+          button.classList.add("active");
+          $(button.dataset.mode).classList.add("active");
+        });
+      });
+    }
+
+    function wireActions() {
+      $("copyAsr").addEventListener("click", async () => {
+        if (!state.activeText) return;
+        await navigator.clipboard.writeText(state.activeText);
+        logLine("已复制 ASR 文本");
+      });
+      $("saveRecord").addEventListener("click", saveRecord);
+      $("playTts").addEventListener("click", () => speak(state.activeReply || state.activeText));
+      $("manualTakeover").addEventListener("click", () => {
+        setBadge("人工接管", "red");
+        logLine("值班员已人工接管当前任务");
+      });
+      $("recordSearch").addEventListener("input", (event) => renderRecords(event.target.value));
+      $("audioFile").addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        $("audioPlayer").src = URL.createObjectURL(file);
+        setUploadStatus(`已选择：${file.name}`);
+      });
+
+      $("uploadForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const file = $("audioFile").files[0];
+        if (!file) {
+          setUploadStatus("请选择音频文件", "red");
+          return;
+        }
+        const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
+        connectSocket(channelId);
+        resetFlow();
+        setStatus("上传中...", "");
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("channel_id", channelId);
+        formData.append("denoise_mode", $("denoiseMode").value);
+        const createTask = await requestJson("/api/audio/upload", { method: "POST", body: formData });
+        logLine(createTask);
+        setSteps(1, "active");
+        const task = await pollTask(createTask.task_id);
+        setStatus("识别完成", "green");
+        renderOutcome(task);
+      });
+
+      $("inspectionForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const channelId = $("inspectionChannel").value.trim() || "__DEFAULT_CHANNEL__";
+        connectSocket(channelId);
+        setBadge("点验处理中", "amber");
+        const formData = new FormData();
+        formData.append("channel_id", channelId);
+        formData.append("area_name", $("areaName").value.trim());
+        formData.append("min_draft_m", $("minDraft").value.trim());
+        formData.append("min_tonnage_t", $("minTonnage").value.trim());
+        formData.append("notice_template", $("noticeTemplate").value);
+        formData.append("area_geometry", getCurrentGeometry());
+        const createTask = await requestJson("/api/inspection/run", { method: "POST", body: formData });
+        logLine(createTask);
+        const task = await pollTask(createTask.task_id);
+        const notices = (task.meta && task.meta.notices) || [];
+        state.notices = notices.concat(state.notices);
+        renderNotices();
+        setBadge("点验完成", "green");
+        $("asrText").textContent = `点验范围：${task.meta.area_name}\n命中目标：${task.meta.matched_count} 艘`;
+        $("llmSuggestion").textContent = notices.map((item) => item.notice_text).join("\n") || "无匹配船舶";
+        state.activeReply = notices[0] ? notices[0].notice_text : "";
+        updateStats();
+      });
+    }
+
+    async function init() {
+      setupTabs();
+      setupMap();
+      wireActions();
+      updateClock();
+      setInterval(updateClock, 1000);
+      renderRecords();
+      renderNotices();
+      updateStats();
+      await loadInitialData();
+      connectSocket("__DEFAULT_CHANNEL__");
+    }
+
+    init().catch((error) => {
+      logLine(`INIT ERROR: ${error.message}`);
+      setBadge("初始化失败", "red");
+    });
   </script>
 </body>
 </html>
 """
+    return template.replace("__DEFAULT_CHANNEL__", settings.default_channel_id)

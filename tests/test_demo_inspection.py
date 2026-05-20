@@ -16,6 +16,7 @@ class DemoInspectionTests(unittest.TestCase):
             channel_id="vhf_demo_01",
             area_name="北仑主航道A3段",
             min_draft_m=10.0,
+            min_tonnage_t=5000,
             notice_template="{船名}，请注意，您已进入{区域}。",
         )
 

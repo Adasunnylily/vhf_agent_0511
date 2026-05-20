@@ -15,6 +15,7 @@ from app.main import (
     task_manager,
     ws_manager,
 )
+from app.services.asr_compare import list_asr_compare_options
 
 router = APIRouter(prefix="/api")
 
@@ -32,6 +33,11 @@ async def list_demo_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
 @router.get("/inspection/ships")
 async def list_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
     return {"items": inspection_simulator.list_mock_ships()}
+
+
+@router.get("/asr/compare-options")
+async def get_asr_compare_options() -> Dict[str, List[Dict[str, object]]]:
+    return {"items": list_asr_compare_options()}
 
 
 @router.post("/demo/scenario/{scenario_id}")
@@ -69,7 +75,9 @@ async def run_demo_inspection_task(
     channel_id: str = Form("vhf_demo_01"),
     area_name: str = Form("北仑主航道A3段"),
     min_draft_m: float = Form(10.0),
+    min_tonnage_t: int = Form(5000),
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
+    area_geometry: str = Form(""),
 ) -> Dict[str, str]:
     task = task_manager.create(filename=f"inspection:{area_name}", channel_id=channel_id)
 
@@ -78,7 +86,9 @@ async def run_demo_inspection_task(
             channel_id=channel_id,
             area_name=area_name,
             min_draft_m=min_draft_m,
+            min_tonnage_t=min_tonnage_t,
             notice_template=notice_template,
+            area_geometry=area_geometry,
         )
         task_manager.update(
             task.id,
@@ -105,13 +115,17 @@ async def run_inspection_task(
     channel_id: str = Form("vhf_demo_01"),
     area_name: str = Form("北仑主航道A3段"),
     min_draft_m: float = Form(10.0),
+    min_tonnage_t: int = Form(5000),
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
+    area_geometry: str = Form(""),
 ) -> Dict[str, str]:
     return await run_demo_inspection_task(
         channel_id=channel_id,
         area_name=area_name,
         min_draft_m=min_draft_m,
+        min_tonnage_t=min_tonnage_t,
         notice_template=notice_template,
+        area_geometry=area_geometry,
     )
 
 
