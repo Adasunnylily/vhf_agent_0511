@@ -5,3 +5,4 @@ funasr
 modelscope
 huggingface_hub
 soundfile
+openai>=1.0.0

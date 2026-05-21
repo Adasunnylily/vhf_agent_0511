@@ -263,7 +263,7 @@ def render_dashboard(settings: Settings) -> str:
       position: relative;
       overflow: hidden;
     }
-    canvas { width: 100%; height: 100%; display: block; }
+    #amapContainer { width: 100%; height: 100%; }
     .map-tools {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -381,7 +381,7 @@ def render_dashboard(settings: Settings) -> str:
           </section>
 
           <section id="inspectionMode" class="mode">
-            <div class="map"><canvas id="mapCanvas" width="620" height="360"></canvas></div>
+            <div class="map"><div id="amapContainer"></div></div>
             <div class="map-tools">
               <button type="button" class="secondary" id="drawRect">框选</button>
               <button type="button" class="secondary" id="drawLine">过线</button>
@@ -394,6 +394,12 @@ def render_dashboard(settings: Settings) -> str:
                 <input id="minDraft" value="10" placeholder="最小吃水 m" />
                 <input id="minTonnage" value="5000" placeholder="最小吨位 t" />
               </div>
+              <select id="shipTypes" multiple>
+                <option value="集装箱船">集装箱船</option>
+                <option value="散货船">散货船</option>
+                <option value="液货船">液货船</option>
+                <option value="杂货船">杂货船</option>
+              </select>
               <textarea id="noticeTemplate">{船名}，数字值班员提醒：你船已进入{区域}关注范围，请保持安全航速，加强瞭望并保持守听。</textarea>
               <button type="submit">生成点验通知</button>
             </form>
@@ -485,6 +491,7 @@ def render_dashboard(settings: Settings) -> str:
     </section>
   </main>
 
+  <script src="https://webapi.amap.com/maps?v=2.0&key=__AMAP_KEY__&plugin=AMap.MouseTool"></script>
   <script>
     const state = {
       activeText: "",
@@ -498,6 +505,9 @@ def render_dashboard(settings: Settings) -> str:
       drawing: false,
       startPoint: null,
       shapes: [],
+      map: null,
+      overlays: [],
+      shipMarkers: [],
       ws: null
     };
 
@@ -792,43 +802,66 @@ def render_dashboard(settings: Settings) -> str:
       ws.onclose = () => logLine(`WS closed: ${channelId}`);
     }
 
-    function drawMap() {
-      const canvas = $("mapCanvas");
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = "rgba(122, 211, 232, 0.9)";
-      ctx.fillStyle = "rgba(54, 186, 221, 0.18)";
-      ctx.lineWidth = 2;
-
-      ctx.beginPath();
-      ctx.moveTo(64, 300);
-      ctx.bezierCurveTo(180, 245, 298, 230, 540, 120);
-      ctx.stroke();
-
-      state.shapes.forEach((shape) => {
-        if (shape.type === "rect") {
-          const x = Math.min(shape.x1, shape.x2);
-          const y = Math.min(shape.y1, shape.y2);
-          const w = Math.abs(shape.x2 - shape.x1);
-          const h = Math.abs(shape.y2 - shape.y1);
-          ctx.fillRect(x, y, w, h);
-          ctx.strokeRect(x, y, w, h);
-        } else {
-          ctx.beginPath();
-          ctx.moveTo(shape.x1, shape.y1);
-          ctx.lineTo(shape.x2, shape.y2);
-          ctx.stroke();
-        }
-      });
-    }
-
     function getCurrentGeometry() {
       if (!state.shapes.length) return "";
       return JSON.stringify(state.shapes[state.shapes.length - 1]);
     }
 
+    function selectedShipTypes() {
+      return Array.from($("shipTypes").selectedOptions).map((o) => o.value);
+    }
+
+    function renderShipMarkers() {
+      if (!state.map || !window.AMap) return;
+      state.shipMarkers.forEach((m) => state.map.remove(m));
+      state.shipMarkers = [];
+      state.ships.forEach((ship) => {
+        if (typeof ship.lng !== "number" || typeof ship.lat !== "number") return;
+        const marker = new AMap.Marker({
+          position: [ship.lng, ship.lat],
+          title: ship.ship_name,
+          label: { content: ship.ship_name, direction: "top" },
+        });
+        state.map.add(marker);
+        state.shipMarkers.push(marker);
+      });
+    }
+
+    function addShapeOverlay(shape) {
+      if (!state.map || !window.AMap) return;
+      if (shape.type === "rect") {
+        const rect = new AMap.Rectangle({
+          bounds: new AMap.Bounds([shape.lng1, shape.lat1], [shape.lng2, shape.lat2]),
+          strokeColor: "#2cb2c3",
+          strokeWeight: 2,
+          fillColor: "#2cb2c3",
+          fillOpacity: 0.2
+        });
+        state.map.add(rect);
+        state.overlays.push(rect);
+      } else if (shape.type === "line") {
+        const line = new AMap.Polyline({
+          path: [[shape.lng1, shape.lat1], [shape.lng2, shape.lat2]],
+          strokeColor: "#2cb2c3",
+          strokeWeight: 3
+        });
+        state.map.add(line);
+        state.overlays.push(line);
+      }
+    }
+
     function setupMap() {
-      const canvas = $("mapCanvas");
+      const mapKey = "__AMAP_KEY__";
+      if (!mapKey) {
+        logLine("未配置 AMAP_KEY，点验地图仅显示列表。");
+        return;
+      }
+      state.map = new AMap.Map("amapContainer", {
+        zoom: 11,
+        center: [121.84, 29.93],
+        mapStyle: "amap://styles/normal"
+      });
+
       ["drawRect", "drawLine"].forEach((id) => {
         $(id).addEventListener("click", () => {
           state.drawMode = id === "drawRect" ? "rect" : "line";
@@ -838,29 +871,25 @@ def render_dashboard(settings: Settings) -> str:
       });
       $("clearMap").addEventListener("click", () => {
         state.shapes = [];
-        drawMap();
+        state.overlays.forEach((o) => state.map && state.map.remove(o));
+        state.overlays = [];
       });
-      canvas.addEventListener("mousedown", (event) => {
-        const rect = canvas.getBoundingClientRect();
-        state.drawing = true;
-        state.startPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-      });
-      canvas.addEventListener("mouseup", (event) => {
-        if (!state.drawing || !state.startPoint) return;
-        const rect = canvas.getBoundingClientRect();
-        const endPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-        state.shapes.push({
+      state.map.on("click", (e) => {
+        if (!state.startPoint) {
+          state.startPoint = e.lnglat;
+          return;
+        }
+        const shape = {
           type: state.drawMode,
-          x1: Math.round(state.startPoint.x),
-          y1: Math.round(state.startPoint.y),
-          x2: Math.round(endPoint.x),
-          y2: Math.round(endPoint.y)
-        });
-        state.drawing = false;
+          lng1: state.startPoint.lng,
+          lat1: state.startPoint.lat,
+          lng2: e.lnglat.lng,
+          lat2: e.lnglat.lat
+        };
+        state.shapes.push(shape);
+        addShapeOverlay(shape);
         state.startPoint = null;
-        drawMap();
       });
-      drawMap();
     }
 
     function updateClock() {
@@ -871,6 +900,7 @@ def render_dashboard(settings: Settings) -> str:
       const ships = await requestJson("/api/inspection/ships");
       state.ships = ships.items || [];
       renderShips();
+      renderShipMarkers();
     }
 
     function resetFlow() {
@@ -960,6 +990,7 @@ def render_dashboard(settings: Settings) -> str:
           formData.append("min_tonnage_t", $("minTonnage").value.trim());
           formData.append("notice_template", $("noticeTemplate").value);
           formData.append("area_geometry", getCurrentGeometry());
+          formData.append("ship_types", selectedShipTypes().join(","));
           const createTask = await requestJson("/api/inspection/run", { method: "POST", body: formData });
           logLine(createTask);
           const task = await pollTask(createTask.task_id);
@@ -1001,4 +1032,7 @@ def render_dashboard(settings: Settings) -> str:
 </body>
 </html>
 """
-    return template.replace("__DEFAULT_CHANNEL__", settings.default_channel_id)
+    return template.replace("__DEFAULT_CHANNEL__", settings.default_channel_id).replace(
+        "__AMAP_KEY__",
+        settings.amap_key,
+    )

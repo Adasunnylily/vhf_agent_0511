@@ -20,6 +20,7 @@ class Settings:
     vad_max_segment_ms: int = int(os.getenv("VHF_VAD_MAX_SEGMENT_MS", "8000"))
     default_channel_id: str = os.getenv("VHF_DEFAULT_CHANNEL_ID", "vhf_demo_01")
     asr_model: str = os.getenv("VHF_ASR_MODEL", "iic/SenseVoiceSmall")
+    asr_provider: str = os.getenv("VHF_ASR_PROVIDER", "qwen_api")
     asr_vad_model: str = os.getenv("VHF_ASR_VAD_MODEL", "fsmn-vad")
     asr_punc_model: str = os.getenv("VHF_ASR_PUNC_MODEL", "")
     asr_device: str = os.getenv("VHF_ASR_DEVICE", "cuda:0")
@@ -28,6 +29,12 @@ class Settings:
     asr_model_revision: str = os.getenv("VHF_ASR_MODEL_REVISION", "")
     asr_language: str = os.getenv("VHF_ASR_LANGUAGE", "zh")
     asr_use_itn: bool = os.getenv("VHF_ASR_USE_ITN", "1") == "1"
+    qwen_asr_api_key_env: str = os.getenv("VHF_QWEN_ASR_API_KEY_ENV", "DASHSCOPE_API_KEY")
+    qwen_asr_base_url: str = os.getenv(
+        "VHF_QWEN_ASR_BASE_URL",
+        "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    )
+    qwen_asr_timeout_s: int = int(os.getenv("VHF_QWEN_ASR_TIMEOUT_S", "120"))
     asr_vad_max_single_segment_time: int = int(
         os.getenv("VHF_ASR_VAD_MAX_SINGLE_SEGMENT_TIME", "30000")
     )
@@ -45,6 +52,7 @@ class Settings:
         "VHF_DENOISE_FILTER_CHAIN",
         "highpass=f=120,lowpass=f=3800,afftdn=nf=-25",
     )
+    amap_key: str = os.getenv("AMAP_KEY", "")
 
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)

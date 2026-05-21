@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import re
 import threading
@@ -292,7 +293,6 @@ class FunASRStreamingAdapter(BaseStreamingASRAdapter):
                 from funasr import AutoModel
             except ImportError as exc:
                 raise RuntimeError("FunASR 未安装，请先在服务器执行依赖安装。") from exc
-
             kwargs: Dict[str, Any] = {
                 "model": self.model_name,
                 "device": self.device,
@@ -325,3 +325,68 @@ class FunASRStreamingAdapter(BaseStreamingASRAdapter):
             if isinstance(value, (int, float)):
                 return max(0.0, min(1.0, float(value)))
         return 0.85
+
+
+class QwenASRAdapter(BaseASRAdapter):
+    def __init__(
+        self,
+        model: str = "qwen3-asr-flash",
+        api_key_env: str = "DASHSCOPE_API_KEY",
+        base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        timeout_s: int = 120,
+    ) -> None:
+        self.model = model
+        self.api_key_env = api_key_env
+        self.base_url = base_url
+        self.timeout_s = timeout_s
+        self._client: Any = None
+        self._lock = threading.Lock()
+
+    def transcribe(
+        self,
+        file_path: Path,
+        transcript_override: Optional[str] = None,
+    ) -> ASRResult:
+        if transcript_override:
+            return ASRResult(
+                text=transcript_override.strip(),
+                confidence=0.99,
+                engine="manual_override",
+            )
+        client = self._ensure_client()
+        try:
+            with file_path.open("rb") as audio_file:
+                response = client.audio.transcriptions.create(
+                    model=self.model,
+                    file=audio_file,
+                )
+            text = getattr(response, "text", "") or ""
+            if not text and isinstance(response, dict):
+                text = str(response.get("text", ""))
+            return ASRResult(
+                text=sanitize_asr_text(str(text)),
+                confidence=0.0,
+                engine=f"qwen_asr:{self.model}",
+            )
+        except Exception as exc:
+            raise RuntimeError(f"Qwen ASR 调用失败: {exc}") from exc
+
+    def _ensure_client(self) -> Any:
+        if self._client is not None:
+            return self._client
+        with self._lock:
+            if self._client is not None:
+                return self._client
+            try:
+                from openai import OpenAI
+            except ImportError as exc:
+                raise RuntimeError("缺少 openai SDK，请安装: pip install openai") from exc
+            api_key = os.getenv(self.api_key_env)
+            if not api_key:
+                raise RuntimeError(f"缺少环境变量 {self.api_key_env}")
+            self._client = OpenAI(
+                api_key=api_key,
+                base_url=self.base_url,
+                timeout=self.timeout_s,
+            )
+            return self._client

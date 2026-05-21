@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 
 from app.config import settings
 from app.frontend import render_dashboard
-from app.services.asr import FunASRAdapter, FunASRStreamingAdapter
+from app.services.asr import FunASRAdapter, FunASRStreamingAdapter, QwenASRAdapter
 from app.services.demo_inspection import InspectionTaskSimulator
 from app.services.demo_scenarios import ScenarioSimulator
 from app.services.pipeline import AudioPipeline
@@ -32,18 +32,26 @@ streaming_chunk_size = [
     for part in settings.streaming_chunk_size.split(",")
     if part.strip()
 ]
-shared_asr = FunASRAdapter(
-    model=settings.asr_model,
-    vad_model=settings.asr_vad_model,
-    punc_model=settings.asr_punc_model,
-    device=settings.asr_device,
-    hub=settings.asr_hub,
-    batch_size_s=settings.asr_batch_size_s,
-    model_revision=settings.asr_model_revision,
-    language=settings.asr_language,
-    use_itn=settings.asr_use_itn,
-    vad_max_single_segment_time=settings.asr_vad_max_single_segment_time,
-)
+if settings.asr_provider == "qwen_api":
+    shared_asr = QwenASRAdapter(
+        model=settings.asr_model or "qwen3-asr-flash",
+        api_key_env=settings.qwen_asr_api_key_env,
+        base_url=settings.qwen_asr_base_url,
+        timeout_s=settings.qwen_asr_timeout_s,
+    )
+else:
+    shared_asr = FunASRAdapter(
+        model=settings.asr_model,
+        vad_model=settings.asr_vad_model,
+        punc_model=settings.asr_punc_model,
+        device=settings.asr_device,
+        hub=settings.asr_hub,
+        batch_size_s=settings.asr_batch_size_s,
+        model_revision=settings.asr_model_revision,
+        language=settings.asr_language,
+        use_itn=settings.asr_use_itn,
+        vad_max_single_segment_time=settings.asr_vad_max_single_segment_time,
+    )
 shared_streaming_asr = FunASRStreamingAdapter(
     model=settings.streaming_model,
     device=settings.asr_device,
