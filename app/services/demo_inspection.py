@@ -18,16 +18,18 @@ class InspectionShip:
     ship_type: str
     destination: str
     position_label: str
+    lng: float
+    lat: float
 
     def to_dict(self) -> Dict[str, object]:
         return asdict(self)
 
 
 MOCK_SHIPS: List[InspectionShip] = [
-    InspectionShip("海丰32", 12800, 11.2, "集装箱船", "北仑港二期码头", "主航道A3段"),
-    InspectionShip("宁远8", 4600, 8.6, "杂货船", "锚地待泊", "主航道A3段"),
-    InspectionShip("货轮876", 22600, 13.5, "散货船", "穿越警戒线后进港", "警戒线北口"),
-    InspectionShip("长阳3", 9800, 10.4, "液货船", "内港调头区", "主航道B1段"),
+    InspectionShip("海丰32", 12800, 11.2, "集装箱船", "北仑港二期码头", "主航道A3段", 121.845, 29.924),
+    InspectionShip("宁远8", 4600, 8.6, "杂货船", "锚地待泊", "主航道A3段", 121.834, 29.918),
+    InspectionShip("货轮876", 22600, 13.5, "散货船", "穿越警戒线后进港", "警戒线北口", 121.862, 29.938),
+    InspectionShip("长阳3", 9800, 10.4, "液货船", "内港调头区", "主航道B1段", 121.816, 29.906),
 ]
 
 
@@ -175,31 +177,29 @@ class InspectionTaskSimulator:
         x, y = self._mock_position_xy(position_label)
         shape_type = str(geometry.get("type", ""))
         if shape_type == "rect":
-            x1 = float(geometry.get("x1", x))
-            y1 = float(geometry.get("y1", y))
-            x2 = float(geometry.get("x2", x))
-            y2 = float(geometry.get("y2", y))
+            x1 = float(geometry.get("lng1", geometry.get("x1", x)))
+            y1 = float(geometry.get("lat1", geometry.get("y1", y)))
+            x2 = float(geometry.get("lng2", geometry.get("x2", x)))
+            y2 = float(geometry.get("lat2", geometry.get("y2", y)))
             left = min(x1, x2)
             right = max(x1, x2)
             top = min(y1, y2)
             bottom = max(y1, y2)
             return left <= x <= right and top <= y <= bottom
         if shape_type == "line":
-            x1 = float(geometry.get("x1", x))
-            y1 = float(geometry.get("y1", y))
-            x2 = float(geometry.get("x2", x))
-            y2 = float(geometry.get("y2", y))
+            x1 = float(geometry.get("lng1", geometry.get("x1", x)))
+            y1 = float(geometry.get("lat1", geometry.get("y1", y)))
+            x2 = float(geometry.get("lng2", geometry.get("x2", x)))
+            y2 = float(geometry.get("lat2", geometry.get("y2", y)))
             distance = self._point_to_segment_distance(x, y, x1, y1, x2, y2)
-            return distance <= 35.0
+            return distance <= 0.01
         return False
 
     def _mock_position_xy(self, position_label: str) -> tuple[float, float]:
-        mapping = {
-            "主航道A3段": (200.0, 210.0),
-            "警戒线北口": (440.0, 150.0),
-            "主航道B1段": (320.0, 280.0),
-        }
-        return mapping.get(position_label, (280.0, 220.0))
+        for ship in MOCK_SHIPS:
+            if ship.position_label == position_label:
+                return ship.lng, ship.lat
+        return 121.84, 29.92
 
     def _point_to_segment_distance(
         self,
