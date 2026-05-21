@@ -400,6 +400,11 @@ def render_dashboard(settings: Settings) -> str:
                 <option value="液货船">液货船</option>
                 <option value="杂货船">杂货船</option>
               </select>
+              <select id="inspectionScenario">
+                <option value="cross_line">过线提醒</option>
+                <option value="speed_watch">限速守听</option>
+                <option value="report_watch">点验报告</option>
+              </select>
               <textarea id="noticeTemplate">{船名}，数字值班员提醒：你船已进入{区域}关注范围，请保持安全航速，加强瞭望并保持守听。</textarea>
               <button type="submit">生成点验通知</button>
             </form>
@@ -506,8 +511,10 @@ def render_dashboard(settings: Settings) -> str:
       startPoint: null,
       shapes: [],
       map: null,
+      mouseTool: null,
       overlays: [],
       shipMarkers: [],
+      selectedShipNames: [],
       ws: null
     };
 
@@ -817,10 +824,12 @@ def render_dashboard(settings: Settings) -> str:
       state.shipMarkers = [];
       state.ships.forEach((ship) => {
         if (typeof ship.lng !== "number" || typeof ship.lat !== "number") return;
+        const isSelected = state.selectedShipNames.includes(ship.ship_name);
         const marker = new AMap.Marker({
           position: [ship.lng, ship.lat],
           title: ship.ship_name,
           label: { content: ship.ship_name, direction: "top" },
+          icon: isSelected ? "https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png" : undefined,
         });
         state.map.add(marker);
         state.shipMarkers.push(marker);
@@ -861,12 +870,18 @@ def render_dashboard(settings: Settings) -> str:
         center: [121.84, 29.93],
         mapStyle: "amap://styles/normal"
       });
+      state.mouseTool = new AMap.MouseTool(state.map);
 
       ["drawRect", "drawLine"].forEach((id) => {
         $(id).addEventListener("click", () => {
           state.drawMode = id === "drawRect" ? "rect" : "line";
           $("drawRect").classList.toggle("active", state.drawMode === "rect");
           $("drawLine").classList.toggle("active", state.drawMode === "line");
+          if (state.drawMode === "rect") {
+            state.mouseTool.rectangle({ strokeColor: "#2cb2c3", fillColor: "#2cb2c3", fillOpacity: 0.2 });
+          } else {
+            state.mouseTool.polyline({ strokeColor: "#2cb2c3", strokeWeight: 3 });
+          }
         });
       });
       $("clearMap").addEventListener("click", () => {
@@ -889,6 +904,27 @@ def render_dashboard(settings: Settings) -> str:
         state.shapes.push(shape);
         addShapeOverlay(shape);
         state.startPoint = null;
+      });
+      state.mouseTool.on("draw", (evt) => {
+        state.overlays.forEach((o) => state.map && state.map.remove(o));
+        state.overlays = [evt.obj];
+        if (evt.type === "rectangle") {
+          const b = evt.obj.getBounds();
+          const sw = b.getSouthWest();
+          const ne = b.getNorthEast();
+          state.shapes = [{ type: "rect", lng1: sw.lng, lat1: sw.lat, lng2: ne.lng, lat2: ne.lat }];
+        } else if (evt.type === "polyline") {
+          const path = evt.obj.getPath();
+          if (path.length >= 2) {
+            state.shapes = [{
+              type: "line",
+              lng1: path[0].lng,
+              lat1: path[0].lat,
+              lng2: path[path.length - 1].lng,
+              lat2: path[path.length - 1].lat
+            }];
+          }
+        }
       });
     }
 
@@ -983,6 +1019,25 @@ def render_dashboard(settings: Settings) -> str:
           const channelId = $("inspectionChannel").value.trim() || "__DEFAULT_CHANNEL__";
           connectSocket(channelId);
           setBadge("点验处理中", "amber");
+          const scenario = $("inspectionScenario").value;
+          if (scenario === "cross_line") {
+            $("noticeTemplate").value = "{船名}，你船即将过线进入{区域}，请立即守听并按VTS指令通过。";
+          } else if (scenario === "speed_watch") {
+            $("noticeTemplate").value = "{船名}，你船位于{区域}重点监控区，请控制航速并加强瞭望。";
+          } else {
+            $("noticeTemplate").value = "{船名}，数字值班员提醒：你船已进入{区域}关注范围，请保持安全航速，加强瞭望并保持守听。";
+          }
+
+          const previewForm = new FormData();
+          previewForm.append("area_name", $("areaName").value.trim());
+          previewForm.append("min_draft_m", $("minDraft").value.trim());
+          previewForm.append("min_tonnage_t", $("minTonnage").value.trim());
+          previewForm.append("area_geometry", getCurrentGeometry());
+          previewForm.append("ship_types", selectedShipTypes().join(","));
+          const preview = await requestJson("/api/inspection/filter", { method: "POST", body: previewForm });
+          state.selectedShipNames = (preview.items || []).map((s) => s.ship_name);
+          renderShipMarkers();
+
           const formData = new FormData();
           formData.append("channel_id", channelId);
           formData.append("area_name", $("areaName").value.trim());

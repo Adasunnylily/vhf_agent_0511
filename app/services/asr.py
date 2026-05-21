@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import base64
 import re
 import threading
 from typing import Any, Dict, List, Optional
@@ -355,14 +356,31 @@ class QwenASRAdapter(BaseASRAdapter):
             )
         client = self._ensure_client()
         try:
-            with file_path.open("rb") as audio_file:
-                response = client.audio.transcriptions.create(
-                    model=self.model,
-                    file=audio_file,
-                )
-            text = getattr(response, "text", "") or ""
-            if not text and isinstance(response, dict):
-                text = str(response.get("text", ""))
+            data_url = self._audio_to_data_url(file_path)
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_audio",
+                                "input_audio": {"data": data_url},
+                            }
+                        ],
+                    }
+                ],
+                stream=False,
+                extra_body={
+                    "asr_options": {
+                        "language": "zh",
+                        "enable_itn": True,
+                    }
+                },
+            )
+            text = ""
+            if getattr(response, "choices", None):
+                text = response.choices[0].message.content or ""
             return ASRResult(
                 text=sanitize_asr_text(str(text)),
                 confidence=0.0,
@@ -390,3 +408,16 @@ class QwenASRAdapter(BaseASRAdapter):
                 timeout=self.timeout_s,
             )
             return self._client
+
+    def _audio_to_data_url(self, file_path: Path) -> str:
+        suffix = file_path.suffix.lower()
+        mime = {
+            ".wav": "audio/wav",
+            ".mp3": "audio/mpeg",
+            ".m4a": "audio/mp4",
+            ".aac": "audio/aac",
+            ".flac": "audio/flac",
+            ".pcm": "audio/wav",
+        }.get(suffix, "audio/wav")
+        encoded = base64.b64encode(file_path.read_bytes()).decode("utf-8")
+        return f"data:{mime};base64,{encoded}"
