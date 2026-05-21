@@ -35,6 +35,62 @@ async def list_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
     return {"items": inspection_simulator.list_mock_ships()}
 
 
+@router.post("/inspection/filter")
+async def filter_inspection_ships(
+    area_name: str = Form("北仑主航道A3段"),
+    min_draft_m: float = Form(10.0),
+    min_tonnage_t: int = Form(5000),
+    area_geometry: str = Form(""),
+    ship_types: str = Form(""),
+) -> Dict[str, object]:
+    allowed_ship_types = [item.strip() for item in ship_types.split(",") if item.strip()]
+    matched = inspection_simulator.filter_ships(
+        area_name=area_name,
+        min_draft_m=min_draft_m,
+        min_tonnage_t=min_tonnage_t,
+        area_geometry=area_geometry,
+        allowed_ship_types=allowed_ship_types,
+    )
+    return {
+        "area_name": area_name,
+        "min_draft_m": min_draft_m,
+        "min_tonnage_t": min_tonnage_t,
+        "ship_types": allowed_ship_types,
+        "matched_count": len(matched),
+        "items": [ship.to_dict() for ship in matched],
+    }
+
+
+@router.post("/inspection/preview-notices")
+async def preview_inspection_notices(
+    area_name: str = Form("北仑主航道A3段"),
+    min_draft_m: float = Form(10.0),
+    min_tonnage_t: int = Form(5000),
+    notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
+    area_geometry: str = Form(""),
+    ship_types: str = Form(""),
+) -> Dict[str, object]:
+    allowed_ship_types = [item.strip() for item in ship_types.split(",") if item.strip()]
+    matched = inspection_simulator.filter_ships(
+        area_name=area_name,
+        min_draft_m=min_draft_m,
+        min_tonnage_t=min_tonnage_t,
+        area_geometry=area_geometry,
+        allowed_ship_types=allowed_ship_types,
+    )
+    notices = [
+        {
+            "ship": ship.to_dict(),
+            "notice_text": inspection_simulator.build_notice_text(ship, area_name, notice_template),
+        }
+        for ship in matched
+    ]
+    return {
+        "matched_count": len(matched),
+        "items": notices,
+    }
+
+
 @router.get("/asr/compare-options")
 async def get_asr_compare_options() -> Dict[str, List[Dict[str, object]]]:
     return {"items": list_asr_compare_options()}
@@ -78,8 +134,10 @@ async def run_demo_inspection_task(
     min_tonnage_t: int = Form(5000),
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
     area_geometry: str = Form(""),
+    ship_types: str = Form(""),
 ) -> Dict[str, str]:
     task = task_manager.create(filename=f"inspection:{area_name}", channel_id=channel_id)
+    allowed_ship_types = [item.strip() for item in ship_types.split(",") if item.strip()]
 
     def runner() -> None:
         meta = inspection_simulator.run(
@@ -89,6 +147,7 @@ async def run_demo_inspection_task(
             min_tonnage_t=min_tonnage_t,
             notice_template=notice_template,
             area_geometry=area_geometry,
+            allowed_ship_types=allowed_ship_types,
         )
         task_manager.update(
             task.id,
@@ -118,6 +177,7 @@ async def run_inspection_task(
     min_tonnage_t: int = Form(5000),
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
     area_geometry: str = Form(""),
+    ship_types: str = Form(""),
 ) -> Dict[str, str]:
     return await run_demo_inspection_task(
         channel_id=channel_id,
@@ -126,6 +186,28 @@ async def run_inspection_task(
         min_tonnage_t=min_tonnage_t,
         notice_template=notice_template,
         area_geometry=area_geometry,
+        ship_types=ship_types,
+    )
+
+
+@router.post("/inspection/tts")
+async def run_inspection_tts(
+    channel_id: str = Form("vhf_demo_01"),
+    area_name: str = Form("北仑主航道A3段"),
+    min_draft_m: float = Form(10.0),
+    min_tonnage_t: int = Form(5000),
+    notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
+    area_geometry: str = Form(""),
+    ship_types: str = Form(""),
+) -> Dict[str, str]:
+    return await run_demo_inspection_task(
+        channel_id=channel_id,
+        area_name=area_name,
+        min_draft_m=min_draft_m,
+        min_tonnage_t=min_tonnage_t,
+        notice_template=notice_template,
+        area_geometry=area_geometry,
+        ship_types=ship_types,
     )
 
 
