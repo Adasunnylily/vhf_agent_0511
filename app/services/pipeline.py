@@ -11,6 +11,7 @@ from app.services.asr import BaseASRAdapter
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
 from app.services.storage import LocalStorage
+from app.services.text_postprocess import LexiconCorrector
 from app.services.vad import DetectedSegment, WavEnergyVAD
 
 
@@ -29,12 +30,14 @@ class AudioPipeline:
         asr: BaseASRAdapter,
         risk_engine: KeywordRiskEngine,
         storage: LocalStorage,
+        text_corrector: LexiconCorrector | None = None,
     ) -> None:
         self.preprocessor = preprocessor
         self.vad = vad
         self.asr = asr
         self.risk_engine = risk_engine
         self.storage = storage
+        self.text_corrector = text_corrector
 
     def process(
         self,
@@ -61,7 +64,8 @@ class AudioPipeline:
                 file_path=processed_path,
                 transcript_override=transcript_override,
             )
-            shared_keywords = self._extract_keywords(full_result.text)
+            full_text, _ = self._correct_text(full_result.text)
+            shared_keywords = self._extract_keywords(full_text)
             item = detected[0]
             segment = AudioSegment(
                 id=f"seg_{uuid.uuid4().hex[:12]}",
@@ -71,7 +75,7 @@ class AudioPipeline:
                 start_ms=item.start_ms,
                 end_ms=item.end_ms,
                 duration_ms=max(0, item.end_ms - item.start_ms),
-                text=full_result.text,
+                text=full_text,
                 confidence=full_result.confidence,
                 keywords=shared_keywords,
                 engine=full_result.engine,
@@ -99,7 +103,8 @@ class AudioPipeline:
                 file_path=clip_path,
                 transcript_override=transcript_override if index == 0 else None,
             )
-            keywords = self._extract_keywords(segment_result.text)
+            corrected_text, _ = self._correct_text(segment_result.text)
+            keywords = self._extract_keywords(corrected_text)
             segment = AudioSegment(
                 id=f"seg_{uuid.uuid4().hex[:12]}",
                 channel_id=channel_id,
@@ -108,7 +113,7 @@ class AudioPipeline:
                 start_ms=item.start_ms,
                 end_ms=item.end_ms,
                 duration_ms=duration_ms,
-                text=segment_result.text,
+                text=corrected_text,
                 confidence=segment_result.confidence,
                 keywords=keywords,
                 engine=segment_result.engine,
@@ -123,6 +128,11 @@ class AudioPipeline:
             events=events,
             preprocess=prepared.to_dict(),
         )
+
+    def _correct_text(self, text: str) -> tuple[str, list[dict[str, str]]]:
+        if not self.text_corrector:
+            return text, []
+        return self.text_corrector.correct(text)
 
     def _extract_keywords(self, text: str) -> List[str]:
         lowered = text.lower()

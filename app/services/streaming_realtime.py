@@ -8,6 +8,7 @@ from app.domain.models import RiskEvent
 from app.services.asr import ASRResult, BaseStreamingASRAdapter
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
+from app.services.text_postprocess import LexiconCorrector
 from app.services.ws_manager import ChannelWebSocketManager
 
 
@@ -19,12 +20,14 @@ class RealtimeStreamingProcessor:
         risk_engine: KeywordRiskEngine,
         ws_manager: ChannelWebSocketManager,
         chunk_size: List[int],
+        text_corrector: LexiconCorrector | None = None,
     ) -> None:
         self.preprocessor = preprocessor
         self.asr = asr
         self.risk_engine = risk_engine
         self.ws_manager = ws_manager
         self.chunk_size = chunk_size
+        self.text_corrector = text_corrector
 
     def process_file_stream(
         self,
@@ -72,7 +75,7 @@ class RealtimeStreamingProcessor:
 
         for index, result in enumerate(incremental_results):
             if result.text:
-                cumulative_text = result.text
+                cumulative_text, _ = self._correct_text(result.text)
             self.ws_manager.publish(
                 channel_id,
                 {
@@ -80,7 +83,7 @@ class RealtimeStreamingProcessor:
                     "mode": "paraformer_streaming",
                     "channel_id": channel_id,
                     "index": index,
-                    "text": result.text,
+                    "text": cumulative_text,
                     "cumulative_text": cumulative_text,
                     "confidence": result.confidence,
                     "engine": result.engine,
@@ -178,3 +181,8 @@ class RealtimeStreamingProcessor:
             "未报告",
         ]
         return [keyword for keyword in known_keywords if keyword.lower() in lowered]
+
+    def _correct_text(self, text: str) -> tuple[str, list[dict[str, str]]]:
+        if not self.text_corrector:
+            return text, []
+        return self.text_corrector.correct(text)

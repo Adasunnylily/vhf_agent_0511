@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from fastapi import FastAPI, Response
 from fastapi.responses import HTMLResponse
@@ -17,6 +18,7 @@ from app.services.storage import LocalStorage
 from app.services.streaming import StreamingAudioProcessor
 from app.services.streaming_realtime import RealtimeStreamingProcessor
 from app.services.task_manager import InMemoryTaskManager
+from app.services.text_postprocess import LexiconCorrector
 from app.services.vad import WavEnergyVAD
 from app.services.ws_manager import ChannelWebSocketManager
 
@@ -27,6 +29,10 @@ task_manager = InMemoryTaskManager()
 event_store = []
 preprocessor = AudioPreprocessor(storage)
 ws_manager = ChannelWebSocketManager()
+text_corrector = LexiconCorrector(
+    config_path=settings.data_dir / Path(settings.lexicon_path).name,
+    enabled=settings.lexicon_enable,
+)
 streaming_chunk_size = [
     int(part.strip())
     for part in settings.streaming_chunk_size.split(",")
@@ -72,6 +78,7 @@ pipeline = AudioPipeline(
     asr=shared_asr,
     risk_engine=KeywordRiskEngine(),
     storage=storage,
+    text_corrector=text_corrector,
 )
 stream_processor = StreamingAudioProcessor(
     preprocessor=preprocessor,
@@ -86,6 +93,7 @@ stream_processor = StreamingAudioProcessor(
     storage=storage,
     ws_manager=ws_manager,
     simulation_speed=settings.stream_simulation_speed,
+    text_corrector=text_corrector,
 )
 realtime_stream_processor = RealtimeStreamingProcessor(
     preprocessor=preprocessor,
@@ -93,6 +101,7 @@ realtime_stream_processor = RealtimeStreamingProcessor(
     risk_engine=KeywordRiskEngine(),
     ws_manager=ws_manager,
     chunk_size=streaming_chunk_size,
+    text_corrector=text_corrector,
 )
 scenario_simulator = ScenarioSimulator(
     risk_engine=KeywordRiskEngine(),

@@ -11,6 +11,7 @@ from app.services.audio_utils import slice_wav_segment
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
 from app.services.storage import LocalStorage
+from app.services.text_postprocess import LexiconCorrector
 from app.services.vad import DetectedSegment, WavEnergyVAD
 from app.services.ws_manager import ChannelWebSocketManager
 
@@ -25,6 +26,7 @@ class StreamingAudioProcessor:
         storage: LocalStorage,
         ws_manager: ChannelWebSocketManager,
         simulation_speed: float = 8.0,
+        text_corrector: LexiconCorrector | None = None,
     ) -> None:
         self.preprocessor = preprocessor
         self.vad = vad
@@ -33,6 +35,7 @@ class StreamingAudioProcessor:
         self.storage = storage
         self.ws_manager = ws_manager
         self.simulation_speed = simulation_speed
+        self.text_corrector = text_corrector
 
     def process_file_stream(
         self,
@@ -99,6 +102,7 @@ class StreamingAudioProcessor:
                 file_path=clip_path,
                 transcript_override=transcript_override if index == 0 else None,
             )
+            corrected_text, _ = self._correct_text(result.text)
             segment = AudioSegment(
                 id=f"seg_{uuid.uuid4().hex[:12]}",
                 channel_id=channel_id,
@@ -107,9 +111,9 @@ class StreamingAudioProcessor:
                 start_ms=item.start_ms,
                 end_ms=item.end_ms,
                 duration_ms=max(0, item.end_ms - item.start_ms),
-                text=result.text,
+                text=corrected_text,
                 confidence=result.confidence,
-                keywords=self._extract_keywords(result.text),
+                keywords=self._extract_keywords(corrected_text),
                 engine=result.engine,
             )
             segments.append(segment)
@@ -178,3 +182,8 @@ class StreamingAudioProcessor:
             "未报告",
         ]
         return [keyword for keyword in known_keywords if keyword.lower() in lowered]
+
+    def _correct_text(self, text: str) -> tuple[str, list[dict[str, str]]]:
+        if not self.text_corrector:
+            return text, []
+        return self.text_corrector.correct(text)
