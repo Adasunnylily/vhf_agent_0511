@@ -401,13 +401,39 @@ def render_dashboard(settings: Settings) -> str:
                 <option value="杂货船">杂货船</option>
               </select>
               <select id="inspectionScenario">
-                <option value="cross_line">过线提醒</option>
-                <option value="speed_watch">限速守听</option>
-                <option value="report_watch">点验报告</option>
+                <option value="">选择点验场景</option>
               </select>
               <textarea id="noticeTemplate">{船名}，数字值班员提醒：你船已进入{区域}关注范围，请保持安全航速，加强瞭望并保持守听。</textarea>
               <button type="submit">生成点验通知</button>
             </form>
+            <div class="audio-box">
+              <div class="badge dark" style="margin-bottom:8px;">新增点验场景</div>
+              <div class="form-grid">
+                <input id="newScenarioName" placeholder="场景名称（例如：夜间会遇提醒）" />
+                <textarea id="newScenarioTemplate" placeholder="模板示例：{船名}，你船进入{区域}..." ></textarea>
+                <button type="button" id="saveScenarioBtn" class="secondary">保存场景模板</button>
+              </div>
+            </div>
+            <div class="audio-box">
+              <div class="badge dark" style="margin-bottom:8px;">手动新增船舶坐标</div>
+              <div class="form-grid">
+                <input id="newShipName" placeholder="船名" />
+                <div class="row-2">
+                  <input id="newShipLng" placeholder="经度，例如 121.8621" />
+                  <input id="newShipLat" placeholder="纬度，例如 29.9365" />
+                </div>
+                <div class="row-2">
+                  <input id="newShipType" placeholder="船型，例如 散货船" />
+                  <input id="newShipPositionLabel" placeholder="位置标签，例如 A3水道" />
+                </div>
+                <div class="row-2">
+                  <input id="newShipTonnage" placeholder="吨位 t" />
+                  <input id="newShipDraft" placeholder="吃水 m" />
+                </div>
+                <input id="newShipDestination" placeholder="目的地（可选）" />
+                <button type="button" id="saveShipBtn" class="secondary">保存船舶</button>
+              </div>
+            </div>
           </section>
         </div>
       </aside>
@@ -515,6 +541,7 @@ def render_dashboard(settings: Settings) -> str:
       overlays: [],
       shipMarkers: [],
       selectedShipNames: [],
+      scenarios: [],
       ws: null
     };
 
@@ -818,6 +845,18 @@ def render_dashboard(settings: Settings) -> str:
       return Array.from($("shipTypes").selectedOptions).map((o) => o.value);
     }
 
+    function renderScenarioOptions() {
+      const select = $("inspectionScenario");
+      const current = select.value;
+      const options = ['<option value="">选择点验场景</option>'].concat(
+        state.scenarios.map((item) => `<option value="${item.scenario_id}">${item.scenario_name}</option>`)
+      );
+      select.innerHTML = options.join("");
+      if (current) {
+        select.value = current;
+      }
+    }
+
     function renderShipMarkers() {
       if (!state.map || !window.AMap) return;
       state.shipMarkers.forEach((m) => state.map.remove(m));
@@ -937,6 +976,9 @@ def render_dashboard(settings: Settings) -> str:
       state.ships = ships.items || [];
       renderShips();
       renderShipMarkers();
+      const scenarios = await requestJson("/api/inspection/scenarios");
+      state.scenarios = scenarios.items || [];
+      renderScenarioOptions();
     }
 
     function resetFlow() {
@@ -982,6 +1024,50 @@ def render_dashboard(settings: Settings) -> str:
         $("audioPlayer").src = URL.createObjectURL(file);
         setUploadStatus(`已选择：${file.name}`);
       });
+      $("inspectionScenario").addEventListener("change", () => {
+        const selected = state.scenarios.find((item) => item.scenario_id === $("inspectionScenario").value);
+        if (selected) {
+          $("noticeTemplate").value = selected.notice_template;
+        }
+      });
+      $("saveScenarioBtn").addEventListener("click", async () => {
+        try {
+          const formData = new FormData();
+          formData.append("scenario_name", $("newScenarioName").value.trim());
+          formData.append("notice_template", $("newScenarioTemplate").value.trim());
+          const response = await requestJson("/api/inspection/scenarios", { method: "POST", body: formData });
+          state.scenarios.push(response.item);
+          renderScenarioOptions();
+          $("inspectionScenario").value = response.item.scenario_id;
+          $("noticeTemplate").value = response.item.notice_template;
+          logLine(`场景已保存: ${response.item.scenario_name}`);
+        } catch (error) {
+          const message = error && error.message ? error.message : String(error);
+          logLine(`SAVE SCENARIO ERROR: ${message}`);
+        }
+      });
+      $("saveShipBtn").addEventListener("click", async () => {
+        try {
+          const formData = new FormData();
+          formData.append("ship_name", $("newShipName").value.trim());
+          formData.append("ship_type", $("newShipType").value.trim() || "其他");
+          formData.append("tonnage_t", $("newShipTonnage").value.trim() || "0");
+          formData.append("draft_m", $("newShipDraft").value.trim() || "0");
+          formData.append("destination", $("newShipDestination").value.trim());
+          formData.append("position_label", $("newShipPositionLabel").value.trim() || "自定义点位");
+          formData.append("lng", $("newShipLng").value.trim());
+          formData.append("lat", $("newShipLat").value.trim());
+          await requestJson("/api/inspection/ships", { method: "POST", body: formData });
+          const ships = await requestJson("/api/inspection/ships");
+          state.ships = ships.items || [];
+          renderShips();
+          renderShipMarkers();
+          logLine("已保存新船舶坐标。");
+        } catch (error) {
+          const message = error && error.message ? error.message : String(error);
+          logLine(`SAVE SHIP ERROR: ${message}`);
+        }
+      });
 
       $("uploadForm").addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -1020,12 +1106,9 @@ def render_dashboard(settings: Settings) -> str:
           connectSocket(channelId);
           setBadge("点验处理中", "amber");
           const scenario = $("inspectionScenario").value;
-          if (scenario === "cross_line") {
-            $("noticeTemplate").value = "{船名}，你船即将过线进入{区域}，请立即守听并按VTS指令通过。";
-          } else if (scenario === "speed_watch") {
-            $("noticeTemplate").value = "{船名}，你船位于{区域}重点监控区，请控制航速并加强瞭望。";
-          } else {
-            $("noticeTemplate").value = "{船名}，数字值班员提醒：你船已进入{区域}关注范围，请保持安全航速，加强瞭望并保持守听。";
+          const selected = state.scenarios.find((item) => item.scenario_id === scenario);
+          if (selected) {
+            $("noticeTemplate").value = selected.notice_template;
           }
 
           const previewForm = new FormData();
@@ -1043,6 +1126,7 @@ def render_dashboard(settings: Settings) -> str:
           formData.append("area_name", $("areaName").value.trim());
           formData.append("min_draft_m", $("minDraft").value.trim());
           formData.append("min_tonnage_t", $("minTonnage").value.trim());
+          formData.append("scenario_id", scenario);
           formData.append("notice_template", $("noticeTemplate").value);
           formData.append("area_geometry", getCurrentGeometry());
           formData.append("ship_types", selectedShipTypes().join(","));

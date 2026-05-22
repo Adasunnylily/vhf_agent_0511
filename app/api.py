@@ -16,6 +16,7 @@ from app.main import (
     ws_manager,
 )
 from app.services.asr_compare import list_asr_compare_options
+from app.services.demo_inspection import InspectionShip
 
 router = APIRouter(prefix="/api")
 
@@ -33,6 +34,52 @@ async def list_demo_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
 @router.get("/inspection/ships")
 async def list_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
     return {"items": inspection_simulator.list_mock_ships()}
+
+
+@router.post("/inspection/ships")
+async def add_inspection_ship(
+    ship_name: str = Form(...),
+    ship_type: str = Form(...),
+    tonnage_t: int = Form(...),
+    draft_m: float = Form(...),
+    destination: str = Form(""),
+    position_label: str = Form(""),
+    lng: float = Form(...),
+    lat: float = Form(...),
+) -> Dict[str, object]:
+    if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
+        raise HTTPException(status_code=400, detail="经纬度范围非法。")
+    ship = InspectionShip(
+        ship_name=ship_name.strip(),
+        ship_type=ship_type.strip(),
+        tonnage_t=int(tonnage_t),
+        draft_m=float(draft_m),
+        destination=destination.strip() or "待定",
+        position_label=position_label.strip() or "自定义点位",
+        lng=float(lng),
+        lat=float(lat),
+    )
+    item = inspection_simulator.add_ship(ship=ship)
+    return {"item": item}
+
+
+@router.get("/inspection/scenarios")
+async def list_inspection_scenarios() -> Dict[str, List[Dict[str, object]]]:
+    return {"items": inspection_simulator.list_scenarios()}
+
+
+@router.post("/inspection/scenarios")
+async def add_inspection_scenario(
+    scenario_name: str = Form(...),
+    notice_template: str = Form(...),
+) -> Dict[str, object]:
+    if not scenario_name.strip() or not notice_template.strip():
+        raise HTTPException(status_code=400, detail="场景名称和模板不能为空。")
+    item = inspection_simulator.add_scenario(
+        scenario_name=scenario_name,
+        notice_template=notice_template,
+    )
+    return {"item": item}
 
 
 @router.post("/inspection/filter")
@@ -132,6 +179,7 @@ async def run_demo_inspection_task(
     area_name: str = Form("北仑主航道A3段"),
     min_draft_m: float = Form(10.0),
     min_tonnage_t: int = Form(5000),
+    scenario_id: str = Form(""),
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
     area_geometry: str = Form(""),
     ship_types: str = Form(""),
@@ -140,12 +188,16 @@ async def run_demo_inspection_task(
     allowed_ship_types = [item.strip() for item in ship_types.split(",") if item.strip()]
 
     def runner() -> None:
+        resolved_template = inspection_simulator.resolve_template(
+            scenario_id=scenario_id,
+            fallback_template=notice_template,
+        )
         meta = inspection_simulator.run(
             channel_id=channel_id,
             area_name=area_name,
             min_draft_m=min_draft_m,
             min_tonnage_t=min_tonnage_t,
-            notice_template=notice_template,
+            notice_template=resolved_template,
             area_geometry=area_geometry,
             allowed_ship_types=allowed_ship_types,
         )
@@ -175,6 +227,7 @@ async def run_inspection_task(
     area_name: str = Form("北仑主航道A3段"),
     min_draft_m: float = Form(10.0),
     min_tonnage_t: int = Form(5000),
+    scenario_id: str = Form(""),
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
     area_geometry: str = Form(""),
     ship_types: str = Form(""),
@@ -184,6 +237,7 @@ async def run_inspection_task(
         area_name=area_name,
         min_draft_m=min_draft_m,
         min_tonnage_t=min_tonnage_t,
+        scenario_id=scenario_id,
         notice_template=notice_template,
         area_geometry=area_geometry,
         ship_types=ship_types,
@@ -196,6 +250,7 @@ async def run_inspection_tts(
     area_name: str = Form("北仑主航道A3段"),
     min_draft_m: float = Form(10.0),
     min_tonnage_t: int = Form(5000),
+    scenario_id: str = Form(""),
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
     area_geometry: str = Form(""),
     ship_types: str = Form(""),
@@ -205,6 +260,7 @@ async def run_inspection_tts(
         area_name=area_name,
         min_draft_m=min_draft_m,
         min_tonnage_t=min_tonnage_t,
+        scenario_id=scenario_id,
         notice_template=notice_template,
         area_geometry=area_geometry,
         ship_types=ship_types,
