@@ -380,6 +380,14 @@ def render_dashboard(settings: Settings) -> str:
             </form>
             <div id="uploadStatus" class="audio-box">等待音频</div>
             <div class="audio-box">
+              <div class="badge dark" style="margin-bottom:8px;">现场麦克风演示</div>
+              <div class="toolbar">
+                <button type="button" id="micStartBtn" class="dark">开始麦克风</button>
+                <button type="button" id="micStopBtn" class="secondary" disabled>停止麦克风</button>
+              </div>
+              <div id="micStatus" style="margin-top:8px;color:#617689;">待命</div>
+            </div>
+            <div class="audio-box">
               <div class="badge dark" style="margin-bottom:8px;">原音回放</div>
               <audio id="audioPlayer" controls></audio>
             </div>
@@ -548,7 +556,12 @@ def render_dashboard(settings: Settings) -> str:
       selectedShipNames: [],
       scenarios: [],
       streamText: "",
-      ws: null
+      ws: null,
+      micSessionId: "",
+      micRecorder: null,
+      micStream: null,
+      micSeq: 0,
+      micActive: false
     };
 
     const $ = (id) => document.getElementById(id);
@@ -580,6 +593,120 @@ def render_dashboard(settings: Settings) -> str:
       node.textContent = text;
       node.style.background = kind === "red" ? "#fff3f3" : kind === "green" ? "#f2fbf7" : "#f5f9fc";
       node.style.borderColor = kind === "red" ? "rgba(208,75,70,0.48)" : kind === "green" ? "rgba(20,132,87,0.48)" : "#b3c5d8";
+    }
+
+    function setMicStatus(text) {
+      const node = $("micStatus");
+      if (node) node.textContent = text;
+    }
+
+    function pickMicMimeType() {
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+      ];
+      for (const mime of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mime)) {
+          return mime;
+        }
+      }
+      return "";
+    }
+
+    async function uploadMicChunk(blob) {
+      if (!state.micSessionId || !blob || blob.size <= 0) return;
+      const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
+      const formData = new FormData();
+      formData.append("file", blob, `mic_${Date.now()}.webm`);
+      formData.append("session_id", state.micSessionId);
+      formData.append("channel_id", channelId);
+      formData.append("seq", String(state.micSeq));
+      state.micSeq += 1;
+      try {
+        await requestJson("/api/mic/chunk", { method: "POST", body: formData });
+      } catch (error) {
+        const message = error && error.message ? error.message : String(error);
+        logLine(`MIC CHUNK ERROR: ${message}`);
+      }
+    }
+
+    async function startMicCapture() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("当前浏览器不支持麦克风采集。");
+      }
+      const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
+      connectSocket(channelId);
+      resetFlow();
+      state.streamText = "";
+      state.micSeq = 0;
+      const startForm = new FormData();
+      startForm.append("channel_id", channelId);
+      startForm.append("denoise_mode", $("denoiseMode").value);
+      const startResp = await requestJson("/api/mic/start", { method: "POST", body: startForm });
+      state.micSessionId = startResp.session_id || "";
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      state.micStream = stream;
+      const mimeType = pickMicMimeType();
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      state.micRecorder = recorder;
+      recorder.ondataavailable = async (event) => {
+        if (!state.micActive) return;
+        await uploadMicChunk(event.data);
+      };
+      recorder.onstop = () => {
+        setMicStatus("麦克风已停止");
+      };
+      recorder.start(1200);
+      state.micActive = true;
+      $("micStartBtn").disabled = true;
+      $("micStopBtn").disabled = false;
+      setBadge("现场流式守听中", "dark");
+      setSteps(1, "active");
+      setMicStatus(`已启动，Session=${state.micSessionId}`);
+    }
+
+    async function stopMicCapture() {
+      if (!state.micActive) return;
+      state.micActive = false;
+      try {
+        if (state.micRecorder && state.micRecorder.state !== "inactive") {
+          state.micRecorder.stop();
+        }
+      } catch (error) {
+        // ignore recorder stop race
+      }
+      if (state.micStream) {
+        state.micStream.getTracks().forEach((track) => track.stop());
+      }
+      const sessionId = state.micSessionId;
+      state.micRecorder = null;
+      state.micStream = null;
+      state.micSessionId = "";
+      $("micStartBtn").disabled = false;
+      $("micStopBtn").disabled = true;
+      setMicStatus("正在汇总识别结果...");
+      if (sessionId) {
+        try {
+          const stopForm = new FormData();
+          stopForm.append("session_id", sessionId);
+          const stopResp = await requestJson("/api/mic/stop", { method: "POST", body: stopForm });
+          if (stopResp.text) {
+            state.activeText = stopResp.text;
+            $("asrText").textContent = stopResp.text;
+          }
+          setBadge("现场流式完成", "green");
+          setSteps(4, "done");
+          setMicStatus(`已完成，分片 ${stopResp.chunk_count || 0} 段`);
+        } catch (error) {
+          const message = error && error.message ? error.message : String(error);
+          setMicStatus(`停止失败: ${message}`);
+          logLine(`MIC STOP ERROR: ${message}`);
+        }
+      } else {
+        setMicStatus("未找到会话");
+      }
     }
 
     function setBadge(text, kind = "") {
@@ -819,9 +946,37 @@ def render_dashboard(settings: Settings) -> str:
               <span class="mini">吃水 ${ship.draft_m}m</span>
             </div>
           </div>
-          <span class="badge">${ship.position_label.includes("A3") ? "A3" : "AIS"}</span>
+          <div class="toolbar">
+            <span class="badge">${ship.position_label.includes("A3") ? "A3" : "AIS"}</span>
+            <button type="button" class="secondary" data-delete-ship="${ship.ship_id || ''}">删除</button>
+          </div>
         </div>
       `).join("");
+      container.querySelectorAll("[data-delete-ship]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const shipId = button.getAttribute("data-delete-ship") || "";
+          if (!shipId) {
+            logLine("DELETE SHIP ERROR: 缺少 ship_id");
+            return;
+          }
+          try {
+            const formData = new FormData();
+            formData.append("ship_id", shipId);
+            await requestJson("/api/inspection/ships/delete", { method: "POST", body: formData });
+            const ships = await requestJson("/api/inspection/ships");
+            state.ships = ships.items || [];
+            state.selectedShipNames = state.selectedShipNames.filter(
+              (name) => state.ships.some((item) => item.ship_name === name)
+            );
+            renderShips();
+            renderShipMarkers();
+            logLine(`已删除船舶: ${shipId}`);
+          } catch (error) {
+            const message = error && error.message ? error.message : String(error);
+            logLine(`DELETE SHIP ERROR: ${message}`);
+          }
+        });
+      });
     }
 
     function renderNotices() {
@@ -1076,6 +1231,18 @@ def render_dashboard(settings: Settings) -> str:
     }
 
     function wireActions() {
+      $("micStartBtn").addEventListener("click", async () => {
+        try {
+          await startMicCapture();
+        } catch (error) {
+          const message = error && error.message ? error.message : String(error);
+          setMicStatus(`启动失败: ${message}`);
+          logLine(`MIC START ERROR: ${message}`);
+        }
+      });
+      $("micStopBtn").addEventListener("click", async () => {
+        await stopMicCapture();
+      });
       $("copyAsr").addEventListener("click", async () => {
         if (!state.activeText) return;
         await navigator.clipboard.writeText(state.activeText);

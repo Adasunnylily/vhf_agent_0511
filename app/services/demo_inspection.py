@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import json
 import math
 from pathlib import Path
@@ -13,6 +13,7 @@ from app.services.ws_manager import ChannelWebSocketManager
 
 @dataclass(frozen=True)
 class InspectionShip:
+    ship_id: str
     ship_name: str
     tonnage_t: int
     draft_m: float
@@ -37,10 +38,10 @@ class InspectionScenario:
 
 
 DEFAULT_SHIPS: List[InspectionShip] = [
-    InspectionShip("海丰32", 12800, 11.2, "集装箱船", "北仑港二期码头", "主航道A3段", 121.8572, 29.9374),
-    InspectionShip("宁远8", 4600, 8.6, "杂货船", "锚地待泊", "主航道A3段", 121.8515, 29.9328),
-    InspectionShip("货轮876", 22600, 13.5, "散货船", "穿越警戒线后进港", "警戒线北口", 121.8689, 29.9441),
-    InspectionShip("长阳3", 9800, 10.4, "液货船", "内港调头区", "主航道B1段", 121.8436, 29.9289),
+    InspectionShip("ship_hf32", "海丰32", 12800, 11.2, "集装箱船", "北仑港二期码头", "主航道A3段", 121.8572, 29.9374),
+    InspectionShip("ship_ny8", "宁远8", 4600, 8.6, "杂货船", "锚地待泊", "主航道A3段", 121.8515, 29.9328),
+    InspectionShip("ship_hl876", "货轮876", 22600, 13.5, "散货船", "穿越警戒线后进港", "警戒线北口", 121.8689, 29.9441),
+    InspectionShip("ship_cy3", "长阳3", 9800, 10.4, "液货船", "内港调头区", "主航道B1段", 121.8436, 29.9289),
 ]
 
 DEFAULT_SCENARIOS: List[InspectionScenario] = [
@@ -153,9 +154,22 @@ class InspectionTaskSimulator:
         return [ship.to_dict() for ship in self._ships]
 
     def add_ship(self, ship: InspectionShip) -> Dict[str, object]:
+        if not ship.ship_id:
+            ship = replace(ship, ship_id=f"ship_{uuid.uuid4().hex[:10]}")
         self._ships.append(ship)
         self._save_ships()
         return ship.to_dict()
+
+    def remove_ship(self, ship_id: str) -> bool:
+        target = ship_id.strip()
+        if not target:
+            return False
+        before = len(self._ships)
+        self._ships = [ship for ship in self._ships if ship.ship_id != target]
+        removed = len(self._ships) < before
+        if removed:
+            self._save_ships()
+        return removed
 
     def list_scenarios(self) -> List[Dict[str, object]]:
         return [item.to_dict() for item in self._scenarios]
@@ -272,19 +286,23 @@ class InspectionTaskSimulator:
         if self.ships_path.exists():
             try:
                 rows = json.loads(self.ships_path.read_text(encoding="utf-8"))
-                ships = [
-                    InspectionShip(
-                        ship_name=str(row["ship_name"]),
-                        tonnage_t=int(row["tonnage_t"]),
-                        draft_m=float(row["draft_m"]),
-                        ship_type=str(row["ship_type"]),
-                        destination=str(row["destination"]),
-                        position_label=str(row["position_label"]),
-                        lng=float(row["lng"]),
-                        lat=float(row["lat"]),
+                ships: List[InspectionShip] = []
+                for row in rows:
+                    fingerprint = f"{row.get('ship_name', '')}_{row.get('lng', '')}_{row.get('lat', '')}"
+                    fallback_id = f"ship_{uuid.uuid5(uuid.NAMESPACE_DNS, fingerprint).hex[:10]}"
+                    ships.append(
+                        InspectionShip(
+                            ship_id=str(row.get("ship_id") or fallback_id),
+                            ship_name=str(row["ship_name"]),
+                            tonnage_t=int(row["tonnage_t"]),
+                            draft_m=float(row["draft_m"]),
+                            ship_type=str(row["ship_type"]),
+                            destination=str(row["destination"]),
+                            position_label=str(row["position_label"]),
+                            lng=float(row["lng"]),
+                            lat=float(row["lat"]),
+                        )
                     )
-                    for row in rows
-                ]
                 if ships:
                     return ships
             except Exception:

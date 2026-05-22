@@ -1,24 +1,35 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+import threading
+import uuid
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 
+from app.domain.models import AudioSegment
 from app.main import (
     event_store,
     inspection_simulator,
     pipeline,
+    preprocessor,
     realtime_stream_processor,
     scenario_simulator,
+    shared_asr,
     storage,
     stream_processor,
     task_manager,
+    text_corrector,
     ws_manager,
 )
 from app.services.asr_compare import list_asr_compare_options
 from app.services.demo_inspection import InspectionShip
+from app.services.risk_engine import KeywordRiskEngine
 
 router = APIRouter(prefix="/api")
+mic_risk_engine = KeywordRiskEngine()
+mic_sessions: Dict[str, Dict[str, Any]] = {}
+mic_lock = threading.Lock()
 
 
 @router.get("/demo/scenarios")
@@ -50,6 +61,7 @@ async def add_inspection_ship(
     if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
         raise HTTPException(status_code=400, detail="经纬度范围非法。")
     ship = InspectionShip(
+        ship_id="",
         ship_name=ship_name.strip(),
         ship_type=ship_type.strip(),
         tonnage_t=int(tonnage_t),
@@ -61,6 +73,16 @@ async def add_inspection_ship(
     )
     item = inspection_simulator.add_ship(ship=ship)
     return {"item": item}
+
+
+@router.post("/inspection/ships/delete")
+async def delete_inspection_ship(
+    ship_id: str = Form(...),
+) -> Dict[str, object]:
+    removed = inspection_simulator.remove_ship(ship_id=ship_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="未找到该船舶。")
+    return {"ok": True, "ship_id": ship_id}
 
 
 @router.get("/inspection/scenarios")
@@ -422,6 +444,179 @@ async def upload_true_streaming(
         "status": "queued",
         "channel_id": channel_id,
         "mode": "paraformer_streaming",
+    }
+
+
+def _extract_keywords(text: str) -> List[str]:
+    lowered = text.lower()
+    known_keywords = [
+        "mayday",
+        "求救",
+        "进水",
+        "起火",
+        "失火",
+        "人员落水",
+        "碰撞",
+        "搁浅",
+        "失控",
+        "失去动力",
+        "让清航道",
+        "避让",
+        "未响应",
+        "占频",
+        "逆行",
+        "禁止通行",
+        "闯入",
+        "超速",
+        "未报告",
+    ]
+    return [keyword for keyword in known_keywords if keyword.lower() in lowered]
+
+
+@router.post("/mic/start")
+async def start_mic_stream(
+    channel_id: str = Form("vhf_demo_01"),
+    denoise_mode: str = Form("off"),
+) -> Dict[str, object]:
+    session_id = f"mic_{uuid.uuid4().hex[:12]}"
+    with mic_lock:
+        mic_sessions[session_id] = {
+            "channel_id": channel_id,
+            "denoise_mode": denoise_mode.strip().lower(),
+            "texts": [],
+            "chunk_count": 0,
+            "events": [],
+        }
+    ws_manager.publish(
+        channel_id,
+        {
+            "type": "stream_status",
+            "stage": "mic_started",
+            "channel_id": channel_id,
+            "session_id": session_id,
+        },
+    )
+    return {"session_id": session_id, "channel_id": channel_id, "status": "running"}
+
+
+@router.post("/mic/chunk")
+async def push_mic_chunk(
+    file: UploadFile = File(...),
+    session_id: str = Form(...),
+    channel_id: str = Form("vhf_demo_01"),
+    seq: int = Form(0),
+) -> Dict[str, object]:
+    with mic_lock:
+        session = mic_sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="mic session not found")
+
+    save_name = file.filename or f"{session_id}_{seq}.webm"
+    saved_path = storage.save_upload(file.file, save_name)
+    enable_denoise = str(session.get("denoise_mode", "off")) == "on"
+    prepared = preprocessor.prepare(
+        file_path=saved_path,
+        enable_denoise=enable_denoise,
+    )
+    processed_path = Path(prepared.processed_path) if prepared.processed_path else saved_path
+    result = shared_asr.transcribe(file_path=processed_path)
+    text = result.text
+    if text_corrector:
+        text, _ = text_corrector.correct(text)
+
+    with mic_lock:
+        session = mic_sessions.get(session_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail="mic session not found")
+        if text:
+            session["texts"].append(text)
+        session["chunk_count"] = int(session.get("chunk_count", 0)) + 1
+        cumulative_text = "\n".join(session["texts"]).strip()
+
+    segment = AudioSegment(
+        id=f"{session_id}_{seq}",
+        channel_id=channel_id,
+        file_path=str(processed_path),
+        clip_path=str(processed_path),
+        start_ms=max(0, seq * 1200),
+        end_ms=max(0, seq * 1200 + 1200),
+        duration_ms=1200,
+        text=text,
+        confidence=result.confidence,
+        keywords=_extract_keywords(text),
+        engine=result.engine,
+    )
+    ws_manager.publish(
+        channel_id,
+        {
+            "type": "stream_chunk_result",
+            "mode": "mic_live_demo",
+            "channel_id": channel_id,
+            "index": seq,
+            "text": text,
+            "cumulative_text": cumulative_text,
+            "confidence": result.confidence,
+            "engine": result.engine,
+        },
+    )
+
+    events = mic_risk_engine.evaluate(segment)
+    for event in events:
+        ws_manager.publish(
+            channel_id,
+            {
+                "type": "risk_event",
+                "mode": "mic_live_demo",
+                "channel_id": channel_id,
+                "event": event.to_dict(),
+            },
+        )
+    with mic_lock:
+        session = mic_sessions.get(session_id)
+        if session is not None and events:
+            session_events = session.get("events", [])
+            session_events.extend([event.to_dict() for event in events])
+            session["events"] = session_events
+
+    return {
+        "session_id": session_id,
+        "seq": seq,
+        "text": text,
+        "cumulative_text": cumulative_text,
+        "events": [event.to_dict() for event in events],
+    }
+
+
+@router.post("/mic/stop")
+async def stop_mic_stream(
+    session_id: str = Form(...),
+) -> Dict[str, object]:
+    with mic_lock:
+        session = mic_sessions.pop(session_id, None)
+    if not session:
+        raise HTTPException(status_code=404, detail="mic session not found")
+    channel_id = str(session.get("channel_id", "vhf_demo_01"))
+    summary_text = "\n".join(session.get("texts", [])).strip()
+    events = session.get("events", [])
+    ws_manager.publish(
+        channel_id,
+        {
+            "type": "stream_status",
+            "stage": "completed",
+            "mode": "mic_live_demo",
+            "channel_id": channel_id,
+            "session_id": session_id,
+            "chunk_count": int(session.get("chunk_count", 0)),
+            "events": len(events),
+        },
+    )
+    return {
+        "session_id": session_id,
+        "channel_id": channel_id,
+        "status": "completed",
+        "chunk_count": int(session.get("chunk_count", 0)),
+        "text": summary_text,
+        "events": events,
     }
 
 
