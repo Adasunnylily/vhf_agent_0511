@@ -366,6 +366,11 @@ def render_dashboard(settings: Settings) -> str:
             <form id="uploadForm" class="form-grid">
               <input id="channelId" value="__DEFAULT_CHANNEL__" placeholder="频道 ID" />
               <input id="audioFile" type="file" accept=".wav,.mp3,.flac,.m4a,.aac,.pcm" />
+              <select id="processingMode">
+                <option value="batch">离线识别（稳定）</option>
+                <option value="stream_sim">模拟流式（VAD分段）</option>
+                <option value="stream_rt">准实时流式（chunk回放）</option>
+              </select>
               <select id="denoiseMode">
                 <option value="off">原音识别</option>
                 <option value="on">降噪识别</option>
@@ -542,6 +547,7 @@ def render_dashboard(settings: Settings) -> str:
       shipMarkers: [],
       selectedShipNames: [],
       scenarios: [],
+      streamText: "",
       ws: null
     };
 
@@ -713,6 +719,44 @@ def render_dashboard(settings: Settings) -> str:
       updateStats();
     }
 
+    function applyRiskEvent(event) {
+      if (!event) return;
+      const riskLevel = String(event.risk_level || "");
+      if (riskLevel === "L1" || riskLevel === "L2") {
+        setBadge("高危拦截", "red");
+        setSteps(2, "danger");
+        $("riskLabel").textContent = "是";
+        $("riskReason").textContent = event.summary || event.event_type || "高危事件";
+        $("autoLabel").textContent = "否";
+        $("autoReason").textContent = "高危不自动回复";
+        $("manualLabel").textContent = "立即处理";
+        $("manualReason").textContent = event.suggestion || "建议人工接管";
+        $("llmSuggestion").textContent = event.suggestion || $("llmSuggestion").textContent;
+        if (event.broadcast_text) {
+          state.activeReply = event.broadcast_text;
+        }
+        state.counts.risk += 1;
+        state.counts.manual += 1;
+      } else if (event.is_auto_reply || event.action_type === "auto_reply") {
+        setBadge("自动回复", "green");
+        setSteps(3, "done");
+        $("riskLabel").textContent = "否";
+        $("riskReason").textContent = "未命中高危";
+        $("autoLabel").textContent = "是";
+        $("autoReason").textContent = event.summary || "常规自动回复";
+        $("manualLabel").textContent = "无需";
+        $("manualReason").textContent = "系统可自动处置";
+        state.counts.auto += 1;
+      } else {
+        setBadge("人工复核", "amber");
+        setSteps(3, "warn");
+        $("manualLabel").textContent = "建议处理";
+        $("manualReason").textContent = event.suggestion || "建议人工复核";
+        state.counts.manual += 1;
+      }
+      updateStats();
+    }
+
     function saveRecord() {
       if (!state.activeText) return;
       state.records.unshift({
@@ -827,6 +871,32 @@ def render_dashboard(settings: Settings) -> str:
             state.notices.unshift(payload.payload);
             renderNotices();
             updateStats();
+          }
+          if (payload.type === "stream_chunk_result") {
+            state.streamText = payload.cumulative_text || payload.text || "";
+            state.activeText = state.streamText;
+            $("asrText").textContent = state.streamText || "等待流式转写...";
+            setSteps(1, "active");
+            setBadge("流式转写中", "dark");
+          }
+          if (payload.type === "segment_result" && payload.segment) {
+            const segText = payload.segment.text || "";
+            state.streamText = `${state.streamText}\n${segText}`.trim();
+            state.activeText = state.streamText;
+            $("asrText").textContent = state.streamText || "等待流式转写...";
+            setSteps(1, "active");
+            setBadge("流式转写中", "dark");
+          }
+          if (payload.type === "risk_event" && payload.event) {
+            applyRiskEvent(payload.event);
+          }
+          if (payload.type === "stream_status" && payload.stage === "completed") {
+            if (!state.activeReply && state.streamText) {
+              state.activeReply = buildManualAdvice(state.streamText);
+              $("llmSuggestion").textContent = state.activeReply;
+            }
+            setSteps(4, "done");
+            setBadge("流式完成", "green");
           }
         } catch (error) {
           logLine(event.data);
@@ -1080,17 +1150,48 @@ def render_dashboard(settings: Settings) -> str:
           const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
           connectSocket(channelId);
           resetFlow();
+          state.streamText = "";
           setStatus("上传中...", "");
           const formData = new FormData();
           formData.append("file", file);
           formData.append("channel_id", channelId);
           formData.append("denoise_mode", $("denoiseMode").value);
-          const createTask = await requestJson("/api/audio/upload", { method: "POST", body: formData });
+          const mode = $("processingMode").value;
+          let endpoint = "/api/audio/upload";
+          if (mode === "stream_sim") endpoint = "/api/stream/upload";
+          if (mode === "stream_rt") endpoint = "/api/streaming/upload";
+          const createTask = await requestJson(endpoint, { method: "POST", body: formData });
           logLine(createTask);
-          setSteps(1, "active");
+          if (mode === "batch") {
+            setSteps(1, "active");
+          } else {
+            setBadge("流式处理中", "dark");
+            setSteps(1, "active");
+          }
           const task = await pollTask(createTask.task_id);
           setStatus("识别完成", "green");
-          renderOutcome(task);
+          if (mode === "batch") {
+            renderOutcome(task);
+          } else {
+            const text = flattenSegments(task.segments || [])
+              .map((item) => item.text || "")
+              .filter(Boolean)
+              .join("\n");
+            if (text) {
+              state.activeText = text;
+              $("asrText").textContent = text;
+            }
+            const events = Array.isArray(task.events) ? task.events : [];
+            if (events.length) {
+              events.forEach((evt) => applyRiskEvent(evt));
+            } else {
+              setBadge("人工复核", "amber");
+              $("manualLabel").textContent = "建议处理";
+              $("manualReason").textContent = "流式未命中事件，建议人工确认";
+              $("llmSuggestion").textContent = buildManualAdvice(state.activeText || text);
+            }
+            setSteps(4, "done");
+          }
         } catch (error) {
           const message = error && error.message ? error.message : String(error);
           setStatus(`识别失败: ${message}`, "red");
