@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.services.asr import QwenASRAdapter, sanitize_asr_text
+from app.services.entity_resolver import EntityResolver
 
 
 RISK_KEYWORDS: Dict[str, List[str]] = {
@@ -128,6 +129,31 @@ def priority_rank(row: Dict[str, object]) -> Tuple[int, int, str]:
     return (order.get(priority, 9), -int(row.get("emergency_score_auto") or 0), str(row.get("sample_id", "")))
 
 
+def join_entities(candidates: List[object], entity_type: str, min_score: float = 0.96) -> str:
+    values: List[str] = []
+    for candidate in candidates:
+        if getattr(candidate, "entity_type", "") != entity_type:
+            continue
+        if float(getattr(candidate, "score", 0.0)) < min_score:
+            continue
+        canonical = str(getattr(candidate, "canonical", "")).strip()
+        if canonical and canonical not in values:
+            values.append(canonical)
+    return "；".join(values)
+
+
+def serialize_candidates(candidates: List[object]) -> str:
+    parts: List[str] = []
+    for candidate in candidates:
+        entity_type = str(getattr(candidate, "entity_type", ""))
+        canonical = str(getattr(candidate, "canonical", ""))
+        matched_text = str(getattr(candidate, "matched_text", ""))
+        score = float(getattr(candidate, "score", 0.0))
+        reason = str(getattr(candidate, "reason", ""))
+        parts.append(f"{entity_type}:{canonical}|match={matched_text}|score={score:.2f}|{reason}")
+    return "；".join(parts)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run strong ASR API first, export CSV for human correction.")
     parser.add_argument("--audio-dir", required=True, type=Path, help="目录下递归扫描音频")
@@ -142,6 +168,8 @@ def main() -> None:
     parser.add_argument("--model", default="qwen3-asr-flash")
     parser.add_argument("--api-key-env", default="DASHSCOPE_API_KEY")
     parser.add_argument("--base-url", default="https://dashscope.aliyuncs.com/compatible-mode/v1")
+    parser.add_argument("--lexicon", type=Path, default=Path("data/lexicon_corrections.json"), help="船名/地名词典")
+    parser.add_argument("--entity-min-score", type=float, default=0.82, help="实体候选模糊匹配最低分")
     parser.add_argument("--high-risk-out", type=Path, default=None, help="额外导出疑似高危/高优先级清单")
     parser.add_argument("--continue-on-error", action="store_true", help="单条ASR失败时继续处理后续音频")
     args = parser.parse_args()
@@ -158,6 +186,11 @@ def main() -> None:
         base_url=args.base_url,
         timeout_s=180,
     )
+    entity_resolver = EntityResolver(
+        lexicon_path=args.lexicon,
+        enabled=True,
+        min_score=args.entity_min_score,
+    )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     rows: List[Dict[str, object]] = []
@@ -170,6 +203,10 @@ def main() -> None:
         "mixed_dialogue",
         "comm_type_gt",
         "asr_text_auto",
+        "resolved_text_auto",
+        "ship_entities_auto",
+        "location_entities_auto",
+        "entity_candidates_auto",
         "primary_label_auto",
         "risk_level_auto",
         "risk_subtype_auto",
@@ -210,7 +247,8 @@ def main() -> None:
                 raise
 
         sample_id = audio.stem
-        analysis = analyze_text(text)
+        resolution = entity_resolver.resolve(text)
+        analysis = analyze_text(resolution.resolved_text)
         row: Dict[str, object] = {
             "sample_id": sample_id,
             "audio_path": str(audio),
@@ -219,6 +257,10 @@ def main() -> None:
             "mixed_dialogue": "",
             "comm_type_gt": "",
             "asr_text_auto": text,
+            "resolved_text_auto": resolution.resolved_text,
+            "ship_entities_auto": join_entities(resolution.candidates, "ship"),
+            "location_entities_auto": join_entities(resolution.candidates, "location"),
+            "entity_candidates_auto": serialize_candidates(resolution.candidates),
             "primary_label_auto": analysis["primary_label"],
             "risk_level_auto": analysis["risk_level"],
             "risk_subtype_auto": analysis["risk_subtype"],
