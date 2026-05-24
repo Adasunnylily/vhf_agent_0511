@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from app.domain.models import AudioSegment, RiskEvent
 
@@ -73,7 +73,7 @@ KEYWORD_GROUPS: Dict[str, Dict[str, object]] = {
 
 class KeywordRiskEngine:
     def evaluate(self, segment: AudioSegment) -> List[RiskEvent]:
-        text = segment.text.strip()
+        text = (segment.resolved_text or segment.text).strip()
         if not text:
             return []
 
@@ -119,7 +119,7 @@ class KeywordRiskEngine:
             )
         ]
 
-    def _match_group(self, lowered: str) -> Tuple[str, List[str], str, str, str, str, bool, bool] | None:
+    def _match_group(self, lowered: str) -> Optional[Tuple[str, List[str], str, str, str, str, bool, bool]]:
         for risk_level in ("L1", "L2", "L3", "AUTO", "MANUAL"):
             group = KEYWORD_GROUPS[risk_level]
             hits = [

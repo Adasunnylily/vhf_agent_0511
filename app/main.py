@@ -10,6 +10,7 @@ from app.frontend import render_dashboard
 from app.services.asr import FunASRAdapter, FunASRStreamingAdapter, QwenASRAdapter
 from app.services.demo_inspection import InspectionTaskSimulator
 from app.services.demo_scenarios import ScenarioSimulator
+from app.services.entity_resolver import EntityResolver
 from app.services.pipeline import AudioPipeline
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
@@ -27,6 +28,10 @@ task_manager = InMemoryTaskManager()
 event_store = []
 preprocessor = AudioPreprocessor(storage)
 ws_manager = ChannelWebSocketManager()
+entity_resolver = EntityResolver(
+    lexicon_path=settings.entity_lexicon_path,
+    enabled=settings.entity_resolver_enabled,
+)
 streaming_chunk_size = [
     int(part.strip())
     for part in settings.streaming_chunk_size.split(",")
@@ -72,6 +77,7 @@ pipeline = AudioPipeline(
     asr=shared_asr,
     risk_engine=KeywordRiskEngine(),
     storage=storage,
+    entity_resolver=entity_resolver,
 )
 stream_processor = StreamingAudioProcessor(
     preprocessor=preprocessor,
@@ -86,6 +92,7 @@ stream_processor = StreamingAudioProcessor(
     storage=storage,
     ws_manager=ws_manager,
     simulation_speed=settings.stream_simulation_speed,
+    entity_resolver=entity_resolver,
 )
 realtime_stream_processor = RealtimeStreamingProcessor(
     preprocessor=preprocessor,
@@ -93,6 +100,7 @@ realtime_stream_processor = RealtimeStreamingProcessor(
     risk_engine=KeywordRiskEngine(),
     ws_manager=ws_manager,
     chunk_size=streaming_chunk_size,
+    entity_resolver=entity_resolver,
 )
 scenario_simulator = ScenarioSimulator(
     risk_engine=KeywordRiskEngine(),

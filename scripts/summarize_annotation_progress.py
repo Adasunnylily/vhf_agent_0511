@@ -6,10 +6,10 @@ import json
 from collections import Counter
 from pathlib import Path
 from statistics import median
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 
-def parse_float(value: str) -> float | None:
+def parse_float(value: str) -> Optional[float]:
     value = (value or "").strip()
     if not value:
         return None
@@ -19,7 +19,7 @@ def parse_float(value: str) -> float | None:
         return None
 
 
-def quantile(values: List[float], q: float) -> float | None:
+def quantile(values: List[float], q: float) -> Optional[float]:
     if not values:
         return None
     ordered = sorted(values)

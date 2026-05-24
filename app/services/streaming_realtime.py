@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from app.domain.models import RiskEvent
 from app.services.asr import ASRResult, BaseStreamingASRAdapter
+from app.services.entity_resolver import EntityResolver, EntityResolution
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
 from app.services.ws_manager import ChannelWebSocketManager
@@ -19,12 +20,14 @@ class RealtimeStreamingProcessor:
         risk_engine: KeywordRiskEngine,
         ws_manager: ChannelWebSocketManager,
         chunk_size: List[int],
+        entity_resolver: Optional[EntityResolver] = None,
     ) -> None:
         self.preprocessor = preprocessor
         self.asr = asr
         self.risk_engine = risk_engine
         self.ws_manager = ws_manager
         self.chunk_size = chunk_size
+        self.entity_resolver = entity_resolver
 
     def process_file_stream(
         self,
@@ -90,6 +93,7 @@ class RealtimeStreamingProcessor:
         if cumulative_text:
             from app.domain.models import AudioSegment
 
+            resolution = self._resolve_entities(cumulative_text)
             segment = AudioSegment(
                 id="streaming_final",
                 channel_id=channel_id,
@@ -100,8 +104,19 @@ class RealtimeStreamingProcessor:
                 duration_ms=int(len(audio) * 1000 / sample_rate),
                 text=cumulative_text,
                 confidence=incremental_results[-1].confidence if incremental_results else 0.85,
-                keywords=self._extract_keywords(cumulative_text),
+                keywords=self._extract_keywords(resolution.resolved_text),
                 engine=incremental_results[-1].engine if incremental_results else "funasr:streaming",
+                resolved_text=resolution.resolved_text,
+                entities=[candidate.to_dict() for candidate in resolution.candidates],
+            )
+            self.ws_manager.publish(
+                channel_id,
+                {
+                    "type": "stream_final_result",
+                    "mode": "paraformer_streaming",
+                    "channel_id": channel_id,
+                    "segment": segment.to_dict(),
+                },
             )
             events = self.risk_engine.evaluate(segment)
             for event in events:
@@ -153,6 +168,11 @@ class RealtimeStreamingProcessor:
         if not chunks:
             chunks = [audio]
         return chunks
+
+    def _resolve_entities(self, text: str) -> EntityResolution:
+        if self.entity_resolver is None:
+            return EntityResolution(original_text=text, resolved_text=text, candidates=[])
+        return self.entity_resolver.resolve(text)
 
     def _extract_keywords(self, text: str) -> List[str]:
         lowered = text.lower()

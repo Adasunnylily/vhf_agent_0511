@@ -8,6 +8,7 @@ from typing import List, Optional, Tuple
 from app.domain.models import AudioSegment, RiskEvent
 from app.services.asr import BaseASRAdapter
 from app.services.audio_utils import slice_wav_segment
+from app.services.entity_resolver import EntityResolver, EntityResolution
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
 from app.services.storage import LocalStorage
@@ -25,6 +26,7 @@ class StreamingAudioProcessor:
         storage: LocalStorage,
         ws_manager: ChannelWebSocketManager,
         simulation_speed: float = 8.0,
+        entity_resolver: Optional[EntityResolver] = None,
     ) -> None:
         self.preprocessor = preprocessor
         self.vad = vad
@@ -33,6 +35,7 @@ class StreamingAudioProcessor:
         self.storage = storage
         self.ws_manager = ws_manager
         self.simulation_speed = simulation_speed
+        self.entity_resolver = entity_resolver
 
     def process_file_stream(
         self,
@@ -99,6 +102,8 @@ class StreamingAudioProcessor:
                 file_path=clip_path,
                 transcript_override=transcript_override if index == 0 else None,
             )
+            resolution = self._resolve_entities(result.text)
+            text_for_rules = resolution.resolved_text
             segment = AudioSegment(
                 id=f"seg_{uuid.uuid4().hex[:12]}",
                 channel_id=channel_id,
@@ -109,8 +114,10 @@ class StreamingAudioProcessor:
                 duration_ms=max(0, item.end_ms - item.start_ms),
                 text=result.text,
                 confidence=result.confidence,
-                keywords=self._extract_keywords(result.text),
+                keywords=self._extract_keywords(text_for_rules),
                 engine=result.engine,
+                resolved_text=text_for_rules,
+                entities=[candidate.to_dict() for candidate in resolution.candidates],
             )
             segments.append(segment)
             self.ws_manager.publish(
@@ -153,6 +160,11 @@ class StreamingAudioProcessor:
             return
         delay = (duration_ms / 1000.0) / self.simulation_speed
         time.sleep(min(delay, 2.0))
+
+    def _resolve_entities(self, text: str) -> EntityResolution:
+        if self.entity_resolver is None:
+            return EntityResolution(original_text=text, resolved_text=text, candidates=[])
+        return self.entity_resolver.resolve(text)
 
     def _extract_keywords(self, text: str) -> List[str]:
         lowered = text.lower()

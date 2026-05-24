@@ -100,7 +100,7 @@ def render_dashboard(settings: Settings) -> str:
     }
     .stats {
       display: grid;
-      grid-template-columns: repeat(5, 130px);
+      grid-template-columns: repeat(8, minmax(100px, 130px));
       gap: 10px;
     }
     .stat {
@@ -347,6 +347,9 @@ def render_dashboard(settings: Settings) -> str:
         <div class="stat"><strong id="statManual">0</strong><span>人工处理</span></div>
         <div class="stat"><strong id="statRecords">0</strong><span>汇报索引</span></div>
         <div class="stat"><strong id="statInspection">0</strong><span>点验通知</span></div>
+        <div class="stat"><strong id="statTtft">--</strong><span>TTFT首字</span></div>
+        <div class="stat"><strong id="statFinalLatency">--</strong><span>Final最终</span></div>
+        <div class="stat"><strong id="statFailRate">0%</strong><span>失败率</span></div>
       </div>
     </header>
 
@@ -513,6 +516,7 @@ def render_dashboard(settings: Settings) -> str:
       notices: [],
       ships: [],
       counts: { risk: 0, auto: 0, manual: 0 },
+      perf: { runs: 0, failures: 0, startedAt: 0, firstTextAt: 0, finalAt: 0 },
       drawMode: "rect",
       drawing: false,
       startPoint: null,
@@ -577,6 +581,35 @@ def render_dashboard(settings: Settings) -> str:
       $("statManual").textContent = state.counts.manual;
       $("statRecords").textContent = state.records.length;
       $("statInspection").textContent = state.notices.length;
+      $("statTtft").textContent = state.perf.firstTextAt && state.perf.startedAt ? `${state.perf.firstTextAt - state.perf.startedAt}ms` : "--";
+      $("statFinalLatency").textContent = state.perf.finalAt && state.perf.startedAt ? `${state.perf.finalAt - state.perf.startedAt}ms` : "--";
+      $("statFailRate").textContent = state.perf.runs ? `${Math.round((state.perf.failures / state.perf.runs) * 100)}%` : "0%";
+    }
+
+    function markRunStarted() {
+      state.perf.runs += 1;
+      state.perf.startedAt = Date.now();
+      state.perf.firstTextAt = 0;
+      state.perf.finalAt = 0;
+      updateStats();
+    }
+
+    function markFirstText() {
+      if (!state.perf.firstTextAt) {
+        state.perf.firstTextAt = Date.now();
+        updateStats();
+      }
+    }
+
+    function markRunFinished() {
+      state.perf.finalAt = Date.now();
+      updateStats();
+    }
+
+    function markRunFailed() {
+      state.perf.failures += 1;
+      state.perf.finalAt = Date.now();
+      updateStats();
     }
 
     function speak(text) {
@@ -659,6 +692,7 @@ def render_dashboard(settings: Settings) -> str:
         ? `${current}\n${prefix}${text}`
         : `${prefix}${text}`;
       state.activeText = $("asrText").textContent;
+      markFirstText();
       setSteps(1, "active");
       setBadge("实时转写", "");
     }
@@ -685,6 +719,7 @@ def render_dashboard(settings: Settings) -> str:
       state.activeText = outcome.text || "未识别到有效文本";
       state.activeReply = outcome.reply || "";
       state.activeRecordType = outcome.type;
+      if (outcome.text) markFirstText();
 
       $("asrText").textContent = state.activeText;
       $("llmSuggestion").textContent = state.activeReply || "等待后续结果";
@@ -848,6 +883,17 @@ def render_dashboard(settings: Settings) -> str:
           logLine(payload);
           if (payload.type === "segment_result" && payload.segment) {
             applyLiveSegment(payload.segment, payload.speaker || "");
+          }
+          if (payload.type === "stream_chunk_result" && payload.text) {
+            $("asrText").textContent = payload.cumulative_text || payload.text;
+            state.activeText = $("asrText").textContent;
+            markFirstText();
+            setSteps(1, "active");
+            setBadge("准实时转写", "");
+          }
+          if (payload.type === "stream_final_result" && payload.segment) {
+            applyLiveSegment(payload.segment, "");
+            markRunFinished();
           }
           if (payload.type === "risk_event" && payload.event) {
             applyRiskEvent(payload.event);
@@ -1014,6 +1060,7 @@ def render_dashboard(settings: Settings) -> str:
       $("manualReason").textContent = "处理中";
       $("asrText").textContent = "处理中";
       $("llmSuggestion").textContent = "处理中";
+      markRunStarted();
     }
 
     function setupTabs() {
@@ -1060,12 +1107,14 @@ def render_dashboard(settings: Settings) -> str:
           const createTask = await requestJson(`/api/demo/scenario/${scenarioId}`, { method: "POST", body: formData });
           logLine(createTask);
           const task = await pollTask(createTask.task_id);
+          markRunFinished();
           setStatus("仿真完成", "green");
           renderOutcome(task);
         } catch (error) {
           const message = error && error.message ? error.message : String(error);
           setStatus(`仿真失败: ${message}`, "red");
           setBadge("失败", "red");
+          markRunFailed();
           logLine(`SCENARIO ERROR: ${message}`);
         }
       });
@@ -1090,12 +1139,14 @@ def render_dashboard(settings: Settings) -> str:
           logLine(createTask);
           setSteps(1, "active");
           const task = await pollTask(createTask.task_id);
+          markRunFinished();
           setStatus("识别完成", "green");
           renderOutcome(task);
         } catch (error) {
           const message = error && error.message ? error.message : String(error);
           setStatus(`识别失败: ${message}`, "red");
           setBadge("失败", "red");
+          markRunFailed();
           logLine(`UPLOAD ERROR: ${message}`);
         }
       });

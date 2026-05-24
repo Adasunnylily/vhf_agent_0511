@@ -53,6 +53,10 @@ class Settings:
         "highpass=f=120,lowpass=f=3800,afftdn=nf=-25",
     )
     amap_key: str = os.getenv("AMAP_KEY", "")
+    entity_resolver_enabled: bool = os.getenv("VHF_ENTITY_RESOLVER_ENABLED", "1") == "1"
+    entity_lexicon_path: Path = Path(
+        os.getenv("VHF_ENTITY_LEXICON_PATH", str(data_dir / "lexicon_corrections.json"))
+    )
 
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)

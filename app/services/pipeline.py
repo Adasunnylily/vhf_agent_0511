@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 
 from app.domain.models import AudioSegment, RiskEvent
 from app.services.audio_utils import slice_wav_segment
+from app.services.entity_resolver import EntityResolver
 from app.services.asr import BaseASRAdapter
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
@@ -29,12 +30,14 @@ class AudioPipeline:
         asr: BaseASRAdapter,
         risk_engine: KeywordRiskEngine,
         storage: LocalStorage,
+        entity_resolver: Optional[EntityResolver] = None,
     ) -> None:
         self.preprocessor = preprocessor
         self.vad = vad
         self.asr = asr
         self.risk_engine = risk_engine
         self.storage = storage
+        self.entity_resolver = entity_resolver
 
     def process(
         self,
@@ -61,7 +64,9 @@ class AudioPipeline:
                 file_path=processed_path,
                 transcript_override=transcript_override,
             )
-            shared_keywords = self._extract_keywords(full_result.text)
+            resolution = self._resolve_entities(full_result.text)
+            text_for_rules = resolution.resolved_text
+            shared_keywords = self._extract_keywords(text_for_rules)
             item = detected[0]
             segment = AudioSegment(
                 id=f"seg_{uuid.uuid4().hex[:12]}",
@@ -75,6 +80,8 @@ class AudioPipeline:
                 confidence=full_result.confidence,
                 keywords=shared_keywords,
                 engine=full_result.engine,
+                resolved_text=text_for_rules,
+                entities=[candidate.to_dict() for candidate in resolution.candidates],
             )
             segments.append(segment)
             for event in self.risk_engine.evaluate(segment):
@@ -99,7 +106,9 @@ class AudioPipeline:
                 file_path=clip_path,
                 transcript_override=transcript_override if index == 0 else None,
             )
-            keywords = self._extract_keywords(segment_result.text)
+            resolution = self._resolve_entities(segment_result.text)
+            text_for_rules = resolution.resolved_text
+            keywords = self._extract_keywords(text_for_rules)
             segment = AudioSegment(
                 id=f"seg_{uuid.uuid4().hex[:12]}",
                 channel_id=channel_id,
@@ -112,6 +121,8 @@ class AudioPipeline:
                 confidence=segment_result.confidence,
                 keywords=keywords,
                 engine=segment_result.engine,
+                resolved_text=text_for_rules,
+                entities=[candidate.to_dict() for candidate in resolution.candidates],
             )
             segments.append(segment)
             for event in self.risk_engine.evaluate(segment):
@@ -123,6 +134,13 @@ class AudioPipeline:
             events=events,
             preprocess=prepared.to_dict(),
         )
+
+    def _resolve_entities(self, text: str):
+        if self.entity_resolver is None:
+            from app.services.entity_resolver import EntityResolution
+
+            return EntityResolution(original_text=text, resolved_text=text, candidates=[])
+        return self.entity_resolver.resolve(text)
 
     def _extract_keywords(self, text: str) -> List[str]:
         lowered = text.lower()
