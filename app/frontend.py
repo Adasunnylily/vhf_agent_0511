@@ -561,7 +561,9 @@ def render_dashboard(settings: Settings) -> str:
       micRecorder: null,
       micStream: null,
       micSeq: 0,
-      micActive: false
+      micActive: false,
+      micUploading: false,
+      micPendingBlob: null
     };
 
     const $ = (id) => document.getElementById(id);
@@ -614,11 +616,26 @@ def render_dashboard(settings: Settings) -> str:
       return "";
     }
 
+    function inferExtFromMime(mime) {
+      const lowered = String(mime || "").toLowerCase();
+      if (lowered.includes("webm")) return "webm";
+      if (lowered.includes("mp4")) return "m4a";
+      if (lowered.includes("ogg")) return "ogg";
+      if (lowered.includes("wav")) return "wav";
+      return "webm";
+    }
+
     async function uploadMicChunk(blob) {
       if (!state.micSessionId || !blob || blob.size <= 0) return;
+      if (state.micUploading) {
+        state.micPendingBlob = blob;
+        return;
+      }
+      state.micUploading = true;
       const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
       const formData = new FormData();
-      formData.append("file", blob, `mic_${Date.now()}.webm`);
+      const ext = inferExtFromMime(blob.type);
+      formData.append("file", blob, `mic_${Date.now()}.${ext}`);
       formData.append("session_id", state.micSessionId);
       formData.append("channel_id", channelId);
       formData.append("seq", String(state.micSeq));
@@ -628,6 +645,13 @@ def render_dashboard(settings: Settings) -> str:
       } catch (error) {
         const message = error && error.message ? error.message : String(error);
         logLine(`MIC CHUNK ERROR: ${message}`);
+      } finally {
+        state.micUploading = false;
+        const pending = state.micPendingBlob;
+        state.micPendingBlob = null;
+        if (pending && state.micActive) {
+          await uploadMicChunk(pending);
+        }
       }
     }
 
@@ -658,7 +682,7 @@ def render_dashboard(settings: Settings) -> str:
       recorder.onstop = () => {
         setMicStatus("麦克风已停止");
       };
-      recorder.start(1200);
+      recorder.start(800);
       state.micActive = true;
       $("micStartBtn").disabled = true;
       $("micStopBtn").disabled = false;
@@ -684,6 +708,8 @@ def render_dashboard(settings: Settings) -> str:
       state.micRecorder = null;
       state.micStream = null;
       state.micSessionId = "";
+      state.micUploading = false;
+      state.micPendingBlob = null;
       $("micStartBtn").disabled = false;
       $("micStopBtn").disabled = true;
       setMicStatus("正在汇总识别结果...");

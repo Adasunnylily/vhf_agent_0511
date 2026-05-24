@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 
 from app.domain.models import AudioSegment
+from app.config import settings
 from app.main import (
     event_store,
     inspection_simulator,
@@ -513,12 +514,16 @@ async def push_mic_chunk(
 
     save_name = file.filename or f"{session_id}_{seq}.webm"
     saved_path = storage.save_upload(file.file, save_name)
-    enable_denoise = str(session.get("denoise_mode", "off")) == "on"
-    prepared = preprocessor.prepare(
-        file_path=saved_path,
-        enable_denoise=enable_denoise,
-    )
-    processed_path = Path(prepared.processed_path) if prepared.processed_path else saved_path
+    denoise_enabled = str(session.get("denoise_mode", "off")) == "on"
+    if settings.asr_provider == "qwen_api":
+        # Qwen API accepts compressed audio directly; skip ffmpeg to reduce latency and avoid chunk decode failures.
+        processed_path = saved_path
+    else:
+        prepared = preprocessor.prepare(
+            file_path=saved_path,
+            enable_denoise=denoise_enabled,
+        )
+        processed_path = Path(prepared.processed_path) if prepared.processed_path else saved_path
     result = shared_asr.transcribe(file_path=processed_path)
     text = result.text
     if text_corrector:
