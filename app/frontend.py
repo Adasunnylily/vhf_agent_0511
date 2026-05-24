@@ -100,7 +100,7 @@ def render_dashboard(settings: Settings) -> str:
     }
     .stats {
       display: grid;
-      grid-template-columns: repeat(8, minmax(100px, 130px));
+      grid-template-columns: repeat(5, 130px);
       gap: 10px;
     }
     .stat {
@@ -347,9 +347,6 @@ def render_dashboard(settings: Settings) -> str:
         <div class="stat"><strong id="statManual">0</strong><span>人工处理</span></div>
         <div class="stat"><strong id="statRecords">0</strong><span>汇报索引</span></div>
         <div class="stat"><strong id="statInspection">0</strong><span>点验通知</span></div>
-        <div class="stat"><strong id="statTtft">--</strong><span>TTFT首字</span></div>
-        <div class="stat"><strong id="statFinalLatency">--</strong><span>Final最终</span></div>
-        <div class="stat"><strong id="statFailRate">0%</strong><span>失败率</span></div>
       </div>
     </header>
 
@@ -369,6 +366,11 @@ def render_dashboard(settings: Settings) -> str:
             <form id="uploadForm" class="form-grid">
               <input id="channelId" value="__DEFAULT_CHANNEL__" placeholder="频道 ID" />
               <input id="audioFile" type="file" accept=".wav,.mp3,.flac,.m4a,.aac,.pcm" />
+              <select id="processingMode">
+                <option value="batch">离线识别（稳定）</option>
+                <option value="stream_sim">模拟流式（VAD分段）</option>
+                <option value="stream_rt">准实时流式（chunk回放）</option>
+              </select>
               <select id="denoiseMode">
                 <option value="off">原音识别</option>
                 <option value="on">降噪识别</option>
@@ -376,14 +378,15 @@ def render_dashboard(settings: Settings) -> str:
               </select>
               <button id="uploadSubmit" type="submit">开始处置</button>
             </form>
-            <div class="audio-box">
-              <div class="badge dark" style="margin-bottom:8px;">业务仿真</div>
-              <div class="form-grid">
-                <select id="scenarioSelect"></select>
-                <button type="button" class="dark" id="runScenario">启动仿真</button>
-              </div>
-            </div>
             <div id="uploadStatus" class="audio-box">等待音频</div>
+            <div class="audio-box">
+              <div class="badge dark" style="margin-bottom:8px;">现场麦克风演示</div>
+              <div class="toolbar">
+                <button type="button" id="micStartBtn" class="dark">开始麦克风</button>
+                <button type="button" id="micStopBtn" class="secondary" disabled>停止麦克风</button>
+              </div>
+              <div id="micStatus" style="margin-top:8px;color:#617689;">待命</div>
+            </div>
             <div class="audio-box">
               <div class="badge dark" style="margin-bottom:8px;">原音回放</div>
               <audio id="audioPlayer" controls></audio>
@@ -411,13 +414,39 @@ def render_dashboard(settings: Settings) -> str:
                 <option value="杂货船">杂货船</option>
               </select>
               <select id="inspectionScenario">
-                <option value="cross_line">过线提醒</option>
-                <option value="speed_watch">限速守听</option>
-                <option value="report_watch">点验报告</option>
+                <option value="">选择点验场景</option>
               </select>
               <textarea id="noticeTemplate">{船名}，数字值班员提醒：你船已进入{区域}关注范围，请保持安全航速，加强瞭望并保持守听。</textarea>
               <button type="submit">生成点验通知</button>
             </form>
+            <div class="audio-box">
+              <div class="badge dark" style="margin-bottom:8px;">新增点验场景</div>
+              <div class="form-grid">
+                <input id="newScenarioName" placeholder="场景名称（例如：夜间会遇提醒）" />
+                <textarea id="newScenarioTemplate" placeholder="模板示例：{船名}，你船进入{区域}..." ></textarea>
+                <button type="button" id="saveScenarioBtn" class="secondary">保存场景模板</button>
+              </div>
+            </div>
+            <div class="audio-box">
+              <div class="badge dark" style="margin-bottom:8px;">手动新增船舶坐标</div>
+              <div class="form-grid">
+                <input id="newShipName" placeholder="船名" />
+                <div class="row-2">
+                  <input id="newShipLng" placeholder="经度，例如 121.8621" />
+                  <input id="newShipLat" placeholder="纬度，例如 29.9365" />
+                </div>
+                <div class="row-2">
+                  <input id="newShipType" placeholder="船型，例如 散货船" />
+                  <input id="newShipPositionLabel" placeholder="位置标签，例如 A3水道" />
+                </div>
+                <div class="row-2">
+                  <input id="newShipTonnage" placeholder="吨位 t" />
+                  <input id="newShipDraft" placeholder="吃水 m" />
+                </div>
+                <input id="newShipDestination" placeholder="目的地（可选）" />
+                <button type="button" id="saveShipBtn" class="secondary">保存船舶</button>
+              </div>
+            </div>
           </section>
         </div>
       </aside>
@@ -516,7 +545,6 @@ def render_dashboard(settings: Settings) -> str:
       notices: [],
       ships: [],
       counts: { risk: 0, auto: 0, manual: 0 },
-      perf: { runs: 0, failures: 0, startedAt: 0, firstTextAt: 0, finalAt: 0 },
       drawMode: "rect",
       drawing: false,
       startPoint: null,
@@ -527,7 +555,15 @@ def render_dashboard(settings: Settings) -> str:
       shipMarkers: [],
       selectedShipNames: [],
       scenarios: [],
-      ws: null
+      streamText: "",
+      ws: null,
+      micSessionId: "",
+      micRecorder: null,
+      micStream: null,
+      micSeq: 0,
+      micActive: false,
+      micUploading: false,
+      micPendingBlob: null
     };
 
     const $ = (id) => document.getElementById(id);
@@ -561,6 +597,144 @@ def render_dashboard(settings: Settings) -> str:
       node.style.borderColor = kind === "red" ? "rgba(208,75,70,0.48)" : kind === "green" ? "rgba(20,132,87,0.48)" : "#b3c5d8";
     }
 
+    function setMicStatus(text) {
+      const node = $("micStatus");
+      if (node) node.textContent = text;
+    }
+
+    function pickMicMimeType() {
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+      ];
+      for (const mime of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mime)) {
+          return mime;
+        }
+      }
+      return "";
+    }
+
+    function inferExtFromMime(mime) {
+      const lowered = String(mime || "").toLowerCase();
+      if (lowered.includes("webm")) return "webm";
+      if (lowered.includes("mp4")) return "m4a";
+      if (lowered.includes("ogg")) return "ogg";
+      if (lowered.includes("wav")) return "wav";
+      return "webm";
+    }
+
+    async function uploadMicChunk(blob) {
+      if (!state.micSessionId || !blob || blob.size <= 0) return;
+      if (state.micUploading) {
+        state.micPendingBlob = blob;
+        return;
+      }
+      state.micUploading = true;
+      const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
+      const formData = new FormData();
+      const ext = inferExtFromMime(blob.type);
+      formData.append("file", blob, `mic_${Date.now()}.${ext}`);
+      formData.append("session_id", state.micSessionId);
+      formData.append("channel_id", channelId);
+      formData.append("seq", String(state.micSeq));
+      state.micSeq += 1;
+      try {
+        await requestJson("/api/mic/chunk", { method: "POST", body: formData });
+      } catch (error) {
+        const message = error && error.message ? error.message : String(error);
+        logLine(`MIC CHUNK ERROR: ${message}`);
+      } finally {
+        state.micUploading = false;
+        const pending = state.micPendingBlob;
+        state.micPendingBlob = null;
+        if (pending && state.micActive) {
+          await uploadMicChunk(pending);
+        }
+      }
+    }
+
+    async function startMicCapture() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("当前浏览器不支持麦克风采集。");
+      }
+      const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
+      connectSocket(channelId);
+      resetFlow();
+      state.streamText = "";
+      state.micSeq = 0;
+      const startForm = new FormData();
+      startForm.append("channel_id", channelId);
+      startForm.append("denoise_mode", $("denoiseMode").value);
+      const startResp = await requestJson("/api/mic/start", { method: "POST", body: startForm });
+      state.micSessionId = startResp.session_id || "";
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      state.micStream = stream;
+      const mimeType = pickMicMimeType();
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      state.micRecorder = recorder;
+      recorder.ondataavailable = async (event) => {
+        if (!state.micActive) return;
+        await uploadMicChunk(event.data);
+      };
+      recorder.onstop = () => {
+        setMicStatus("麦克风已停止");
+      };
+      recorder.start(800);
+      state.micActive = true;
+      $("micStartBtn").disabled = true;
+      $("micStopBtn").disabled = false;
+      setBadge("现场流式守听中", "dark");
+      setSteps(1, "active");
+      setMicStatus(`已启动，Session=${state.micSessionId}`);
+    }
+
+    async function stopMicCapture() {
+      if (!state.micActive) return;
+      state.micActive = false;
+      try {
+        if (state.micRecorder && state.micRecorder.state !== "inactive") {
+          state.micRecorder.stop();
+        }
+      } catch (error) {
+        // ignore recorder stop race
+      }
+      if (state.micStream) {
+        state.micStream.getTracks().forEach((track) => track.stop());
+      }
+      const sessionId = state.micSessionId;
+      state.micRecorder = null;
+      state.micStream = null;
+      state.micSessionId = "";
+      state.micUploading = false;
+      state.micPendingBlob = null;
+      $("micStartBtn").disabled = false;
+      $("micStopBtn").disabled = true;
+      setMicStatus("正在汇总识别结果...");
+      if (sessionId) {
+        try {
+          const stopForm = new FormData();
+          stopForm.append("session_id", sessionId);
+          const stopResp = await requestJson("/api/mic/stop", { method: "POST", body: stopForm });
+          if (stopResp.text) {
+            state.activeText = stopResp.text;
+            $("asrText").textContent = stopResp.text;
+          }
+          setBadge("现场流式完成", "green");
+          setSteps(4, "done");
+          setMicStatus(`已完成，分片 ${stopResp.chunk_count || 0} 段`);
+        } catch (error) {
+          const message = error && error.message ? error.message : String(error);
+          setMicStatus(`停止失败: ${message}`);
+          logLine(`MIC STOP ERROR: ${message}`);
+        }
+      } else {
+        setMicStatus("未找到会话");
+      }
+    }
+
     function setBadge(text, kind = "") {
       $("currentState").className = `badge ${kind}`.trim();
       $("currentState").textContent = text;
@@ -581,35 +755,6 @@ def render_dashboard(settings: Settings) -> str:
       $("statManual").textContent = state.counts.manual;
       $("statRecords").textContent = state.records.length;
       $("statInspection").textContent = state.notices.length;
-      $("statTtft").textContent = state.perf.firstTextAt && state.perf.startedAt ? `${state.perf.firstTextAt - state.perf.startedAt}ms` : "--";
-      $("statFinalLatency").textContent = state.perf.finalAt && state.perf.startedAt ? `${state.perf.finalAt - state.perf.startedAt}ms` : "--";
-      $("statFailRate").textContent = state.perf.runs ? `${Math.round((state.perf.failures / state.perf.runs) * 100)}%` : "0%";
-    }
-
-    function markRunStarted() {
-      state.perf.runs += 1;
-      state.perf.startedAt = Date.now();
-      state.perf.firstTextAt = 0;
-      state.perf.finalAt = 0;
-      updateStats();
-    }
-
-    function markFirstText() {
-      if (!state.perf.firstTextAt) {
-        state.perf.firstTextAt = Date.now();
-        updateStats();
-      }
-    }
-
-    function markRunFinished() {
-      state.perf.finalAt = Date.now();
-      updateStats();
-    }
-
-    function markRunFailed() {
-      state.perf.failures += 1;
-      state.perf.finalAt = Date.now();
-      updateStats();
     }
 
     function speak(text) {
@@ -683,43 +828,11 @@ def render_dashboard(settings: Settings) -> str:
       };
     }
 
-    function applyLiveSegment(segment, speaker = "") {
-      const text = segment && segment.text ? segment.text : "";
-      if (!text) return;
-      const prefix = speaker ? `${speaker}：` : "";
-      const current = $("asrText").textContent;
-      $("asrText").textContent = current && current !== "处理中" && current !== "等待音频或点验任务"
-        ? `${current}\n${prefix}${text}`
-        : `${prefix}${text}`;
-      state.activeText = $("asrText").textContent;
-      markFirstText();
-      setSteps(1, "active");
-      setBadge("实时转写", "");
-    }
-
-    function applyRiskEvent(event) {
-      state.activeRecordType = "risk";
-      state.activeReply = event.broadcast_text || event.suggestion || "检测到高危情况，建议立即人工接管。";
-      $("llmSuggestion").textContent = state.activeReply;
-      $("riskLabel").textContent = "是";
-      $("riskReason").textContent = event.summary || event.event_type || "高危事件";
-      $("autoLabel").textContent = "否";
-      $("autoReason").textContent = "高危情况不进入自动回复";
-      $("manualLabel").textContent = "立即处理";
-      $("manualReason").textContent = "需要人工接管并按建议处置";
-      setSteps(2, "danger");
-      setBadge("高危拦截", "red");
-      state.counts.risk += 1;
-      state.counts.manual += 1;
-      updateStats();
-    }
-
     function renderOutcome(task) {
       const outcome = deriveOutcome(task);
       state.activeText = outcome.text || "未识别到有效文本";
       state.activeReply = outcome.reply || "";
       state.activeRecordType = outcome.type;
-      if (outcome.text) markFirstText();
 
       $("asrText").textContent = state.activeText;
       $("llmSuggestion").textContent = state.activeReply || "等待后续结果";
@@ -754,6 +867,44 @@ def render_dashboard(settings: Settings) -> str:
         $("autoReason").textContent = "不满足自动回复条件";
         $("manualLabel").textContent = "建议处理";
         $("manualReason").textContent = outcome.reason;
+        state.counts.manual += 1;
+      }
+      updateStats();
+    }
+
+    function applyRiskEvent(event) {
+      if (!event) return;
+      const riskLevel = String(event.risk_level || "");
+      if (riskLevel === "L1" || riskLevel === "L2") {
+        setBadge("高危拦截", "red");
+        setSteps(2, "danger");
+        $("riskLabel").textContent = "是";
+        $("riskReason").textContent = event.summary || event.event_type || "高危事件";
+        $("autoLabel").textContent = "否";
+        $("autoReason").textContent = "高危不自动回复";
+        $("manualLabel").textContent = "立即处理";
+        $("manualReason").textContent = event.suggestion || "建议人工接管";
+        $("llmSuggestion").textContent = event.suggestion || $("llmSuggestion").textContent;
+        if (event.broadcast_text) {
+          state.activeReply = event.broadcast_text;
+        }
+        state.counts.risk += 1;
+        state.counts.manual += 1;
+      } else if (event.is_auto_reply || event.action_type === "auto_reply") {
+        setBadge("自动回复", "green");
+        setSteps(3, "done");
+        $("riskLabel").textContent = "否";
+        $("riskReason").textContent = "未命中高危";
+        $("autoLabel").textContent = "是";
+        $("autoReason").textContent = event.summary || "常规自动回复";
+        $("manualLabel").textContent = "无需";
+        $("manualReason").textContent = "系统可自动处置";
+        state.counts.auto += 1;
+      } else {
+        setBadge("人工复核", "amber");
+        setSteps(3, "warn");
+        $("manualLabel").textContent = "建议处理";
+        $("manualReason").textContent = event.suggestion || "建议人工复核";
         state.counts.manual += 1;
       }
       updateStats();
@@ -821,9 +972,37 @@ def render_dashboard(settings: Settings) -> str:
               <span class="mini">吃水 ${ship.draft_m}m</span>
             </div>
           </div>
-          <span class="badge">${ship.position_label.includes("A3") ? "A3" : "AIS"}</span>
+          <div class="toolbar">
+            <span class="badge">${ship.position_label.includes("A3") ? "A3" : "AIS"}</span>
+            <button type="button" class="secondary" data-delete-ship="${ship.ship_id || ''}">删除</button>
+          </div>
         </div>
       `).join("");
+      container.querySelectorAll("[data-delete-ship]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const shipId = button.getAttribute("data-delete-ship") || "";
+          if (!shipId) {
+            logLine("DELETE SHIP ERROR: 缺少 ship_id");
+            return;
+          }
+          try {
+            const formData = new FormData();
+            formData.append("ship_id", shipId);
+            await requestJson("/api/inspection/ships/delete", { method: "POST", body: formData });
+            const ships = await requestJson("/api/inspection/ships");
+            state.ships = ships.items || [];
+            state.selectedShipNames = state.selectedShipNames.filter(
+              (name) => state.ships.some((item) => item.ship_name === name)
+            );
+            renderShips();
+            renderShipMarkers();
+            logLine(`已删除船舶: ${shipId}`);
+          } catch (error) {
+            const message = error && error.message ? error.message : String(error);
+            logLine(`DELETE SHIP ERROR: ${message}`);
+          }
+        });
+      });
     }
 
     function renderNotices() {
@@ -845,18 +1024,6 @@ def render_dashboard(settings: Settings) -> str:
       container.querySelectorAll("[data-notice]").forEach((button) => {
         button.addEventListener("click", () => speak(decodeURIComponent(button.dataset.notice || "")));
       });
-    }
-
-    function renderScenarios() {
-      const select = $("scenarioSelect");
-      if (!select) return;
-      if (!state.scenarios.length) {
-        select.innerHTML = '<option value="">暂无仿真场景</option>';
-        return;
-      }
-      select.innerHTML = state.scenarios.map((scenario) => `
-        <option value="${scenario.scenario_id}">${scenario.title}</option>
-      `).join("");
     }
 
     async function pollTask(taskId) {
@@ -881,32 +1048,36 @@ def render_dashboard(settings: Settings) -> str:
         try {
           const payload = JSON.parse(event.data);
           logLine(payload);
-          if (payload.type === "segment_result" && payload.segment) {
-            applyLiveSegment(payload.segment, payload.speaker || "");
-          }
-          if (payload.type === "stream_chunk_result" && payload.text) {
-            $("asrText").textContent = payload.cumulative_text || payload.text;
-            state.activeText = $("asrText").textContent;
-            markFirstText();
-            setSteps(1, "active");
-            setBadge("准实时转写", "");
-          }
-          if (payload.type === "stream_final_result" && payload.segment) {
-            applyLiveSegment(payload.segment, "");
-            markRunFinished();
-          }
-          if (payload.type === "risk_event" && payload.event) {
-            applyRiskEvent(payload.event);
-          }
-          if (payload.type === "broadcast_recommendation") {
-            state.activeReply = payload.broadcast_text || payload.suggestion || state.activeReply;
-            $("llmSuggestion").textContent = state.activeReply || "等待处置建议";
-            setSteps(3, "warn");
-          }
           if (payload.type === "inspection_notice" && payload.payload) {
             state.notices.unshift(payload.payload);
             renderNotices();
             updateStats();
+          }
+          if (payload.type === "stream_chunk_result") {
+            state.streamText = payload.cumulative_text || payload.text || "";
+            state.activeText = state.streamText;
+            $("asrText").textContent = state.streamText || "等待流式转写...";
+            setSteps(1, "active");
+            setBadge("流式转写中", "dark");
+          }
+          if (payload.type === "segment_result" && payload.segment) {
+            const segText = payload.segment.text || "";
+            state.streamText = `${state.streamText}\n${segText}`.trim();
+            state.activeText = state.streamText;
+            $("asrText").textContent = state.streamText || "等待流式转写...";
+            setSteps(1, "active");
+            setBadge("流式转写中", "dark");
+          }
+          if (payload.type === "risk_event" && payload.event) {
+            applyRiskEvent(payload.event);
+          }
+          if (payload.type === "stream_status" && payload.stage === "completed") {
+            if (!state.activeReply && state.streamText) {
+              state.activeReply = buildManualAdvice(state.streamText);
+              $("llmSuggestion").textContent = state.activeReply;
+            }
+            setSteps(4, "done");
+            setBadge("流式完成", "green");
           }
         } catch (error) {
           logLine(event.data);
@@ -923,6 +1094,18 @@ def render_dashboard(settings: Settings) -> str:
 
     function selectedShipTypes() {
       return Array.from($("shipTypes").selectedOptions).map((o) => o.value);
+    }
+
+    function renderScenarioOptions() {
+      const select = $("inspectionScenario");
+      const current = select.value;
+      const options = ['<option value="">选择点验场景</option>'].concat(
+        state.scenarios.map((item) => `<option value="${item.scenario_id}">${item.scenario_name}</option>`)
+      );
+      select.innerHTML = options.join("");
+      if (current) {
+        select.value = current;
+      }
     }
 
     function renderShipMarkers() {
@@ -1044,9 +1227,9 @@ def render_dashboard(settings: Settings) -> str:
       state.ships = ships.items || [];
       renderShips();
       renderShipMarkers();
-      const scenarios = await requestJson("/api/demo/scenarios");
+      const scenarios = await requestJson("/api/inspection/scenarios");
       state.scenarios = scenarios.items || [];
-      renderScenarios();
+      renderScenarioOptions();
     }
 
     function resetFlow() {
@@ -1060,7 +1243,6 @@ def render_dashboard(settings: Settings) -> str:
       $("manualReason").textContent = "处理中";
       $("asrText").textContent = "处理中";
       $("llmSuggestion").textContent = "处理中";
-      markRunStarted();
     }
 
     function setupTabs() {
@@ -1075,6 +1257,18 @@ def render_dashboard(settings: Settings) -> str:
     }
 
     function wireActions() {
+      $("micStartBtn").addEventListener("click", async () => {
+        try {
+          await startMicCapture();
+        } catch (error) {
+          const message = error && error.message ? error.message : String(error);
+          setMicStatus(`启动失败: ${message}`);
+          logLine(`MIC START ERROR: ${message}`);
+        }
+      });
+      $("micStopBtn").addEventListener("click", async () => {
+        await stopMicCapture();
+      });
       $("copyAsr").addEventListener("click", async () => {
         if (!state.activeText) return;
         await navigator.clipboard.writeText(state.activeText);
@@ -1091,31 +1285,50 @@ def render_dashboard(settings: Settings) -> str:
         const file = event.target.files[0];
         if (!file) return;
         $("audioPlayer").src = URL.createObjectURL(file);
-        setStatus(`已选择：${file.name}`);
+        setUploadStatus(`已选择：${file.name}`);
       });
-
-      $("runScenario").addEventListener("click", async () => {
+      $("inspectionScenario").addEventListener("change", () => {
+        const selected = state.scenarios.find((item) => item.scenario_id === $("inspectionScenario").value);
+        if (selected) {
+          $("noticeTemplate").value = selected.notice_template;
+        }
+      });
+      $("saveScenarioBtn").addEventListener("click", async () => {
         try {
-          const scenarioId = $("scenarioSelect").value;
-          if (!scenarioId) return;
-          const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
-          connectSocket(channelId);
-          resetFlow();
-          setStatus("仿真运行中...", "");
           const formData = new FormData();
-          formData.append("channel_id", channelId);
-          const createTask = await requestJson(`/api/demo/scenario/${scenarioId}`, { method: "POST", body: formData });
-          logLine(createTask);
-          const task = await pollTask(createTask.task_id);
-          markRunFinished();
-          setStatus("仿真完成", "green");
-          renderOutcome(task);
+          formData.append("scenario_name", $("newScenarioName").value.trim());
+          formData.append("notice_template", $("newScenarioTemplate").value.trim());
+          const response = await requestJson("/api/inspection/scenarios", { method: "POST", body: formData });
+          state.scenarios.push(response.item);
+          renderScenarioOptions();
+          $("inspectionScenario").value = response.item.scenario_id;
+          $("noticeTemplate").value = response.item.notice_template;
+          logLine(`场景已保存: ${response.item.scenario_name}`);
         } catch (error) {
           const message = error && error.message ? error.message : String(error);
-          setStatus(`仿真失败: ${message}`, "red");
-          setBadge("失败", "red");
-          markRunFailed();
-          logLine(`SCENARIO ERROR: ${message}`);
+          logLine(`SAVE SCENARIO ERROR: ${message}`);
+        }
+      });
+      $("saveShipBtn").addEventListener("click", async () => {
+        try {
+          const formData = new FormData();
+          formData.append("ship_name", $("newShipName").value.trim());
+          formData.append("ship_type", $("newShipType").value.trim() || "其他");
+          formData.append("tonnage_t", $("newShipTonnage").value.trim() || "0");
+          formData.append("draft_m", $("newShipDraft").value.trim() || "0");
+          formData.append("destination", $("newShipDestination").value.trim());
+          formData.append("position_label", $("newShipPositionLabel").value.trim() || "自定义点位");
+          formData.append("lng", $("newShipLng").value.trim());
+          formData.append("lat", $("newShipLat").value.trim());
+          await requestJson("/api/inspection/ships", { method: "POST", body: formData });
+          const ships = await requestJson("/api/inspection/ships");
+          state.ships = ships.items || [];
+          renderShips();
+          renderShipMarkers();
+          logLine("已保存新船舶坐标。");
+        } catch (error) {
+          const message = error && error.message ? error.message : String(error);
+          logLine(`SAVE SHIP ERROR: ${message}`);
         }
       });
 
@@ -1130,23 +1343,52 @@ def render_dashboard(settings: Settings) -> str:
           const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
           connectSocket(channelId);
           resetFlow();
+          state.streamText = "";
           setStatus("上传中...", "");
           const formData = new FormData();
           formData.append("file", file);
           formData.append("channel_id", channelId);
           formData.append("denoise_mode", $("denoiseMode").value);
-          const createTask = await requestJson("/api/audio/upload", { method: "POST", body: formData });
+          const mode = $("processingMode").value;
+          let endpoint = "/api/audio/upload";
+          if (mode === "stream_sim") endpoint = "/api/stream/upload";
+          if (mode === "stream_rt") endpoint = "/api/streaming/upload";
+          const createTask = await requestJson(endpoint, { method: "POST", body: formData });
           logLine(createTask);
-          setSteps(1, "active");
+          if (mode === "batch") {
+            setSteps(1, "active");
+          } else {
+            setBadge("流式处理中", "dark");
+            setSteps(1, "active");
+          }
           const task = await pollTask(createTask.task_id);
-          markRunFinished();
           setStatus("识别完成", "green");
-          renderOutcome(task);
+          if (mode === "batch") {
+            renderOutcome(task);
+          } else {
+            const text = flattenSegments(task.segments || [])
+              .map((item) => item.text || "")
+              .filter(Boolean)
+              .join("\n");
+            if (text) {
+              state.activeText = text;
+              $("asrText").textContent = text;
+            }
+            const events = Array.isArray(task.events) ? task.events : [];
+            if (events.length) {
+              events.forEach((evt) => applyRiskEvent(evt));
+            } else {
+              setBadge("人工复核", "amber");
+              $("manualLabel").textContent = "建议处理";
+              $("manualReason").textContent = "流式未命中事件，建议人工确认";
+              $("llmSuggestion").textContent = buildManualAdvice(state.activeText || text);
+            }
+            setSteps(4, "done");
+          }
         } catch (error) {
           const message = error && error.message ? error.message : String(error);
           setStatus(`识别失败: ${message}`, "red");
           setBadge("失败", "red");
-          markRunFailed();
           logLine(`UPLOAD ERROR: ${message}`);
         }
       });
@@ -1158,12 +1400,9 @@ def render_dashboard(settings: Settings) -> str:
           connectSocket(channelId);
           setBadge("点验处理中", "amber");
           const scenario = $("inspectionScenario").value;
-          if (scenario === "cross_line") {
-            $("noticeTemplate").value = "{船名}，你船即将过线进入{区域}，请立即守听并按VTS指令通过。";
-          } else if (scenario === "speed_watch") {
-            $("noticeTemplate").value = "{船名}，你船位于{区域}重点监控区，请控制航速并加强瞭望。";
-          } else {
-            $("noticeTemplate").value = "{船名}，数字值班员提醒：你船已进入{区域}关注范围，请保持安全航速，加强瞭望并保持守听。";
+          const selected = state.scenarios.find((item) => item.scenario_id === scenario);
+          if (selected) {
+            $("noticeTemplate").value = selected.notice_template;
           }
 
           const previewForm = new FormData();
@@ -1181,6 +1420,7 @@ def render_dashboard(settings: Settings) -> str:
           formData.append("area_name", $("areaName").value.trim());
           formData.append("min_draft_m", $("minDraft").value.trim());
           formData.append("min_tonnage_t", $("minTonnage").value.trim());
+          formData.append("scenario_id", scenario);
           formData.append("notice_template", $("noticeTemplate").value);
           formData.append("area_geometry", getCurrentGeometry());
           formData.append("ship_types", selectedShipTypes().join(","));

@@ -106,7 +106,7 @@ scenario_simulator = ScenarioSimulator(
     risk_engine=KeywordRiskEngine(),
     ws_manager=ws_manager,
 )
-inspection_simulator = InspectionTaskSimulator(ws_manager=ws_manager)
+inspection_simulator = InspectionTaskSimulator(ws_manager=ws_manager, data_dir=settings.data_dir)
 
 app = FastAPI(title=settings.project_name, version=settings.version)
 

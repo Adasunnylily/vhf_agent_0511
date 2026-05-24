@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import asdict, dataclass
+import os
 import shutil
 import subprocess
 import wave
@@ -70,6 +71,7 @@ class AudioPreprocessor:
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                env=self._safe_env(),
             )
         except subprocess.CalledProcessError as exc:
             stderr = exc.stderr.decode("utf-8", errors="ignore")
@@ -104,6 +106,7 @@ class AudioPreprocessor:
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                env=self._safe_env(),
             )
         except subprocess.CalledProcessError as exc:
             stderr = exc.stderr.decode("utf-8", errors="ignore")
@@ -122,3 +125,14 @@ class AudioPreprocessor:
                 )
         except Exception:
             return False
+
+    def _safe_env(self) -> dict:
+        env = os.environ.copy()
+        value = env.get("OMP_NUM_THREADS", "").strip()
+        if value:
+            try:
+                if int(value) <= 0:
+                    env["OMP_NUM_THREADS"] = "1"
+            except Exception:
+                env["OMP_NUM_THREADS"] = "1"
+        return env
