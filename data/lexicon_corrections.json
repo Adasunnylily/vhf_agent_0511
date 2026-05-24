@@ -1,0 +1,345 @@
+{
+  "ships": [
+    {
+      "canonical": "DHT SUNARBANS",
+      "aliases": [
+        "DHTSUNARBANS",
+        "Dht Sunarbans",
+        "dht sunarbans"
+      ]
+    },
+    {
+      "canonical": "GLASGOW VOYAGER",
+      "aliases": [
+        "GLASGOWVOYAGER",
+        "Glasgow Voyager",
+        "glasgow voyager"
+      ]
+    },
+    {
+      "canonical": "GREAT ZHOU",
+      "aliases": [
+        "GREATZHOU",
+        "Great Zhou",
+        "great zhou"
+      ]
+    },
+    {
+      "canonical": "HAN GRACE",
+      "aliases": [
+        "HANGRACE",
+        "Han Grace",
+        "han grace"
+      ]
+    },
+    {
+      "canonical": "KMTC DELHI",
+      "aliases": [
+        "KMTCDELHI",
+        "Kmtc Delhi",
+        "kmtc delhi"
+      ]
+    },
+    {
+      "canonical": "MCC TAIPEI",
+      "aliases": [
+        "MCCTAIPEI",
+        "Mcc Taipei",
+        "mcc taipei"
+      ]
+    },
+    {
+      "canonical": "ONE MILLAU",
+      "aliases": [
+        "ONEMILLAU",
+        "One Millau",
+        "one millau"
+      ]
+    },
+    {
+      "canonical": "TAN COSTAS S",
+      "aliases": [
+        "TANCOSTASS",
+        "Tan Costas S",
+        "tan costas s"
+      ]
+    },
+    {
+      "canonical": "YONGGANGXIAOTUO7HAO",
+      "aliases": [
+        "YONGGANG XIAOTUO 7 HAO",
+        "Yonggangxiaotuo7Hao",
+        "yonggangxiaotuo7hao",
+        "甬港小拖7号"
+      ]
+    }
+  ],
+  "locations": [
+    {
+      "canonical": "1号管理分区",
+      "aliases": [
+        "1管理分区"
+      ]
+    },
+    {
+      "canonical": "2号管理分区",
+      "aliases": [
+        "2管理分区"
+      ]
+    },
+    {
+      "canonical": "3号管理分区",
+      "aliases": [
+        "3管理分区"
+      ]
+    },
+    {
+      "canonical": "4号管理分区",
+      "aliases": [
+        "4管理分区"
+      ]
+    },
+    {
+      "canonical": "5号管理分区",
+      "aliases": [
+        "5管理分区"
+      ]
+    },
+    {
+      "canonical": "6号管理分区",
+      "aliases": [
+        "6管理分区"
+      ]
+    },
+    {
+      "canonical": "C1-1",
+      "aliases": [
+        "C11",
+        "c1-1"
+      ]
+    },
+    {
+      "canonical": "C1-2",
+      "aliases": [
+        "C12",
+        "c1-2"
+      ]
+    },
+    {
+      "canonical": "C2-1",
+      "aliases": [
+        "C21",
+        "c2-1"
+      ]
+    },
+    {
+      "canonical": "C2-2",
+      "aliases": [
+        "C22",
+        "c2-2"
+      ]
+    },
+    {
+      "canonical": "VHF08",
+      "aliases": [
+        "Vhf08",
+        "vhf08"
+      ]
+    },
+    {
+      "canonical": "VTS管理区",
+      "aliases": [
+        "Vts管理区",
+        "vts管理区"
+      ]
+    },
+    {
+      "canonical": "一期(NBCT)3号泊",
+      "aliases": [
+        "NBCT 3号泊",
+        "NBCT3号泊",
+        "一期(NBCT)3泊",
+        "一期(Nbct)3号泊",
+        "一期(nbct)3号泊",
+        "一期3号泊",
+        "一期NBCT3号泊",
+        "一期（NBCT）3号泊"
+      ]
+    },
+    {
+      "canonical": "一期(NBCT)4号泊",
+      "aliases": [
+        "NBCT 4号泊",
+        "NBCT4号泊",
+        "一期(NBCT)4泊",
+        "一期(Nbct)4号泊",
+        "一期(nbct)4号泊",
+        "一期4号泊",
+        "一期NBCT4号泊",
+        "一期（NBCT）4号泊"
+      ]
+    },
+    {
+      "canonical": "一期(NBCT)5号泊",
+      "aliases": [
+        "NBCT 5号泊",
+        "NBCT5号泊",
+        "一期(NBCT)5泊",
+        "一期(Nbct)5号泊",
+        "一期(nbct)5号泊",
+        "一期5号泊",
+        "一期NBCT5号泊",
+        "一期（NBCT）5号泊"
+      ]
+    },
+    {
+      "canonical": "一期(NBCT)6号泊",
+      "aliases": [
+        "NBCT 6号泊",
+        "NBCT6号泊",
+        "一期(NBCT)6泊",
+        "一期(Nbct)6号泊",
+        "一期(nbct)6号泊",
+        "一期6号泊",
+        "一期NBCT6号泊",
+        "一期（NBCT）6号泊"
+      ]
+    },
+    {
+      "canonical": "一期1号泊",
+      "aliases": [
+        "一期1泊"
+      ]
+    },
+    {
+      "canonical": "一期2号泊",
+      "aliases": [
+        "一期2泊"
+      ]
+    },
+    {
+      "canonical": "三期1号泊",
+      "aliases": [
+        "三期1泊"
+      ]
+    },
+    {
+      "canonical": "三期2号泊",
+      "aliases": [
+        "三期2泊"
+      ]
+    },
+    {
+      "canonical": "三期3号泊",
+      "aliases": [
+        "三期3泊"
+      ]
+    },
+    {
+      "canonical": "三期4号泊",
+      "aliases": [
+        "三期4泊"
+      ]
+    },
+    {
+      "canonical": "北仑司1号泊",
+      "aliases": [
+        "北仑司1泊"
+      ]
+    },
+    {
+      "canonical": "北仑司2号泊",
+      "aliases": [
+        "北仑司2泊"
+      ]
+    },
+    {
+      "canonical": "北仑司6号泊",
+      "aliases": [
+        "北仑司6泊"
+      ]
+    },
+    {
+      "canonical": "北仑电厂1号泊",
+      "aliases": [
+        "北仑电厂1泊"
+      ]
+    },
+    {
+      "canonical": "北仑电厂2号泊",
+      "aliases": [
+        "北仑电厂2泊"
+      ]
+    },
+    {
+      "canonical": "北仑电厂3号泊",
+      "aliases": [
+        "北仑电厂3泊"
+      ]
+    },
+    {
+      "canonical": "台塑多1#",
+      "aliases": [
+        "台塑多1",
+        "台塑多1号"
+      ]
+    },
+    {
+      "canonical": "台塑多2#",
+      "aliases": [
+        "台塑多2",
+        "台塑多2号"
+      ]
+    },
+    {
+      "canonical": "建龙(北一司)",
+      "aliases": [
+        "建龙北一司",
+        "建龙（北一司）"
+      ]
+    },
+    {
+      "canonical": "算山1号泊",
+      "aliases": [
+        "算山1泊"
+      ]
+    },
+    {
+      "canonical": "算山2号泊",
+      "aliases": [
+        "算山2泊"
+      ]
+    },
+    {
+      "canonical": "算山3号泊",
+      "aliases": [
+        "算山3泊"
+      ]
+    },
+    {
+      "canonical": "算山4号泊",
+      "aliases": [
+        "算山4泊"
+      ]
+    },
+    {
+      "canonical": "算山5号泊",
+      "aliases": [
+        "算山5泊"
+      ]
+    },
+    {
+      "canonical": "算山6号泊",
+      "aliases": [
+        "算山6泊"
+      ]
+    },
+    {
+      "canonical": "算山7号泊",
+      "aliases": [
+        "算山7泊"
+      ]
+    }
+  ],
+  "callsigns": []
+}
