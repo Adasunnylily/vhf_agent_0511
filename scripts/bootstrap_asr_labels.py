@@ -129,6 +129,13 @@ def priority_rank(row: Dict[str, object]) -> Tuple[int, int, str]:
     return (order.get(priority, 9), -int(row.get("emergency_score_auto") or 0), str(row.get("sample_id", "")))
 
 
+def preview_text(text: str, limit: int = 42) -> str:
+    compact = " ".join((text or "").split())
+    if len(compact) <= limit:
+        return compact
+    return compact[:limit] + "..."
+
+
 def join_entities(candidates: List[object], entity_type: str, min_score: float = 0.96) -> str:
     values: List[str] = []
     for candidate in candidates:
@@ -172,6 +179,7 @@ def main() -> None:
     parser.add_argument("--entity-min-score", type=float, default=0.82, help="实体候选模糊匹配最低分")
     parser.add_argument("--high-risk-out", type=Path, default=None, help="额外导出疑似高危/高优先级清单")
     parser.add_argument("--continue-on-error", action="store_true", help="单条ASR失败时继续处理后续音频")
+    parser.add_argument("--print-text-preview", action="store_true", help="终端进度中打印ASR文本预览")
     args = parser.parse_args()
 
     files = list_audio_files(args.audio_dir)
@@ -193,8 +201,6 @@ def main() -> None:
     )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    rows: List[Dict[str, object]] = []
-    high_risk_rows: List[Dict[str, object]] = []
     fieldnames = [
         "sample_id",
         "audio_path",
@@ -233,86 +239,101 @@ def main() -> None:
         "review_priority",
         "review_notes",
     ]
-    for i, audio in enumerate(files, start=1):
-        text = ""
-        engine = ""
-        error = ""
-        try:
-            result = adapter.transcribe(audio)
-            text = sanitize_asr_text(result.text or "")
-            engine = result.engine
-        except Exception as exc:
-            error = str(exc)
-            if not args.continue_on_error:
-                raise
-
-        sample_id = audio.stem
-        resolution = entity_resolver.resolve(text)
-        analysis = analyze_text(resolution.resolved_text)
-        row: Dict[str, object] = {
-            "sample_id": sample_id,
-            "audio_path": str(audio),
-            "source_mode": args.source_mode,
-            "annotation_unit": "conversation_segment",
-            "mixed_dialogue": "",
-            "comm_type_gt": "",
-            "asr_text_auto": text,
-            "resolved_text_auto": resolution.resolved_text,
-            "ship_entities_auto": join_entities(resolution.candidates, "ship"),
-            "location_entities_auto": join_entities(resolution.candidates, "location"),
-            "entity_candidates_auto": serialize_candidates(resolution.candidates),
-            "primary_label_auto": analysis["primary_label"],
-            "risk_level_auto": analysis["risk_level"],
-            "risk_subtype_auto": analysis["risk_subtype"],
-            "matched_keywords_auto": "；".join(str(x) for x in analysis["matched_keywords"]),
-            "emergency_score_auto": analysis["emergency_score"],
-            "asr_engine": engine,
-            "asr_error": error,
-            "primary_label_gt": "",
-            "risk_subtype_gt": "",
-            "risk_level_gt": "",
-            "transcript_gt": "",
-            "ship_entities_gt": "",
-            "location_entities_gt": "",
-            "business_action_gt": "",
-            "auto_reply_allowed_gt": "",
-            "approval_required_gt": "",
-            "audio_quality_gt": "",
-            "overlap_gt": "",
-            "urgent_prosody_gt": "",
-            "first_risk_cue_time_ms": "",
-            "stream_ttft_ms": "",
-            "stream_final_latency_ms": "",
-            "review_status": "todo",
-            "review_priority": analysis["review_priority"] if not error else "high",
-            "review_notes": analysis["review_notes"] if not error else f"ASR失败，需排查: {error[:120]}",
-        }
-        rows.append(row)
-        if row["primary_label_auto"] == "emergency_risk" or row["review_priority"] in {"urgent", "high"}:
-            high_risk_rows.append(row)
-        print(
-            f"[{i}/{len(files)}] {sample_id} "
-            f"{row['primary_label_auto']} {row['risk_level_auto']} "
-            f"score={row['emergency_score_auto']} hits={row['matched_keywords_auto']}"
-        )
-
-    rows.sort(key=priority_rank)
-    with args.out.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
+    high_risk_file = None
+    high_risk_writer = None
     if args.high_risk_out:
         args.high_risk_out.parent.mkdir(parents=True, exist_ok=True)
-        high_risk_rows.sort(key=priority_rank)
-        with args.high_risk_out.open("w", encoding="utf-8", newline="") as f:
+        high_risk_file = args.high_risk_out.open("w", encoding="utf-8", newline="")
+        high_risk_writer = csv.DictWriter(high_risk_file, fieldnames=fieldnames)
+        high_risk_writer.writeheader()
+        high_risk_file.flush()
+
+    written_count = 0
+    high_risk_count = 0
+    try:
+        with args.out.open("w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
-            writer.writerows(high_risk_rows)
+            f.flush()
 
-    print(f"[ok] wrote: {args.out}")
+            for i, audio in enumerate(files, start=1):
+                text = ""
+                engine = ""
+                error = ""
+                try:
+                    result = adapter.transcribe(audio)
+                    text = sanitize_asr_text(result.text or "")
+                    engine = result.engine
+                except Exception as exc:
+                    error = str(exc)
+                    if not args.continue_on_error:
+                        raise
+
+                sample_id = audio.stem
+                resolution = entity_resolver.resolve(text)
+                analysis = analyze_text(resolution.resolved_text)
+                row: Dict[str, object] = {
+                    "sample_id": sample_id,
+                    "audio_path": str(audio),
+                    "source_mode": args.source_mode,
+                    "annotation_unit": "conversation_segment",
+                    "mixed_dialogue": "",
+                    "comm_type_gt": "",
+                    "asr_text_auto": text,
+                    "resolved_text_auto": resolution.resolved_text,
+                    "ship_entities_auto": join_entities(resolution.candidates, "ship"),
+                    "location_entities_auto": join_entities(resolution.candidates, "location"),
+                    "entity_candidates_auto": serialize_candidates(resolution.candidates),
+                    "primary_label_auto": analysis["primary_label"],
+                    "risk_level_auto": analysis["risk_level"],
+                    "risk_subtype_auto": analysis["risk_subtype"],
+                    "matched_keywords_auto": "；".join(str(x) for x in analysis["matched_keywords"]),
+                    "emergency_score_auto": analysis["emergency_score"],
+                    "asr_engine": engine,
+                    "asr_error": error,
+                    "primary_label_gt": "",
+                    "risk_subtype_gt": "",
+                    "risk_level_gt": "",
+                    "transcript_gt": "",
+                    "ship_entities_gt": "",
+                    "location_entities_gt": "",
+                    "business_action_gt": "",
+                    "auto_reply_allowed_gt": "",
+                    "approval_required_gt": "",
+                    "audio_quality_gt": "",
+                    "overlap_gt": "",
+                    "urgent_prosody_gt": "",
+                    "first_risk_cue_time_ms": "",
+                    "stream_ttft_ms": "",
+                    "stream_final_latency_ms": "",
+                    "review_status": "todo",
+                    "review_priority": analysis["review_priority"] if not error else "high",
+                    "review_notes": analysis["review_notes"] if not error else f"ASR失败，需排查: {error[:120]}",
+                }
+                writer.writerow(row)
+                f.flush()
+                written_count += 1
+
+                if row["primary_label_auto"] == "emergency_risk" or row["review_priority"] in {"urgent", "high"}:
+                    if high_risk_writer and high_risk_file:
+                        high_risk_writer.writerow(row)
+                        high_risk_file.flush()
+                    high_risk_count += 1
+
+                text_part = f" text={preview_text(text)}" if args.print_text_preview else ""
+                print(
+                    f"[{i}/{len(files)}] {sample_id} "
+                    f"{row['primary_label_auto']} {row['risk_level_auto']} "
+                    f"score={row['emergency_score_auto']} hits={row['matched_keywords_auto']}{text_part}",
+                    flush=True,
+                )
+    finally:
+        if high_risk_file:
+            high_risk_file.close()
+
+    print(f"[ok] wrote: {args.out} ({written_count} rows)")
     if args.high_risk_out:
-        print(f"[ok] high risk candidates: {args.high_risk_out} ({len(high_risk_rows)} rows)")
+        print(f"[ok] high risk candidates: {args.high_risk_out} ({high_risk_count} rows)")
 
 
 if __name__ == "__main__":
