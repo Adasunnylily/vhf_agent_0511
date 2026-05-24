@@ -41,6 +41,12 @@ def main() -> None:
     parser.add_argument("--audio-dir", required=True, type=Path, help="目录下递归扫描音频")
     parser.add_argument("--out", required=True, type=Path, help="输出csv")
     parser.add_argument("--limit", type=int, default=0, help="仅处理前N条，0表示全部")
+    parser.add_argument(
+        "--source-mode",
+        default="upload_audio",
+        choices=["upload_audio", "stream_replay", "live_stream_sample"],
+        help="样本来源：离线上传、流式回放或现场流式抽样。",
+    )
     parser.add_argument("--model", default="qwen3-asr-flash")
     parser.add_argument("--api-key-env", default="DASHSCOPE_API_KEY")
     parser.add_argument("--base-url", default="https://dashscope.aliyuncs.com/compatible-mode/v1")
@@ -66,13 +72,29 @@ def main() -> None:
             fieldnames=[
                 "sample_id",
                 "audio_path",
+                "source_mode",
+                "annotation_unit",
+                "mixed_dialogue",
+                "comm_type_gt",
                 "asr_text_auto",
                 "primary_label_auto",
                 "primary_label_gt",
+                "risk_subtype_gt",
+                "risk_level_gt",
                 "transcript_gt",
                 "ship_entities_gt",
                 "location_entities_gt",
+                "business_action_gt",
+                "auto_reply_allowed_gt",
+                "approval_required_gt",
+                "audio_quality_gt",
+                "overlap_gt",
+                "urgent_prosody_gt",
+                "first_risk_cue_time_ms",
+                "stream_ttft_ms",
+                "stream_final_latency_ms",
                 "review_status",
+                "review_priority",
                 "review_notes",
             ],
         )
@@ -85,13 +107,29 @@ def main() -> None:
                 {
                     "sample_id": sample_id,
                     "audio_path": str(audio),
+                    "source_mode": args.source_mode,
+                    "annotation_unit": "conversation_segment",
+                    "mixed_dialogue": "",
+                    "comm_type_gt": "",
                     "asr_text_auto": text,
                     "primary_label_auto": rule_label(text),
                     "primary_label_gt": "",
+                    "risk_subtype_gt": "",
+                    "risk_level_gt": "",
                     "transcript_gt": "",
                     "ship_entities_gt": "",
                     "location_entities_gt": "",
+                    "business_action_gt": "",
+                    "auto_reply_allowed_gt": "",
+                    "approval_required_gt": "",
+                    "audio_quality_gt": "",
+                    "overlap_gt": "",
+                    "urgent_prosody_gt": "",
+                    "first_risk_cue_time_ms": "",
+                    "stream_ttft_ms": "",
+                    "stream_final_latency_ms": "",
                     "review_status": "todo",
+                    "review_priority": "high" if rule_label(text) == "emergency_risk" else "medium",
                     "review_notes": "",
                 }
             )

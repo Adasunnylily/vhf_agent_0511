@@ -373,6 +373,13 @@ def render_dashboard(settings: Settings) -> str:
               </select>
               <button id="uploadSubmit" type="submit">开始处置</button>
             </form>
+            <div class="audio-box">
+              <div class="badge dark" style="margin-bottom:8px;">业务仿真</div>
+              <div class="form-grid">
+                <select id="scenarioSelect"></select>
+                <button type="button" class="dark" id="runScenario">启动仿真</button>
+              </div>
+            </div>
             <div id="uploadStatus" class="audio-box">等待音频</div>
             <div class="audio-box">
               <div class="badge dark" style="margin-bottom:8px;">原音回放</div>
@@ -515,6 +522,7 @@ def render_dashboard(settings: Settings) -> str:
       overlays: [],
       shipMarkers: [],
       selectedShipNames: [],
+      scenarios: [],
       ws: null
     };
 
@@ -640,6 +648,36 @@ def render_dashboard(settings: Settings) -> str:
         tts: buildManualAdvice(text),
         reason: "未命中高危或自动回复条件",
       };
+    }
+
+    function applyLiveSegment(segment, speaker = "") {
+      const text = segment && segment.text ? segment.text : "";
+      if (!text) return;
+      const prefix = speaker ? `${speaker}：` : "";
+      const current = $("asrText").textContent;
+      $("asrText").textContent = current && current !== "处理中" && current !== "等待音频或点验任务"
+        ? `${current}\n${prefix}${text}`
+        : `${prefix}${text}`;
+      state.activeText = $("asrText").textContent;
+      setSteps(1, "active");
+      setBadge("实时转写", "");
+    }
+
+    function applyRiskEvent(event) {
+      state.activeRecordType = "risk";
+      state.activeReply = event.broadcast_text || event.suggestion || "检测到高危情况，建议立即人工接管。";
+      $("llmSuggestion").textContent = state.activeReply;
+      $("riskLabel").textContent = "是";
+      $("riskReason").textContent = event.summary || event.event_type || "高危事件";
+      $("autoLabel").textContent = "否";
+      $("autoReason").textContent = "高危情况不进入自动回复";
+      $("manualLabel").textContent = "立即处理";
+      $("manualReason").textContent = "需要人工接管并按建议处置";
+      setSteps(2, "danger");
+      setBadge("高危拦截", "red");
+      state.counts.risk += 1;
+      state.counts.manual += 1;
+      updateStats();
     }
 
     function renderOutcome(task) {
@@ -774,6 +812,18 @@ def render_dashboard(settings: Settings) -> str:
       });
     }
 
+    function renderScenarios() {
+      const select = $("scenarioSelect");
+      if (!select) return;
+      if (!state.scenarios.length) {
+        select.innerHTML = '<option value="">暂无仿真场景</option>';
+        return;
+      }
+      select.innerHTML = state.scenarios.map((scenario) => `
+        <option value="${scenario.scenario_id}">${scenario.title}</option>
+      `).join("");
+    }
+
     async function pollTask(taskId) {
       for (let attempt = 0; attempt < 120; attempt += 1) {
         const task = await requestJson(`/api/tasks/${taskId}`);
@@ -796,6 +846,17 @@ def render_dashboard(settings: Settings) -> str:
         try {
           const payload = JSON.parse(event.data);
           logLine(payload);
+          if (payload.type === "segment_result" && payload.segment) {
+            applyLiveSegment(payload.segment, payload.speaker || "");
+          }
+          if (payload.type === "risk_event" && payload.event) {
+            applyRiskEvent(payload.event);
+          }
+          if (payload.type === "broadcast_recommendation") {
+            state.activeReply = payload.broadcast_text || payload.suggestion || state.activeReply;
+            $("llmSuggestion").textContent = state.activeReply || "等待处置建议";
+            setSteps(3, "warn");
+          }
           if (payload.type === "inspection_notice" && payload.payload) {
             state.notices.unshift(payload.payload);
             renderNotices();
@@ -937,6 +998,9 @@ def render_dashboard(settings: Settings) -> str:
       state.ships = ships.items || [];
       renderShips();
       renderShipMarkers();
+      const scenarios = await requestJson("/api/demo/scenarios");
+      state.scenarios = scenarios.items || [];
+      renderScenarios();
     }
 
     function resetFlow() {
@@ -980,7 +1044,30 @@ def render_dashboard(settings: Settings) -> str:
         const file = event.target.files[0];
         if (!file) return;
         $("audioPlayer").src = URL.createObjectURL(file);
-        setUploadStatus(`已选择：${file.name}`);
+        setStatus(`已选择：${file.name}`);
+      });
+
+      $("runScenario").addEventListener("click", async () => {
+        try {
+          const scenarioId = $("scenarioSelect").value;
+          if (!scenarioId) return;
+          const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
+          connectSocket(channelId);
+          resetFlow();
+          setStatus("仿真运行中...", "");
+          const formData = new FormData();
+          formData.append("channel_id", channelId);
+          const createTask = await requestJson(`/api/demo/scenario/${scenarioId}`, { method: "POST", body: formData });
+          logLine(createTask);
+          const task = await pollTask(createTask.task_id);
+          setStatus("仿真完成", "green");
+          renderOutcome(task);
+        } catch (error) {
+          const message = error && error.message ? error.message : String(error);
+          setStatus(`仿真失败: ${message}`, "red");
+          setBadge("失败", "red");
+          logLine(`SCENARIO ERROR: ${message}`);
+        }
       });
 
       $("uploadForm").addEventListener("submit", async (event) => {
