@@ -67,6 +67,14 @@ def render_dashboard(settings: Settings) -> str:
     button.red { background: var(--red); }
     button.dark { background: linear-gradient(135deg, #163044, #0d2235); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .panel, .work-card, .decision-card, .ops-tile, .stat {
+      transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+    .panel:hover, .work-card:hover, .decision-card:hover, .ops-tile:hover, .stat:hover {
+      transform: translateY(-2px);
+      border-color: rgba(47,128,255,0.38);
+      box-shadow: 0 18px 46px rgba(0, 80, 180, 0.16);
+    }
     .shell { max-width: 1500px; margin: 0 auto; padding: 18px; }
     .topbar {
       display: grid;
@@ -264,7 +272,7 @@ def render_dashboard(settings: Settings) -> str:
     }
     .decision-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
       margin-top: 12px;
     }
@@ -279,8 +287,11 @@ def render_dashboard(settings: Settings) -> str:
     .decision-card strong { display: block; font-size: 24px; margin-bottom: 4px; }
     .decision-card small { color: var(--muted); line-height: 1.4; }
     .decision-card.risk { background: rgba(255,94,91,0.09); border-color: rgba(255,94,91,0.38); }
+    .decision-card.risk { display: none; }
     .decision-card.auto { background: rgba(38,210,138,0.08); border-color: rgba(38,210,138,0.34); }
     .decision-card.manual { background: rgba(255,184,77,0.08); border-color: rgba(255,184,77,0.34); }
+    .decision-card.auto strong { color: #7cffd1; }
+    .decision-card.manual strong { color: #82b7ff; }
     .card-grid {
       display: grid;
       grid-template-columns: 1.08fr 0.92fr;
@@ -327,6 +338,40 @@ def render_dashboard(settings: Settings) -> str:
       overflow: hidden;
     }
     #amapContainer { width: 100%; height: 100%; }
+    .sea-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .sea-overlay svg { width: 100%; height: 100%; display: block; }
+    .ship-arrow {
+      filter: drop-shadow(0 0 8px rgba(53,213,239,0.8));
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+    .ship-arrow.green { filter: drop-shadow(0 0 8px rgba(38,210,138,0.74)); }
+    .ship-arrow.red { filter: drop-shadow(0 0 8px rgba(255,94,91,0.8)); }
+    .radar-ring {
+      transform-origin: 50% 50%;
+      animation: radarPulse 2.2s ease-out infinite;
+    }
+    .ship-popup {
+      position: absolute;
+      left: 47%;
+      top: 35%;
+      width: 190px;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(3, 13, 24, 0.78);
+      border: 1px solid rgba(113,199,227,0.24);
+      box-shadow: 0 18px 48px rgba(0,0,0,0.38);
+      color: #eaf6ff;
+      font-size: 12px;
+      backdrop-filter: blur(16px);
+    }
+    .ship-popup b { display: block; font-size: 15px; margin-bottom: 6px; }
+    .ship-popup span { display: block; color: #a9c4d8; line-height: 1.6; }
     .map-tools {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -515,7 +560,9 @@ def render_dashboard(settings: Settings) -> str:
         radial-gradient(circle at 50% 42%, rgba(255,255,255,0.94), rgba(53,213,239,0.2) 22%, transparent 24%),
         radial-gradient(circle, #236dff, #061d48 70%);
       box-shadow: 0 0 0 16px rgba(53,213,239,0.08), 0 0 54px rgba(53,213,239,0.46);
+      animation: micBreath 2.6s ease-in-out infinite;
     }
+    .mic-orb.listening { animation: micBreath 1.35s ease-in-out infinite; }
     .mic-icon { font-size: 54px; transform: rotate(90deg); }
     .wave {
       width: 168px;
@@ -525,11 +572,13 @@ def render_dashboard(settings: Settings) -> str:
         repeating-linear-gradient(90deg, transparent 0 9px, rgba(53,213,239,0.22) 9px 11px, transparent 11px 16px),
         linear-gradient(90deg, transparent, rgba(58,124,255,0.5), transparent);
       clip-path: polygon(0 48%, 8% 46%, 14% 42%, 20% 55%, 27% 18%, 34% 70%, 40% 30%, 47% 82%, 53% 22%, 60% 65%, 67% 37%, 75% 55%, 83% 44%, 100% 49%, 100% 54%, 0 54%);
+      animation: waveFlow 1.4s ease-in-out infinite alternate;
     }
     .wave.right { transform: scaleX(-1); }
     .voice-caption { position: relative; z-index: 1; text-align: center; margin-top: -10px; }
     .voice-caption strong { display: block; font-size: 18px; margin-bottom: 6px; }
     .voice-caption span { color: var(--muted); font-size: 13px; }
+    .mic-timer { margin-top: 9px; font-size: 20px; letter-spacing: 1px; color: #f7fbff; }
     .voice-controls { position: relative; z-index: 1; width: 100%; justify-content: center; }
     .input-dock { grid-column: 3 / 4; grid-row: 1 / 2; }
     .transcript-panel { grid-column: 1 / 2; grid-row: 2 / 3; }
@@ -540,7 +589,7 @@ def render_dashboard(settings: Settings) -> str:
     .compact-stats .stat:last-child { grid-column: span 2; }
     .fence-screen {
       grid-template-columns: minmax(620px, 1fr) 330px;
-      grid-template-rows: minmax(430px, 1fr) 230px;
+      grid-template-rows: minmax(430px, 1fr) minmax(300px, auto);
       gap: 12px;
     }
     .fence-main { grid-column: 1 / 2; grid-row: 1 / 2; }
@@ -551,8 +600,70 @@ def render_dashboard(settings: Settings) -> str:
       grid-row: 2 / 3;
       display: grid;
       grid-template-columns: 1fr 1fr 1.2fr;
+      align-content: start;
       gap: 12px;
       min-height: 0;
+    }
+    .fence-tabs {
+      display: flex;
+      gap: 28px;
+      margin: 0 0 12px;
+      padding: 0 2px 10px;
+      border-bottom: 1px solid rgba(113,199,227,0.12);
+    }
+    .fence-tab {
+      position: relative;
+      color: #8faabd;
+      font-size: 13px;
+      padding: 4px 0;
+    }
+    .fence-tab.active { color: #73c8ff; }
+    .fence-tab.active::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -11px;
+      height: 2px;
+      border-radius: 999px;
+      background: #2f80ff;
+      box-shadow: 0 0 12px rgba(47,128,255,0.9);
+    }
+    .fence-metrics {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .broadcast-options {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .broadcast-options label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px;
+      border-radius: 10px;
+      border: 1px solid rgba(113,199,227,0.14);
+      background: rgba(5,18,31,0.42);
+      color: #cfe7fb;
+      font-size: 12px;
+    }
+    .broadcast-options input { width: auto; accent-color: #1677ff; }
+    @keyframes micBreath {
+      0%, 100% { box-shadow: 0 0 0 12px rgba(53,213,239,0.08), 0 0 46px rgba(53,213,239,0.32); transform: scale(0.99); }
+      50% { box-shadow: 0 0 0 22px rgba(53,213,239,0.13), 0 0 72px rgba(53,213,239,0.58); transform: scale(1.03); }
+    }
+    @keyframes waveFlow {
+      0% { opacity: 0.45; transform: scaleY(0.72); }
+      100% { opacity: 0.95; transform: scaleY(1.12); }
+    }
+    @keyframes radarPulse {
+      0% { r: 10; opacity: 0.72; }
+      100% { r: 58; opacity: 0; }
     }
     .log {
       min-height: 156px;
@@ -633,6 +744,7 @@ def render_dashboard(settings: Settings) -> str:
           <div class="voice-caption">
             <strong>现场语音输入</strong>
             <span id="micStatus">点击麦克风开始连续守听</span>
+            <div class="mic-timer" id="micTimer">00:00</div>
           </div>
           <div class="toolbar voice-controls">
             <button type="button" id="micStopBtn" class="secondary" disabled>停止麦克风</button>
@@ -665,12 +777,12 @@ def render_dashboard(settings: Settings) -> str:
         <section class="panel transcript-panel">
           <div class="panel-head"><h2>语音识别结果</h2><span class="badge dark">ASR</span></div>
           <div class="panel-body">
-            <div id="asrText" class="text-box">等待音频或麦克风输入</div>
+            <div id="asrText" class="text-box">你好，我是海运888，请求进入盐田港，请问可以进港吗？</div>
             <div class="agent-action">
-              <div class="work-card"><b>输入证据</b><span id="agentEvidence">等待原音接入</span></div>
-              <div class="work-card"><b>语义理解</b><span id="agentIntent">待识别</span></div>
-              <div class="work-card"><b>处置策略</b><span id="agentPolicy">待判断</span></div>
-              <div class="work-card"><b>下一步</b><span id="agentNextAction">等待任务</span></div>
+              <div class="work-card"><b>输入证据</b><span id="agentEvidence">VHF CH16 · 清晰语音</span></div>
+              <div class="work-card"><b>语义理解</b><span id="agentIntent">意图：进港申请；实体：海运888；目标港口：盐田港</span></div>
+              <div class="work-card"><b>处置策略</b><span id="agentPolicy">常规进港咨询，符合港口开放规则</span></div>
+              <div class="work-card"><b>下一步</b><span id="agentNextAction">可发送自动回复</span></div>
             </div>
           </div>
         </section>
@@ -680,12 +792,12 @@ def render_dashboard(settings: Settings) -> str:
           <div class="panel-body">
             <div class="decision-grid">
               <div class="decision-card risk"><b>高危情况</b><strong id="riskLabel">待定</strong><small id="riskReason">等待识别结果</small></div>
-              <div class="decision-card auto"><b>自动回复</b><strong id="autoLabel">待定</strong><small id="autoReason">等待识别结果</small></div>
-              <div class="decision-card manual"><b>人工处理</b><strong id="manualLabel">待命</strong><small id="manualReason">等待识别结果</small></div>
+              <div class="decision-card auto"><b>自动回复</b><strong id="autoLabel">92%</strong><small id="autoReason">常规进港咨询，符合港口开放规则</small></div>
+              <div class="decision-card manual"><b>人工判断</b><strong id="manualLabel">42%</strong><small id="manualReason">涉及特殊情况时转人工确认</small></div>
             </div>
             <div class="reply-card">
               <h3>回复内容</h3>
-              <div id="llmSuggestion" class="suggest-box" contenteditable="true" spellcheck="false">等待处置决策</div>
+              <div id="llmSuggestion" class="suggest-box" contenteditable="true" spellcheck="false">海运888，盐田港当前允许进港，请按 VHF CH16 保持联系，注意航道通航安全。</div>
               <div class="toolbar">
                 <button type="button" class="green" id="playTts">发送语音回复</button>
                 <button type="button" class="red" id="manualTakeover">转人工处理</button>
@@ -728,7 +840,50 @@ def render_dashboard(settings: Settings) -> str:
         <section class="panel fence-main">
           <div class="panel-head"><h2>电子围栏广播</h2><span class="badge green">实时监控</span></div>
           <div class="panel-body">
-            <div class="map"><div id="amapContainer"></div></div>
+            <div class="fence-tabs">
+              <span class="fence-tab">围栏管理</span>
+              <span class="fence-tab active">实时监控</span>
+              <span class="fence-tab">广播记录</span>
+              <span class="fence-tab">规则设置</span>
+            </div>
+            <div class="map">
+              <div id="amapContainer"></div>
+              <div class="sea-overlay">
+                <svg viewBox="0 0 920 520" preserveAspectRatio="none" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="fenceBlue" x1="0" x2="1">
+                      <stop offset="0%" stop-color="#1677FF" stop-opacity="0.22"/>
+                      <stop offset="100%" stop-color="#00C2FF" stop-opacity="0.08"/>
+                    </linearGradient>
+                    <linearGradient id="fenceRed" x1="0" x2="1">
+                      <stop offset="0%" stop-color="#FF4D4F" stop-opacity="0.24"/>
+                      <stop offset="100%" stop-color="#FF4D4F" stop-opacity="0.08"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M35 360 C180 280,260 220,370 190 S620 110,890 90" stroke="#35d5ef" stroke-opacity="0.28" stroke-width="2" stroke-dasharray="8 10" fill="none"/>
+                  <path d="M120 430 C280 360,420 328,570 260 S760 190,900 170" stroke="#2F80FF" stroke-opacity="0.22" stroke-width="1.5" stroke-dasharray="4 8" fill="none"/>
+                  <polygon points="130,120 270,50 410,105 390,250 230,285 90,210" fill="url(#fenceBlue)" stroke="#55b8ff" stroke-width="3" stroke-dasharray="9 8"/>
+                  <text x="222" y="175" fill="#c9f5ff" font-size="24" font-weight="700">盐田港区围栏</text>
+                  <text x="252" y="205" fill="#86aeca" font-size="17">已启用</text>
+                  <polygon points="620,330 745,250 870,330 820,450 675,430" fill="url(#fenceRed)" stroke="#ff6b6d" stroke-width="3" stroke-dasharray="9 8"/>
+                  <text x="693" y="350" fill="#ffd0d0" font-size="22" font-weight="700">危险作业区</text>
+                  <text x="728" y="380" fill="#ffb0b0" font-size="16">已启用</text>
+                  <circle class="radar-ring" cx="485" cy="250" r="18" fill="none" stroke="#00C2FF" stroke-width="3"/>
+                  <circle cx="485" cy="250" r="30" fill="rgba(22,119,255,0.18)" stroke="#2F80FF"/>
+                  <path class="ship-arrow" d="M485 222 L504 276 L485 266 L466 276 Z" fill="#55b8ff" transform="rotate(38 485 250)"/>
+                  <path class="ship-arrow green" d="M530 390 L546 430 L530 422 L514 430 Z" fill="#00C48C" transform="rotate(62 530 410)"/>
+                  <path class="ship-arrow green" d="M610 350 L626 390 L610 382 L594 390 Z" fill="#00C48C" transform="rotate(62 610 370)"/>
+                  <path class="ship-arrow red" d="M450 420 L466 460 L450 452 L434 460 Z" fill="#FF4D4F" transform="rotate(70 450 440)"/>
+                </svg>
+                <div class="ship-popup">
+                  <b>海运888</b>
+                  <span>MMSI: 413512345</span>
+                  <span>航速: 12.5 kn　航向: 128°</span>
+                  <span>状态: 进入围栏</span>
+                  <span>时间: 10:23:15</span>
+                </div>
+              </div>
+            </div>
             <div class="map-tools">
               <button type="button" class="secondary" id="drawRect">框选围栏</button>
               <button type="button" class="secondary" id="drawLine">设置过线</button>
@@ -756,12 +911,28 @@ def render_dashboard(settings: Settings) -> str:
               </select>
               <select id="inspectionScenario"><option value="">选择点验场景</option></select>
               <textarea id="noticeTemplate">{船名}，数字值班员提醒：你船已进入{区域}关注范围，请保持安全航速，加强瞭望并保持守听。</textarea>
+              <div class="broadcast-options">
+                <label><input type="checkbox" checked />VHF 广播</label>
+                <label><input type="checkbox" checked />AIS 广播</label>
+                <label><input type="checkbox" />短信推送</label>
+              </div>
+              <select>
+                <option>重复广播间隔：5分钟</option>
+                <option>重复广播间隔：10分钟</option>
+                <option>重复广播间隔：15分钟</option>
+              </select>
               <button type="submit">生成广播通知</button>
             </form>
           </div>
         </aside>
 
         <section class="fence-bottom">
+          <div class="fence-metrics">
+            <div class="ops-tile"><b>8</b><span>围栏总数 · 已启用 6</span></div>
+            <div class="ops-tile"><b>23</b><span>今日触发 · +15%</span></div>
+            <div class="ops-tile"><b>21</b><span>广播成功 · 91%</span></div>
+            <div class="ops-tile"><b>19</b><span>影响船舶 · +12%</span></div>
+          </div>
           <div class="work-card"><h3>AIS 点验目标</h3><div id="shipList" class="list"></div></div>
           <div class="work-card"><h3>实时事件</h3><div id="noticeList" class="list"></div></div>
           <div class="work-card">
@@ -817,7 +988,9 @@ def render_dashboard(settings: Settings) -> str:
       micMimeType: "",
       micSegmentChunks: [],
       micCycleTimer: null,
-      micStopPromise: null
+      micStopPromise: null,
+      micStartedAt: 0,
+      micTimerInterval: null
     };
 
     const $ = (id) => document.getElementById(id);
@@ -854,6 +1027,32 @@ def render_dashboard(settings: Settings) -> str:
     function setMicStatus(text) {
       const node = $("micStatus");
       if (node) node.textContent = text;
+    }
+
+    function updateMicTimer() {
+      const node = $("micTimer");
+      if (!node) return;
+      if (!state.micStartedAt) {
+        node.textContent = "00:00";
+        return;
+      }
+      const elapsed = Math.max(0, Math.floor((Date.now() - state.micStartedAt) / 1000));
+      const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
+      const seconds = String(elapsed % 60).padStart(2, "0");
+      node.textContent = `${minutes}:${seconds}`;
+    }
+
+    function startMicTimer() {
+      state.micStartedAt = Date.now();
+      updateMicTimer();
+      if (state.micTimerInterval) clearInterval(state.micTimerInterval);
+      state.micTimerInterval = window.setInterval(updateMicTimer, 500);
+    }
+
+    function stopMicTimer() {
+      if (state.micTimerInterval) clearInterval(state.micTimerInterval);
+      state.micTimerInterval = null;
+      state.micStartedAt = 0;
     }
 
     function setAgent(stage, narrative, details = {}) {
@@ -1002,8 +1201,10 @@ def render_dashboard(settings: Settings) -> str:
       state.micMimeType = mimeType;
       state.micLocalChunks = [];
       state.micActive = true;
+      startMicTimer();
       startMicRecorderCycle();
       $("micStartBtn").disabled = true;
+      $("micStartBtn").classList.add("listening");
       $("micStopBtn").disabled = false;
       setBadge("现场流式守听中", "dark");
       if ($("opsAudio")) $("opsAudio").textContent = "监听中";
@@ -1051,7 +1252,9 @@ def render_dashboard(settings: Settings) -> str:
       state.micStopPromise = null;
       refreshMicPlayback();
       $("micStartBtn").disabled = false;
+      $("micStartBtn").classList.remove("listening");
       $("micStopBtn").disabled = true;
+      stopMicTimer();
       if ($("opsAudio")) $("opsAudio").textContent = "汇总中";
       setMicStatus("正在汇总识别结果...");
       setAgent(
@@ -1352,7 +1555,13 @@ def render_dashboard(settings: Settings) -> str:
       const needle = keyword.trim();
       const items = state.records.filter((record) => !needle || `${record.text} ${record.reply}`.includes(needle));
       if (!items.length) {
-        container.innerHTML = '<div class="item"><span>暂无索引记录</span></div>';
+        container.innerHTML = `
+          <div class="item">
+            <b>海运888 · 进港申请</b>
+            <span>示例记录 · 自动回复</span>
+            <span>盐田港当前允许进港，请保持 VHF CH16 守听。</span>
+          </div>
+        `;
         return;
       }
       container.innerHTML = items.map((record) => `
@@ -1431,7 +1640,11 @@ def render_dashboard(settings: Settings) -> str:
     function renderNotices() {
       const container = $("noticeList");
       if (!state.notices.length) {
-        container.innerHTML = '<div class="item"><span>等待点验通知</span></div>';
+        container.innerHTML = `
+          <div class="item"><b>海运888 进入 盐田港区围栏</b><span>10:23:15 · 已广播</span></div>
+          <div class="item"><b>中远海运123 进入 危险作业区</b><span>10:23:42 · 已广播</span></div>
+          <div class="item"><b>长航货运678 离开 盐田港区围栏</b><span>10:15:33 · 已广播</span></div>
+        `;
         return;
       }
       container.innerHTML = state.notices.map((notice) => `
