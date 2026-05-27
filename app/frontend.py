@@ -16,18 +16,18 @@ def render_dashboard(settings: Settings) -> str:
       --bg: #07121d;
       --ocean: #0b2235;
       --ocean-2: #113755;
-      --panel: #f7fbff;
-      --panel-2: #eff5fb;
-      --line: #d3e0ec;
-      --text: #102235;
-      --muted: #617689;
+      --panel: rgba(9, 25, 40, 0.86);
+      --panel-2: rgba(14, 39, 61, 0.72);
+      --line: rgba(113, 199, 227, 0.18);
+      --text: #eaf6ff;
+      --muted: #8faabd;
       --white: #f7fbff;
-      --cyan: #2cb2c3;
-      --blue: #1e63d6;
-      --green: #148457;
-      --amber: #bf7d17;
-      --red: #d04b46;
-      --shadow: 0 18px 42px rgba(6, 20, 34, 0.18);
+      --cyan: #35d5ef;
+      --blue: #3a7cff;
+      --green: #26d28a;
+      --amber: #ffb84d;
+      --red: #ff5e5b;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
     }
     * { box-sizing: border-box; }
     body {
@@ -36,8 +36,9 @@ def render_dashboard(settings: Settings) -> str:
       font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at 18% 0%, rgba(44, 178, 195, 0.22), transparent 28%),
-        linear-gradient(180deg, #08131d 0%, #0a1825 32%, #eef3f7 32%, #eef3f7 100%);
+        radial-gradient(circle at 16% 3%, rgba(53, 213, 239, 0.22), transparent 28%),
+        radial-gradient(circle at 80% 0%, rgba(58, 124, 255, 0.18), transparent 30%),
+        linear-gradient(135deg, #040a12 0%, #07131f 46%, #081a2a 100%);
     }
     button, input, select, textarea { font: inherit; }
     input, select, textarea {
@@ -45,10 +46,11 @@ def render_dashboard(settings: Settings) -> str:
       border: 1px solid var(--line);
       border-radius: 10px;
       padding: 11px 12px;
-      background: white;
+      background: rgba(4, 14, 24, 0.72);
       color: var(--text);
       outline: none;
     }
+    input::placeholder, textarea::placeholder { color: rgba(143, 170, 189, 0.75); }
     textarea { resize: vertical; min-height: 84px; line-height: 1.5; }
     button {
       border: 0;
@@ -60,10 +62,10 @@ def render_dashboard(settings: Settings) -> str:
       background: var(--blue);
       font-weight: 650;
     }
-    button.secondary { background: #e6eef8; color: #1c3952; }
+    button.secondary { background: rgba(145, 178, 207, 0.16); color: #dcecff; border: 1px solid rgba(113,199,227,0.16); }
     button.green { background: var(--green); }
     button.red { background: var(--red); }
-    button.dark { background: #163044; }
+    button.dark { background: linear-gradient(135deg, #163044, #0d2235); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     .shell { max-width: 1500px; margin: 0 auto; padding: 18px; }
     .topbar {
@@ -104,8 +106,8 @@ def render_dashboard(settings: Settings) -> str:
       gap: 10px;
     }
     .stat {
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.14);
+      background: linear-gradient(180deg, rgba(11, 34, 53, 0.78), rgba(5, 19, 31, 0.7));
+      border: 1px solid rgba(53,213,239,0.14);
       border-radius: 12px;
       padding: 10px 12px;
     }
@@ -130,8 +132,10 @@ def render_dashboard(settings: Settings) -> str:
       padding: 14px;
       margin-bottom: 12px;
       border-radius: 14px;
-      background: linear-gradient(135deg, #ffffff, #eef7fb);
-      border: 1px solid #c9dcea;
+      background:
+        linear-gradient(135deg, rgba(13, 41, 64, 0.94), rgba(7, 24, 39, 0.92)),
+        radial-gradient(circle at 100% 0%, rgba(53,213,239,0.18), transparent 34%);
+      border: 1px solid rgba(53,213,239,0.18);
     }
     .agent-avatar {
       width: 64px;
@@ -139,7 +143,7 @@ def render_dashboard(settings: Settings) -> str:
       display: grid;
       place-items: center;
       border-radius: 18px;
-      background: #102f43;
+      background: linear-gradient(135deg, #35d5ef, #285dff);
       color: #f7fbff;
       font-size: 30px;
       font-weight: 800;
@@ -154,22 +158,23 @@ def render_dashboard(settings: Settings) -> str:
       min-height: 30px;
       padding: 5px 10px;
       border-radius: 999px;
-      background: #e8f2f8;
-      color: #1d425d;
+      background: rgba(53,213,239,0.1);
+      color: #c9f5ff;
       font-size: 12px;
       font-weight: 700;
     }
     .layout {
       display: grid;
-      grid-template-columns: 330px minmax(520px, 1fr) 390px;
+      grid-template-columns: 350px minmax(560px, 1fr) 410px;
       gap: 14px;
       align-items: start;
     }
     .panel {
       background: var(--panel);
-      border-radius: 18px;
+      backdrop-filter: blur(18px);
+      border-radius: 20px;
       box-shadow: var(--shadow);
-      border: 1px solid rgba(16, 34, 53, 0.08);
+      border: 1px solid rgba(113, 199, 227, 0.14);
       overflow: hidden;
     }
     .panel-head {
@@ -178,7 +183,7 @@ def render_dashboard(settings: Settings) -> str:
       justify-content: space-between;
       gap: 12px;
       padding: 14px 16px;
-      background: linear-gradient(180deg, #ffffff, #edf4fb);
+      background: linear-gradient(180deg, rgba(18, 50, 76, 0.94), rgba(9, 27, 44, 0.92));
       border-bottom: 1px solid var(--line);
     }
     .panel-head h2 { margin: 0; font-size: 17px; }
@@ -191,13 +196,13 @@ def render_dashboard(settings: Settings) -> str:
       border-radius: 999px;
       font-size: 12px;
       font-weight: 700;
-      background: #e8f0f7;
-      color: #24435e;
+      background: rgba(143, 170, 189, 0.15);
+      color: #d8edff;
     }
-    .badge.green { background: #e5f6ee; color: #115d40; }
-    .badge.red { background: #ffe8e8; color: #952f2f; }
-    .badge.amber { background: #fff1d8; color: #87530a; }
-    .badge.dark { background: #183246; color: #eef7ff; }
+    .badge.green { background: rgba(38,210,138,0.15); color: #8dffd0; }
+    .badge.red { background: rgba(255,94,91,0.16); color: #ffb6b5; }
+    .badge.amber { background: rgba(255,184,77,0.16); color: #ffd48d; }
+    .badge.dark { background: rgba(53,213,239,0.13); color: #c9f5ff; }
     .tabs {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -214,8 +219,8 @@ def render_dashboard(settings: Settings) -> str:
       margin-top: 10px;
       padding: 11px;
       border-radius: 10px;
-      border: 1px dashed #b3c5d8;
-      background: #f5f9fc;
+      border: 1px solid rgba(113,199,227,0.16);
+      background: rgba(5, 18, 31, 0.52);
     }
     audio { width: 100%; height: 38px; }
     .pipeline {
@@ -228,14 +233,14 @@ def render_dashboard(settings: Settings) -> str:
       padding: 10px;
       border: 1px solid var(--line);
       border-radius: 12px;
-      background: #fff;
+      background: rgba(5, 18, 31, 0.62);
     }
     .step b { display: block; font-size: 13px; margin-bottom: 8px; }
     .step span { color: var(--muted); font-size: 12px; line-height: 1.4; }
     .step.active { border-color: var(--blue); box-shadow: inset 0 0 0 1px rgba(30,99,214,0.16); }
-    .step.done { border-color: rgba(20,132,87,0.45); background: #f3fbf7; }
-    .step.warn { border-color: rgba(191,125,23,0.5); background: #fff9ef; }
-    .step.danger { border-color: rgba(208,75,70,0.5); background: #fff4f4; }
+    .step.done { border-color: rgba(38,210,138,0.42); background: rgba(38,210,138,0.08); }
+    .step.warn { border-color: rgba(255,184,77,0.45); background: rgba(255,184,77,0.08); }
+    .step.danger { border-color: rgba(255,94,91,0.48); background: rgba(255,94,91,0.08); }
     .agent-action {
       margin-top: 12px;
       display: grid;
@@ -244,7 +249,7 @@ def render_dashboard(settings: Settings) -> str:
     }
     .agent-action .work-card {
       min-height: 96px;
-      background: #fbfdff;
+      background: rgba(7, 24, 39, 0.66);
     }
     .agent-action b {
       display: block;
@@ -268,14 +273,14 @@ def render_dashboard(settings: Settings) -> str:
       padding: 12px;
       border-radius: 12px;
       border: 1px solid var(--line);
-      background: white;
+      background: rgba(5, 18, 31, 0.66);
     }
     .decision-card b { display: block; font-size: 14px; margin-bottom: 9px; }
     .decision-card strong { display: block; font-size: 24px; margin-bottom: 4px; }
     .decision-card small { color: var(--muted); line-height: 1.4; }
-    .decision-card.risk { background: #fff3f3; border-color: rgba(208,75,70,0.42); }
-    .decision-card.auto { background: #f1faf6; border-color: rgba(20,132,87,0.42); }
-    .decision-card.manual { background: #fff8ef; border-color: rgba(191,125,23,0.42); }
+    .decision-card.risk { background: rgba(255,94,91,0.09); border-color: rgba(255,94,91,0.38); }
+    .decision-card.auto { background: rgba(38,210,138,0.08); border-color: rgba(38,210,138,0.34); }
+    .decision-card.manual { background: rgba(255,184,77,0.08); border-color: rgba(255,184,77,0.34); }
     .card-grid {
       display: grid;
       grid-template-columns: 1.08fr 0.92fr;
@@ -286,14 +291,14 @@ def render_dashboard(settings: Settings) -> str:
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 12px;
-      background: #fff;
+      background: rgba(5, 18, 31, 0.62);
     }
     .work-card h3 { margin: 0 0 10px; font-size: 15px; }
     .text-box {
       min-height: 126px;
       border-radius: 10px;
-      border: 1px solid #d7e2ec;
-      background: #f8fbfe;
+      border: 1px solid rgba(113,199,227,0.16);
+      background: rgba(3, 13, 22, 0.62);
       padding: 11px;
       line-height: 1.65;
       white-space: pre-wrap;
@@ -302,8 +307,8 @@ def render_dashboard(settings: Settings) -> str:
     .suggest-box {
       min-height: 126px;
       border-radius: 10px;
-      border: 1px solid #d7e2ec;
-      background: #fbfdff;
+      border: 1px solid rgba(113,199,227,0.16);
+      background: rgba(3, 13, 22, 0.62);
       padding: 11px;
       line-height: 1.65;
       white-space: pre-wrap;
@@ -312,7 +317,7 @@ def render_dashboard(settings: Settings) -> str:
     .map {
       height: 320px;
       border-radius: 12px;
-      border: 1px solid #99b3c8;
+      border: 1px solid rgba(53,213,239,0.24);
       background:
         linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px),
         linear-gradient(0deg, rgba(255,255,255,0.08) 1px, transparent 1px),
@@ -335,9 +340,9 @@ def render_dashboard(settings: Settings) -> str:
       overflow: auto;
     }
     .item {
-      border: 1px solid #d5e1ec;
+      border: 1px solid rgba(113,199,227,0.14);
       border-radius: 10px;
-      background: #fff;
+      background: rgba(5, 18, 31, 0.56);
       padding: 10px;
     }
     .item b { display: block; font-size: 13px; margin-bottom: 5px; }
@@ -349,9 +354,9 @@ def render_dashboard(settings: Settings) -> str:
       align-items: center;
     }
     .ship.selected {
-      border-color: rgba(20,132,87,0.55);
-      background: #f1fbf6;
-      box-shadow: inset 4px 0 0 #148457;
+      border-color: rgba(38,210,138,0.55);
+      background: rgba(38,210,138,0.1);
+      box-shadow: inset 4px 0 0 #26d28a;
     }
     .ship-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
     .mini {
@@ -359,8 +364,8 @@ def render_dashboard(settings: Settings) -> str:
       align-items: center;
       padding: 3px 7px;
       border-radius: 999px;
-      background: #edf4fb;
-      color: #264963;
+      background: rgba(53,213,239,0.1);
+      color: #bcefff;
       font-size: 11px;
     }
     .search { margin-bottom: 8px; }
@@ -392,6 +397,22 @@ def render_dashboard(settings: Settings) -> str:
     }
     .check b { display: block; font-size: 12px; margin-bottom: 3px; }
     .check span { display: block; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .ops-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .ops-tile {
+      min-height: 76px;
+      border-radius: 14px;
+      padding: 12px;
+      border: 1px solid rgba(113,199,227,0.14);
+      background:
+        linear-gradient(135deg, rgba(53,213,239,0.08), rgba(58,124,255,0.05)),
+        rgba(5, 18, 31, 0.62);
+    }
+    .ops-tile b { display: block; font-size: 20px; margin-bottom: 5px; color: #f5fbff; }
+    .ops-tile span { display: block; color: var(--muted); font-size: 12px; }
     .log {
       min-height: 156px;
       max-height: 240px;
@@ -426,11 +447,10 @@ def render_dashboard(settings: Settings) -> str:
         <div>
           <h1>数字值班员</h1>
           <div class="brand-tags">
-            <span class="tag">连续守听</span>
-            <span class="tag">风险判断</span>
-            <span class="tag">处置建议</span>
-            <span class="tag">一键播报</span>
-            <span class="tag">AIS点验</span>
+            <span class="tag">VTS Copilot</span>
+            <span class="tag">Live Audio</span>
+            <span class="tag">AIS Guard</span>
+            <span class="tag">TTS Dispatch</span>
           </div>
         </div>
       </div>
@@ -447,7 +467,7 @@ def render_dashboard(settings: Settings) -> str:
       <aside class="panel">
         <div class="panel-head">
           <h2>值班员接入</h2>
-          <span class="badge green">ONLINE</span>
+          <span class="badge green">LINKED</span>
         </div>
         <div class="panel-body">
           <div class="tabs">
@@ -478,7 +498,7 @@ def render_dashboard(settings: Settings) -> str:
                 <button type="button" id="micStartBtn" class="dark">开始麦克风</button>
                 <button type="button" id="micStopBtn" class="secondary" disabled>停止麦克风</button>
               </div>
-              <div id="micStatus" style="margin-top:8px;color:#617689;">待命</div>
+              <div id="micStatus" style="margin-top:8px;color:#8faabd;">待命</div>
             </div>
             <div class="audio-box">
               <div class="badge dark" style="margin-bottom:8px;">原音回放</div>
@@ -555,12 +575,12 @@ def render_dashboard(settings: Settings) -> str:
             <div class="agent-avatar">AI</div>
             <div>
               <h3 id="agentTitle">数字值班员待命</h3>
-              <p id="agentNarrative">等待VHF音频或点验任务。接入后将依次完成转写、风险分流、处置建议和播报留档。</p>
+              <p id="agentNarrative">系统待命中。接入VHF音频或AIS点验任务后，将自动生成可复核的处置流。</p>
             </div>
             <div class="agent-pills">
-              <span class="agent-pill">人机协同</span>
-              <span class="agent-pill">低置信度复核</span>
-              <span class="agent-pill">高危优先</span>
+              <span class="agent-pill">LIVE</span>
+              <span class="agent-pill">ASR</span>
+              <span class="agent-pill">AIS</span>
             </div>
           </div>
           <div class="pipeline">
@@ -608,7 +628,7 @@ def render_dashboard(settings: Settings) -> str:
             <div class="work-card">
               <h3>处置建议 / 回复</h3>
               <div id="llmSuggestion" class="suggest-box" contenteditable="true" spellcheck="false">等待处置决策</div>
-              <small style="color:#617689;">话术可直接编辑，TTS会播放编辑后的内容。</small>
+              <small style="color:#8faabd;">可编辑后播报，播报稿会随留档保存。</small>
               <div class="toolbar" style="margin-top:10px;">
                 <button type="button" class="green" id="playTts">一键 TTS</button>
                 <button type="button" class="red" id="manualTakeover">人工接管</button>
@@ -625,13 +645,12 @@ def render_dashboard(settings: Settings) -> str:
         </div>
         <div class="panel-body">
           <div class="work-card">
-            <h3>A线汇报检查</h3>
-            <div class="checklist">
-              <div class="check"><i>1</i><div><b>接入是否成功</b><span>上传/麦克风有任务，原音能播放，状态不报错。</span></div></div>
-              <div class="check"><i>2</i><div><b>转写是否可解释</b><span>ASR文本出现，低质音频可说明需人工复核。</span></div></div>
-              <div class="check"><i>3</i><div><b>分流是否清楚</b><span>高危、自动回复、人工建议三类结果能展示。</span></div></div>
-              <div class="check"><i>4</i><div><b>播报是否闭环</b><span>建议话术可TTS播放，并能存入汇报索引。</span></div></div>
-              <div class="check"><i>5</i><div><b>点验是否可演示</b><span>地图选区、筛船、生成通知、选中目标可视化。</span></div></div>
+            <h3>运行态势</h3>
+            <div class="ops-grid">
+              <div class="ops-tile"><b id="opsAudio">待命</b><span>音频链路</span></div>
+              <div class="ops-tile"><b id="opsDecision">待定</b><span>决策状态</span></div>
+              <div class="ops-tile"><b id="opsNotice">0</b><span>通知队列</span></div>
+              <div class="ops-tile"><b id="opsArchive">0</b><span>留档记录</span></div>
             </div>
           </div>
 
@@ -689,8 +708,12 @@ def render_dashboard(settings: Settings) -> str:
       micActive: false,
       micUploading: false,
       micPendingBlob: null,
+      micQueue: [],
       micLocalChunks: [],
-      micMimeType: ""
+      micMimeType: "",
+      micSegmentChunks: [],
+      micCycleTimer: null,
+      micStopPromise: null
     };
 
     const $ = (id) => document.getElementById(id);
@@ -720,8 +743,8 @@ def render_dashboard(settings: Settings) -> str:
     function setStatus(text, kind = "") {
       const node = $("uploadStatus");
       node.textContent = text;
-      node.style.background = kind === "red" ? "#fff3f3" : kind === "green" ? "#f2fbf7" : "#f5f9fc";
-      node.style.borderColor = kind === "red" ? "rgba(208,75,70,0.48)" : kind === "green" ? "rgba(20,132,87,0.48)" : "#b3c5d8";
+      node.style.background = kind === "red" ? "rgba(255,94,91,0.12)" : kind === "green" ? "rgba(38,210,138,0.1)" : "rgba(5,18,31,0.52)";
+      node.style.borderColor = kind === "red" ? "rgba(255,94,91,0.48)" : kind === "green" ? "rgba(38,210,138,0.42)" : "rgba(113,199,227,0.16)";
     }
 
     function setMicStatus(text) {
@@ -768,7 +791,7 @@ def render_dashboard(settings: Settings) -> str:
         return;
       }
       if (state.micUploading) {
-        state.micPendingBlob = blob;
+        state.micQueue.push(blob);
         return;
       }
       state.micUploading = true;
@@ -787,12 +810,61 @@ def render_dashboard(settings: Settings) -> str:
         logLine(`MIC CHUNK ERROR: ${message}`);
       } finally {
         state.micUploading = false;
-        const pending = state.micPendingBlob;
-        state.micPendingBlob = null;
-        if (pending && state.micActive) {
+        const pending = state.micQueue.shift();
+        if (pending && (state.micActive || state.micSessionId)) {
           await uploadMicChunk(pending);
         }
       }
+    }
+
+    function refreshMicPlayback() {
+      if (!state.micLocalChunks.length) return;
+      const micBlob = new Blob(state.micLocalChunks, { type: state.micMimeType || "audio/webm" });
+      $("audioPlayer").src = URL.createObjectURL(micBlob);
+    }
+
+    function startMicRecorderCycle() {
+      if (!state.micActive || !state.micStream) return;
+      const recorder = state.micMimeType
+        ? new MediaRecorder(state.micStream, { mimeType: state.micMimeType })
+        : new MediaRecorder(state.micStream);
+      state.micRecorder = recorder;
+      state.micSegmentChunks = [];
+      state.micStopPromise = new Promise((resolve) => {
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            state.micSegmentChunks.push(event.data);
+            state.micLocalChunks.push(event.data);
+          }
+        };
+        recorder.onstop = async () => {
+          if (state.micCycleTimer) {
+            clearTimeout(state.micCycleTimer);
+            state.micCycleTimer = null;
+          }
+          const chunks = state.micSegmentChunks.slice();
+          state.micSegmentChunks = [];
+          if (chunks.length) {
+            const segmentBlob = new Blob(chunks, { type: state.micMimeType || "audio/webm" });
+            refreshMicPlayback();
+            await uploadMicChunk(segmentBlob);
+          }
+          resolve();
+          if (state.micActive) {
+            window.setTimeout(startMicRecorderCycle, 180);
+          }
+        };
+      });
+      recorder.start();
+      state.micCycleTimer = window.setTimeout(() => {
+        try {
+          if (state.micRecorder && state.micRecorder.state !== "inactive") {
+            state.micRecorder.stop();
+          }
+        } catch (error) {
+          logLine(`MIC CYCLE STOP ERROR: ${error && error.message ? error.message : error}`);
+        }
+      }, 6000);
     }
 
     async function startMicCapture() {
@@ -823,29 +895,14 @@ def render_dashboard(settings: Settings) -> str:
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       state.micStream = stream;
       const mimeType = pickMicMimeType();
-      state.micMimeType = mimeType || "audio/webm";
+      state.micMimeType = mimeType;
       state.micLocalChunks = [];
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      state.micRecorder = recorder;
-      recorder.ondataavailable = async (event) => {
-        if (event.data && event.data.size > 0) {
-          state.micLocalChunks.push(event.data);
-        }
-        if (!state.micActive) return;
-        await uploadMicChunk(event.data);
-      };
-      recorder.onstop = () => {
-        if (state.micLocalChunks.length) {
-          const micBlob = new Blob(state.micLocalChunks, { type: state.micMimeType || "audio/webm" });
-          $("audioPlayer").src = URL.createObjectURL(micBlob);
-        }
-        setMicStatus("麦克风已停止");
-      };
-      recorder.start(5000);
       state.micActive = true;
+      startMicRecorderCycle();
       $("micStartBtn").disabled = true;
       $("micStopBtn").disabled = false;
       setBadge("现场流式守听中", "dark");
+      if ($("opsAudio")) $("opsAudio").textContent = "监听中";
       setSteps(1, "active");
       setMicStatus(`已启动，Session=${state.micSessionId}`);
       setAgent(
@@ -854,7 +911,7 @@ def render_dashboard(settings: Settings) -> str:
         {
           evidence: `现场会话 ${state.micSessionId}`,
           intent: "实时识别中",
-          policy: "高危优先弹出，低置信度保留人工复核",
+          policy: "实时监听中，异常内容将进入值班席确认",
           nextAction: "等待语音片段返回"
         }
       );
@@ -863,15 +920,19 @@ def render_dashboard(settings: Settings) -> str:
     async function stopMicCapture() {
       if (!state.micActive) return;
       state.micActive = false;
+      if (state.micCycleTimer) {
+        clearTimeout(state.micCycleTimer);
+        state.micCycleTimer = null;
+      }
       try {
         if (state.micRecorder && state.micRecorder.state !== "inactive") {
-          if (state.micRecorder.requestData) {
-            state.micRecorder.requestData();
-          }
           state.micRecorder.stop();
         }
       } catch (error) {
         // ignore recorder stop race
+      }
+      if (state.micStopPromise) {
+        await state.micStopPromise;
       }
       if (state.micStream) {
         state.micStream.getTracks().forEach((track) => track.stop());
@@ -882,12 +943,12 @@ def render_dashboard(settings: Settings) -> str:
       state.micSessionId = "";
       state.micUploading = false;
       state.micPendingBlob = null;
-      if (state.micLocalChunks.length) {
-        const micBlob = new Blob(state.micLocalChunks, { type: state.micMimeType || "audio/webm" });
-        $("audioPlayer").src = URL.createObjectURL(micBlob);
-      }
+      state.micQueue = [];
+      state.micStopPromise = null;
+      refreshMicPlayback();
       $("micStartBtn").disabled = false;
       $("micStopBtn").disabled = true;
+      if ($("opsAudio")) $("opsAudio").textContent = "汇总中";
       setMicStatus("正在汇总识别结果...");
       setAgent(
         "数字值班员汇总现场语音",
@@ -904,6 +965,7 @@ def render_dashboard(settings: Settings) -> str:
             $("asrText").textContent = stopResp.text;
           }
           setBadge("现场流式完成", "green");
+          if ($("opsAudio")) $("opsAudio").textContent = "完成";
           setSteps(4, "done");
           setMicStatus(`已完成，有效分片 ${stopResp.chunk_count || 0} 段，跳过空片 ${stopResp.skipped_count || 0} 段`);
           setAgent(
@@ -912,7 +974,7 @@ def render_dashboard(settings: Settings) -> str:
             {
               evidence: `麦克风有效分片 ${stopResp.chunk_count || 0} 段，跳过空片 ${stopResp.skipped_count || 0} 段`,
               intent: "待值班员复核现场语义",
-              policy: "现场输入低置信度优先人工复核",
+              policy: "现场输入已进入复核队列",
               nextAction: "可一键播报建议或人工接管"
             }
           );
@@ -929,6 +991,7 @@ def render_dashboard(settings: Settings) -> str:
     function setBadge(text, kind = "") {
       $("currentState").className = `badge ${kind}`.trim();
       $("currentState").textContent = text;
+      if ($("opsDecision")) $("opsDecision").textContent = text;
     }
 
     function setSteps(activeIndex, mode = "active") {
@@ -946,6 +1009,8 @@ def render_dashboard(settings: Settings) -> str:
       $("statManual").textContent = state.counts.manual;
       $("statRecords").textContent = state.records.length;
       $("statInspection").textContent = state.notices.length;
+      if ($("opsNotice")) $("opsNotice").textContent = String(state.notices.length);
+      if ($("opsArchive")) $("opsArchive").textContent = String(state.records.length);
     }
 
     function speak(text) {
@@ -1077,8 +1142,8 @@ def render_dashboard(settings: Settings) -> str:
           "该通话未满足自动回复条件，系统给出话术建议，由值班员最终确认。",
           {
             evidence: outcome.text ? outcome.text.slice(0, 80) : "未识别到有效文本",
-            intent: "一般业务或低置信度通话",
-            policy: "人机协同，避免误处置",
+            intent: "一般业务或待确认通话",
+            policy: "系统辅助研判，值班员确认后执行",
             nextAction: "人工确认后回复或接管"
           }
         );
@@ -1582,7 +1647,7 @@ def render_dashboard(settings: Settings) -> str:
         {
           evidence: "已创建任务，等待音频进入处理链路",
           intent: "待识别",
-          policy: "高危优先，常规报告自动回复，其他业务人工建议",
+          policy: "异常拦截、常规留档、复杂业务转值班席",
           nextAction: "等待ASR和分流结果"
         }
       );
@@ -1716,6 +1781,7 @@ def render_dashboard(settings: Settings) -> str:
           resetFlow();
           state.streamText = "";
           setStatus("上传中...", "");
+          if ($("opsAudio")) $("opsAudio").textContent = "处理中";
           setAgent(
             "数字值班员接入VHF录音",
             "音频正在上传，系统会保留原音并进入ASR识别链路。",
@@ -1754,6 +1820,7 @@ def render_dashboard(settings: Settings) -> str:
           }
           const task = await pollTask(createTask.task_id);
           setStatus("识别完成", "green");
+          if ($("opsAudio")) $("opsAudio").textContent = "完成";
           if (mode === "batch") {
             renderOutcome(task);
           } else {
