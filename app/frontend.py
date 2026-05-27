@@ -413,6 +413,147 @@ def render_dashboard(settings: Settings) -> str:
     }
     .ops-tile b { display: block; font-size: 20px; margin-bottom: 5px; color: #f5fbff; }
     .ops-tile span { display: block; color: var(--muted); font-size: 12px; }
+    .console {
+      width: min(1580px, calc(100vw - 28px));
+      min-height: calc(100vh - 28px);
+      margin: 14px auto;
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 12px;
+      padding: 10px;
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(12, 35, 56, 0.86), rgba(3, 12, 22, 0.94)),
+        radial-gradient(circle at 60% 8%, rgba(53,213,239,0.16), transparent 32%);
+      border: 1px solid rgba(113,199,227,0.18);
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48);
+    }
+    .side-rail {
+      border-radius: 18px;
+      padding: 16px 12px;
+      background: linear-gradient(180deg, rgba(4,15,28,0.94), rgba(5,20,35,0.76));
+      border: 1px solid rgba(113,199,227,0.12);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 20px;
+    }
+    .product-mark { display: flex; align-items: center; gap: 10px; }
+    .product-mark b { display: block; font-size: 13px; color: #f7fbff; line-height: 1.2; }
+    .product-mark span { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .nav-stack { display: grid; gap: 10px; align-content: start; }
+    .nav-item {
+      width: 100%;
+      min-height: 56px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: #a7bfd2;
+      font-size: 13px;
+    }
+    .nav-item.active {
+      color: #f7fbff;
+      background: linear-gradient(135deg, rgba(58,124,255,0.4), rgba(53,213,239,0.12));
+      border-color: rgba(58,124,255,0.55);
+      box-shadow: inset 0 0 24px rgba(58,124,255,0.16);
+    }
+    .rail-footer { display: grid; gap: 8px; }
+    .workspace {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+    }
+    .app-top {
+      min-height: 66px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 14px 10px 18px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(8,25,42,0.92), rgba(7,23,38,0.78));
+      border: 1px solid rgba(113,199,227,0.12);
+    }
+    .app-top h1 { margin: 0; font-size: 22px; color: #f7fbff; }
+    .app-top p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .screen { min-height: 0; }
+    .screen.mode { display: none; }
+    .screen.mode.active { display: grid; }
+    .voice-screen {
+      grid-template-columns: minmax(480px, 1.15fr) minmax(360px, 0.85fr) 340px;
+      grid-template-rows: 300px minmax(0, 1fr);
+      gap: 12px;
+    }
+    .voice-stage {
+      grid-column: 1 / 2;
+      grid-row: 1 / 2;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .voice-stage::before {
+      content: "";
+      position: absolute;
+      inset: 18px;
+      border-radius: 18px;
+      background: radial-gradient(circle, rgba(58,124,255,0.16), transparent 50%);
+      pointer-events: none;
+    }
+    .voice-hero { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 26px; }
+    .mic-orb {
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(255,255,255,0.94), rgba(53,213,239,0.2) 22%, transparent 24%),
+        radial-gradient(circle, #236dff, #061d48 70%);
+      box-shadow: 0 0 0 16px rgba(53,213,239,0.08), 0 0 54px rgba(53,213,239,0.46);
+    }
+    .mic-icon { font-size: 54px; transform: rotate(90deg); }
+    .wave {
+      width: 168px;
+      height: 72px;
+      opacity: 0.8;
+      background:
+        repeating-linear-gradient(90deg, transparent 0 9px, rgba(53,213,239,0.22) 9px 11px, transparent 11px 16px),
+        linear-gradient(90deg, transparent, rgba(58,124,255,0.5), transparent);
+      clip-path: polygon(0 48%, 8% 46%, 14% 42%, 20% 55%, 27% 18%, 34% 70%, 40% 30%, 47% 82%, 53% 22%, 60% 65%, 67% 37%, 75% 55%, 83% 44%, 100% 49%, 100% 54%, 0 54%);
+    }
+    .wave.right { transform: scaleX(-1); }
+    .voice-caption { position: relative; z-index: 1; text-align: center; margin-top: -10px; }
+    .voice-caption strong { display: block; font-size: 18px; margin-bottom: 6px; }
+    .voice-caption span { color: var(--muted); font-size: 13px; }
+    .voice-controls { position: relative; z-index: 1; width: 100%; justify-content: center; }
+    .input-dock { grid-column: 3 / 4; grid-row: 1 / 2; }
+    .transcript-panel { grid-column: 1 / 2; grid-row: 2 / 3; }
+    .decision-panel { grid-column: 2 / 3; grid-row: 1 / 3; }
+    .voice-side { grid-column: 3 / 4; grid-row: 2 / 3; }
+    .reply-card { margin-top: 12px; }
+    .compact-stats { grid-template-columns: repeat(2, 1fr); margin: 12px 0; }
+    .compact-stats .stat:last-child { grid-column: span 2; }
+    .fence-screen {
+      grid-template-columns: minmax(620px, 1fr) 330px;
+      grid-template-rows: minmax(430px, 1fr) 230px;
+      gap: 12px;
+    }
+    .fence-main { grid-column: 1 / 2; grid-row: 1 / 2; }
+    .fence-main .map { height: 100%; min-height: 420px; }
+    .fence-config { grid-column: 2 / 3; grid-row: 1 / 2; }
+    .fence-bottom {
+      grid-column: 1 / 3;
+      grid-row: 2 / 3;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.2fr;
+      gap: 12px;
+      min-height: 0;
+    }
     .log {
       min-height: 156px;
       max-height: 240px;
@@ -428,6 +569,9 @@ def render_dashboard(settings: Settings) -> str:
     }
     .hidden { display: none; }
     @media (max-width: 1220px) {
+      .console { grid-template-columns: 1fr; }
+      .side-rail { grid-template-rows: auto auto; }
+      .nav-stack { grid-template-columns: repeat(2, 1fr); }
       .layout { grid-template-columns: 1fr; }
       .stats { grid-template-columns: repeat(3, 1fr); }
       .agent-strip { grid-template-columns: 1fr; }
@@ -436,49 +580,72 @@ def render_dashboard(settings: Settings) -> str:
       .agent-action { grid-template-columns: 1fr 1fr; }
       .decision-grid, .card-grid { grid-template-columns: 1fr; }
       .topbar { grid-template-columns: 1fr; }
+      .voice-screen, .fence-screen, .fence-bottom { grid-template-columns: 1fr; grid-template-rows: auto; }
+      .voice-stage, .input-dock, .transcript-panel, .decision-panel, .voice-side, .fence-main, .fence-config, .fence-bottom { grid-column: auto; grid-row: auto; }
     }
   </style>
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark">值</div>
+  <main class="console">
+    <aside class="side-rail">
+      <div class="product-mark">
+        <div class="brand-mark">AI</div>
         <div>
-          <h1>数字值班员</h1>
-          <div class="brand-tags">
-            <span class="tag">VTS Copilot</span>
-            <span class="tag">Live Audio</span>
-            <span class="tag">AIS Guard</span>
-            <span class="tag">TTS Dispatch</span>
-          </div>
+          <b>海事交管智能体</b>
+          <span>Maritime AI Agent</span>
         </div>
       </div>
-      <div class="stats">
-        <div class="stat"><strong id="statRisk">0</strong><span>高危接管</span></div>
-        <div class="stat"><strong id="statAuto">0</strong><span>自动回复</span></div>
-        <div class="stat"><strong id="statManual">0</strong><span>人工建议</span></div>
-        <div class="stat"><strong id="statRecords">0</strong><span>已留档</span></div>
-        <div class="stat"><strong id="statInspection">0</strong><span>点验播报</span></div>
+      <nav class="nav-stack">
+        <button type="button" class="nav-item tab active" data-mode="audioMode">语音交互</button>
+        <button type="button" class="nav-item tab" data-mode="inspectionMode">围栏广播</button>
+        <button type="button" class="nav-item">船舶监控</button>
+        <button type="button" class="nav-item">事件中心</button>
+        <button type="button" class="nav-item">知识库</button>
+        <button type="button" class="nav-item">设置中心</button>
+      </nav>
+      <div class="rail-footer">
+        <span class="badge green">在线</span>
+        <span id="clock" class="badge dark">--:--:--</span>
       </div>
-    </header>
+    </aside>
 
-    <section class="layout">
-      <aside class="panel">
-        <div class="panel-head">
-          <h2>值班员接入</h2>
-          <span class="badge green">LINKED</span>
+    <section class="workspace">
+      <header class="app-top">
+        <div>
+          <h1 id="agentTitle">我在听，请说话...</h1>
+          <p id="agentNarrative">接入VHF语音后，系统将识别船舶请求、判断处置类型，并生成可编辑回复。</p>
         </div>
-        <div class="panel-body">
-          <div class="tabs">
-            <button type="button" class="tab active" data-mode="audioMode">音频处置</button>
-            <button type="button" class="tab" data-mode="inspectionMode">点验通知</button>
-          </div>
+        <div class="top-actions">
+          <span id="currentState" class="badge green">待命</span>
+          <button type="button" class="secondary" id="saveRecord">存入留档</button>
+        </div>
+      </header>
 
-          <section id="audioMode" class="mode active">
+      <section id="audioMode" class="mode active screen voice-screen">
+        <div class="voice-stage panel">
+          <div class="voice-hero">
+            <div class="wave"></div>
+            <button type="button" class="mic-orb" id="micStartBtn">
+              <span class="mic-icon">⌁</span>
+            </button>
+            <div class="wave right"></div>
+          </div>
+          <div class="voice-caption">
+            <strong>现场语音输入</strong>
+            <span id="micStatus">点击麦克风开始连续守听</span>
+          </div>
+          <div class="toolbar voice-controls">
+            <button type="button" id="micStopBtn" class="secondary" disabled>停止麦克风</button>
+            <audio id="audioPlayer" controls></audio>
+          </div>
+        </div>
+
+        <aside class="panel input-dock">
+          <div class="panel-head"><h2>音频接入</h2><span class="badge dark">VHF</span></div>
+          <div class="panel-body">
             <form id="uploadForm" class="form-grid">
               <input id="channelId" value="__DEFAULT_CHANNEL__" placeholder="频道 ID" />
-              <input id="audioFile" type="file" accept=".wav,.mp3,.flac,.m4a,.aac,.pcm" />
+              <input id="audioFile" type="file" accept=".wav,.mp3,.flac,.m4a,.aac,.pcm,.webm,.ogg" />
               <select id="processingMode">
                 <option value="batch">离线识别（稳定）</option>
                 <option value="stream_sim">模拟流式（VAD分段）</option>
@@ -489,33 +656,93 @@ def render_dashboard(settings: Settings) -> str:
                 <option value="on">降噪识别</option>
                 <option value="compare">原音 / 降噪对比</option>
               </select>
-              <button id="uploadSubmit" type="submit">开始处置</button>
+              <button id="uploadSubmit" type="submit">上传并处置</button>
             </form>
             <div id="uploadStatus" class="audio-box">等待音频</div>
-            <div class="audio-box">
-              <div class="badge dark" style="margin-bottom:8px;">现场麦克风演示</div>
-              <div class="toolbar">
-                <button type="button" id="micStartBtn" class="dark">开始麦克风</button>
-                <button type="button" id="micStopBtn" class="secondary" disabled>停止麦克风</button>
-              </div>
-              <div id="micStatus" style="margin-top:8px;color:#8faabd;">待命</div>
-            </div>
-            <div class="audio-box">
-              <div class="badge dark" style="margin-bottom:8px;">原音回放</div>
-              <audio id="audioPlayer" controls></audio>
-            </div>
-          </section>
+          </div>
+        </aside>
 
-          <section id="inspectionMode" class="mode">
+        <section class="panel transcript-panel">
+          <div class="panel-head"><h2>语音识别结果</h2><span class="badge dark">ASR</span></div>
+          <div class="panel-body">
+            <div id="asrText" class="text-box">等待音频或麦克风输入</div>
+            <div class="agent-action">
+              <div class="work-card"><b>输入证据</b><span id="agentEvidence">等待原音接入</span></div>
+              <div class="work-card"><b>语义理解</b><span id="agentIntent">待识别</span></div>
+              <div class="work-card"><b>处置策略</b><span id="agentPolicy">待判断</span></div>
+              <div class="work-card"><b>下一步</b><span id="agentNextAction">等待任务</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel decision-panel">
+          <div class="panel-head"><h2>智能决策</h2><span class="badge dark">Decision</span></div>
+          <div class="panel-body">
+            <div class="decision-grid">
+              <div class="decision-card risk"><b>高危情况</b><strong id="riskLabel">待定</strong><small id="riskReason">等待识别结果</small></div>
+              <div class="decision-card auto"><b>自动回复</b><strong id="autoLabel">待定</strong><small id="autoReason">等待识别结果</small></div>
+              <div class="decision-card manual"><b>人工处理</b><strong id="manualLabel">待命</strong><small id="manualReason">等待识别结果</small></div>
+            </div>
+            <div class="reply-card">
+              <h3>回复内容</h3>
+              <div id="llmSuggestion" class="suggest-box" contenteditable="true" spellcheck="false">等待处置决策</div>
+              <div class="toolbar">
+                <button type="button" class="green" id="playTts">发送语音回复</button>
+                <button type="button" class="red" id="manualTakeover">转人工处理</button>
+                <button type="button" class="secondary" id="copyAsr">复制文本</button>
+              </div>
+            </div>
+            <div class="pipeline">
+              <div class="step active" id="stepInput"><b>01 接入</b><span>任务建立</span></div>
+              <div class="step" id="stepAsr"><b>02 听写</b><span>转写留痕</span></div>
+              <div class="step" id="stepRisk"><b>03 判断</b><span>业务分流</span></div>
+              <div class="step" id="stepDecision"><b>04 建议</b><span>生成话术</span></div>
+              <div class="step" id="stepOutput"><b>05 执行</b><span>播报留档</span></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel voice-side">
+          <div class="panel-head"><h2>运行态势</h2><span class="badge dark">Live</span></div>
+          <div class="panel-body">
+            <div class="ops-grid">
+              <div class="ops-tile"><b id="opsAudio">待命</b><span>音频链路</span></div>
+              <div class="ops-tile"><b id="opsDecision">待定</b><span>决策状态</span></div>
+              <div class="ops-tile"><b id="opsNotice">0</b><span>通知队列</span></div>
+              <div class="ops-tile"><b id="opsArchive">0</b><span>留档记录</span></div>
+            </div>
+            <div class="stats compact-stats">
+              <div class="stat"><strong id="statRisk">0</strong><span>高危</span></div>
+              <div class="stat"><strong id="statAuto">0</strong><span>自动</span></div>
+              <div class="stat"><strong id="statManual">0</strong><span>人工</span></div>
+              <div class="stat"><strong id="statRecords">0</strong><span>留档</span></div>
+              <div class="stat"><strong id="statInspection">0</strong><span>广播</span></div>
+            </div>
+            <div class="work-card"><h3>汇报索引</h3><input id="recordSearch" class="search" placeholder="搜索船名 / 码头 / 高危" /><div id="recordList" class="list"></div></div>
+            <div class="work-card"><h3>运行日志</h3><div id="log" class="log">READY</div></div>
+          </div>
+        </aside>
+      </section>
+
+      <section id="inspectionMode" class="mode screen fence-screen">
+        <section class="panel fence-main">
+          <div class="panel-head"><h2>电子围栏广播</h2><span class="badge green">实时监控</span></div>
+          <div class="panel-body">
             <div class="map"><div id="amapContainer"></div></div>
             <div class="map-tools">
-              <button type="button" class="secondary" id="drawRect">框选</button>
-              <button type="button" class="secondary" id="drawLine">过线</button>
+              <button type="button" class="secondary" id="drawRect">框选围栏</button>
+              <button type="button" class="secondary" id="drawLine">设置过线</button>
               <button type="button" class="secondary" id="clearMap">清除</button>
             </div>
+          </div>
+        </section>
+
+        <aside class="panel fence-config">
+          <div class="panel-head"><h2>广播通知配置</h2><span class="badge dark">Rule</span></div>
+          <div class="panel-body">
             <form id="inspectionForm" class="form-grid">
               <input id="inspectionChannel" value="__DEFAULT_CHANNEL__" placeholder="频道 ID" />
-              <input id="areaName" value="北仑主航道A3段" placeholder="范围名称" />
+              <input id="areaName" value="北仑主航道A3段" placeholder="围栏名称" />
               <div class="row-2">
                 <input id="minDraft" value="10" placeholder="最小吃水 m" />
                 <input id="minTonnage" value="5000" placeholder="最小吨位 t" />
@@ -527,155 +754,32 @@ def render_dashboard(settings: Settings) -> str:
                 <option value="液货船">液货船</option>
                 <option value="杂货船">杂货船</option>
               </select>
-              <select id="inspectionScenario">
-                <option value="">选择点验场景</option>
-              </select>
+              <select id="inspectionScenario"><option value="">选择点验场景</option></select>
               <textarea id="noticeTemplate">{船名}，数字值班员提醒：你船已进入{区域}关注范围，请保持安全航速，加强瞭望并保持守听。</textarea>
-              <button type="submit">生成点验通知</button>
+              <button type="submit">生成广播通知</button>
             </form>
-            <div class="audio-box">
-              <div class="badge dark" style="margin-bottom:8px;">新增点验场景</div>
-              <div class="form-grid">
-                <input id="newScenarioName" placeholder="场景名称（例如：夜间会遇提醒）" />
-                <textarea id="newScenarioTemplate" placeholder="模板示例：{船名}，你船进入{区域}..." ></textarea>
-                <button type="button" id="saveScenarioBtn" class="secondary">保存场景模板</button>
-              </div>
-            </div>
-            <div class="audio-box">
-              <div class="badge dark" style="margin-bottom:8px;">手动新增船舶坐标</div>
-              <div class="form-grid">
-                <input id="newShipName" placeholder="船名" />
-                <div class="row-2">
-                  <input id="newShipLng" placeholder="经度，例如 121.8621" />
-                  <input id="newShipLat" placeholder="纬度，例如 29.9365" />
-                </div>
-                <div class="row-2">
-                  <input id="newShipType" placeholder="船型，例如 散货船" />
-                  <input id="newShipPositionLabel" placeholder="位置标签，例如 A3水道" />
-                </div>
-                <div class="row-2">
-                  <input id="newShipTonnage" placeholder="吨位 t" />
-                  <input id="newShipDraft" placeholder="吃水 m" />
-                </div>
-                <input id="newShipDestination" placeholder="目的地（可选）" />
-                <button type="button" id="saveShipBtn" class="secondary">保存船舶</button>
-              </div>
-            </div>
-          </section>
-        </div>
-      </aside>
+          </div>
+        </aside>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>智能体处置台</h2>
-          <span id="currentState" class="badge">待命</span>
-        </div>
-        <div class="panel-body">
-          <div class="agent-strip">
-            <div class="agent-avatar">AI</div>
-            <div>
-              <h3 id="agentTitle">数字值班员待命</h3>
-              <p id="agentNarrative">系统待命中。接入VHF音频或AIS点验任务后，将自动生成可复核的处置流。</p>
-            </div>
-            <div class="agent-pills">
-              <span class="agent-pill">LIVE</span>
-              <span class="agent-pill">ASR</span>
-              <span class="agent-pill">AIS</span>
-            </div>
-          </div>
-          <div class="pipeline">
-            <div class="step active" id="stepInput"><b>01 接入</b><span>保存原音，绑定频道和任务</span></div>
-            <div class="step" id="stepAsr"><b>02 听写</b><span>ASR转写，保留片段证据</span></div>
-            <div class="step" id="stepRisk"><b>03 判断</b><span>高危、申请、常规报告分流</span></div>
-            <div class="step" id="stepDecision"><b>04 建议</b><span>生成回复、告警或人工话术</span></div>
-            <div class="step" id="stepOutput"><b>05 执行</b><span>TTS播报，事件留档可检索</span></div>
-          </div>
-
-          <div class="agent-action">
-            <div class="work-card"><b>输入证据</b><span id="agentEvidence">待接入音频，原音可回放。</span></div>
-            <div class="work-card"><b>业务意图</b><span id="agentIntent">等待识别船名、地点和业务动作。</span></div>
-            <div class="work-card"><b>处置策略</b><span id="agentPolicy">高危转人工，常规报告可自动回复。</span></div>
-            <div class="work-card"><b>输出动作</b><span id="agentNextAction">等待生成播报或值班员确认。</span></div>
-          </div>
-
-          <div class="decision-grid">
-            <div class="decision-card risk">
-              <b>高危情况</b>
-              <strong id="riskLabel">待定</strong>
-              <small id="riskReason">等待识别结果</small>
-            </div>
-            <div class="decision-card auto">
-              <b>自动回复</b>
-              <strong id="autoLabel">待定</strong>
-              <small id="autoReason">等待识别结果</small>
-            </div>
-            <div class="decision-card manual">
-              <b>人工处理</b>
-              <strong id="manualLabel">待命</strong>
-              <small id="manualReason">等待识别结果</small>
+        <section class="fence-bottom">
+          <div class="work-card"><h3>AIS 点验目标</h3><div id="shipList" class="list"></div></div>
+          <div class="work-card"><h3>实时事件</h3><div id="noticeList" class="list"></div></div>
+          <div class="work-card">
+            <h3>新增规则与船舶</h3>
+            <div class="form-grid">
+              <input id="newScenarioName" placeholder="场景名称" />
+              <textarea id="newScenarioTemplate" placeholder="模板示例：{船名}，你船进入{区域}..." ></textarea>
+              <button type="button" id="saveScenarioBtn" class="secondary">保存场景模板</button>
+              <input id="newShipName" placeholder="船名" />
+              <div class="row-2"><input id="newShipLng" placeholder="经度" /><input id="newShipLat" placeholder="纬度" /></div>
+              <div class="row-2"><input id="newShipType" placeholder="船型" /><input id="newShipPositionLabel" placeholder="位置标签" /></div>
+              <div class="row-2"><input id="newShipTonnage" placeholder="吨位 t" /><input id="newShipDraft" placeholder="吃水 m" /></div>
+              <input id="newShipDestination" placeholder="目的地（可选）" />
+              <button type="button" id="saveShipBtn" class="secondary">保存船舶</button>
             </div>
           </div>
-
-          <div class="card-grid">
-            <div class="work-card">
-              <h3>ASR 结果</h3>
-              <div id="asrText" class="text-box">等待音频或点验任务</div>
-              <div class="toolbar" style="margin-top:10px;">
-                <button type="button" class="secondary" id="copyAsr">复制</button>
-                <button type="button" class="secondary" id="saveRecord">存入索引</button>
-              </div>
-            </div>
-            <div class="work-card">
-              <h3>处置建议 / 回复</h3>
-              <div id="llmSuggestion" class="suggest-box" contenteditable="true" spellcheck="false">等待处置决策</div>
-              <small style="color:#8faabd;">可编辑后播报，播报稿会随留档保存。</small>
-              <div class="toolbar" style="margin-top:10px;">
-                <button type="button" class="green" id="playTts">一键 TTS</button>
-                <button type="button" class="red" id="manualTakeover">人工接管</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        </section>
       </section>
-
-      <aside class="panel">
-        <div class="panel-head">
-          <h2>汇报与留档</h2>
-          <span id="clock" class="badge dark">--:--:--</span>
-        </div>
-        <div class="panel-body">
-          <div class="work-card">
-            <h3>运行态势</h3>
-            <div class="ops-grid">
-              <div class="ops-tile"><b id="opsAudio">待命</b><span>音频链路</span></div>
-              <div class="ops-tile"><b id="opsDecision">待定</b><span>决策状态</span></div>
-              <div class="ops-tile"><b id="opsNotice">0</b><span>通知队列</span></div>
-              <div class="ops-tile"><b id="opsArchive">0</b><span>留档记录</span></div>
-            </div>
-          </div>
-
-          <div class="work-card">
-            <h3>汇报索引</h3>
-            <input id="recordSearch" class="search" placeholder="搜索船名 / 靠泊 / 抛锚 / 高危" />
-            <div id="recordList" class="list"></div>
-          </div>
-
-          <div class="work-card" style="margin-top:12px;">
-            <h3>AIS 点验目标</h3>
-            <div id="shipList" class="list"></div>
-          </div>
-
-          <div class="work-card" style="margin-top:12px;">
-            <h3>点验通知</h3>
-            <div id="noticeList" class="list"></div>
-          </div>
-
-          <div class="work-card" style="margin-top:12px;">
-            <h3>运行日志</h3>
-            <div id="log" class="log">READY</div>
-          </div>
-        </div>
-      </aside>
     </section>
   </main>
 
@@ -1660,6 +1764,9 @@ def render_dashboard(settings: Settings) -> str:
           document.querySelectorAll(".mode").forEach((item) => item.classList.remove("active"));
           button.classList.add("active");
           $(button.dataset.mode).classList.add("active");
+          if (button.dataset.mode === "inspectionMode" && state.map) {
+            window.setTimeout(() => state.map && state.map.resize(), 80);
+          }
         });
       });
     }
