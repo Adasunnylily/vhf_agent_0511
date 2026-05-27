@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import uuid
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -417,25 +418,29 @@ async def upload_true_streaming(
     saved_path = storage.save_upload(file.file, file.filename or "upload.bin")
 
     def runner() -> None:
-        chunk_results, events = realtime_stream_processor.process_file_stream(
-            file_path=saved_path,
-            channel_id=channel_id,
-            enable_denoise=denoise_mode.strip().lower() == "on",
-        )
+        if settings.asr_provider == "qwen_api":
+            # Qwen ASR is an API-style file recognizer. For the demo "quasi realtime" path,
+            # replay VAD chunks through the same API chain instead of downloading local
+            # paraformer streaming weights at request time.
+            chunk_results, events = stream_processor.process_file_stream(
+                file_path=saved_path,
+                channel_id=channel_id,
+                enable_denoise=denoise_mode.strip().lower() == "on",
+            )
+            mode = "qwen_api_chunk_replay"
+        else:
+            chunk_results, events = realtime_stream_processor.process_file_stream(
+                file_path=saved_path,
+                channel_id=channel_id,
+                enable_denoise=denoise_mode.strip().lower() == "on",
+            )
+            mode = "paraformer_streaming"
         task_manager.update(
             task.id,
             status="completed",
-            segments=[
-                {
-                    "index": index,
-                    "text": item.text,
-                    "confidence": item.confidence,
-                    "engine": item.engine,
-                }
-                for index, item in enumerate(chunk_results)
-            ],
+            segments=[_as_segment_payload(item, index) for index, item in enumerate(chunk_results)],
             events=[event.to_dict() for event in events],
-            meta={"denoise_mode": denoise_mode.strip().lower()},
+            meta={"denoise_mode": denoise_mode.strip().lower(), "mode": mode},
         )
         event_store.extend([event.to_dict() for event in events])
 
@@ -444,7 +449,7 @@ async def upload_true_streaming(
         "task_id": task.id,
         "status": "queued",
         "channel_id": channel_id,
-        "mode": "paraformer_streaming",
+        "mode": "qwen_api_chunk_replay" if settings.asr_provider == "qwen_api" else "paraformer_streaming",
     }
 
 
@@ -472,6 +477,26 @@ def _extract_keywords(text: str) -> List[str]:
         "未报告",
     ]
     return [keyword for keyword in known_keywords if keyword.lower() in lowered]
+
+
+def _is_informative_text(text: str) -> bool:
+    cleaned = re.sub(r"[\s，。！？,.!?；;：:、…]+", "", text or "")
+    if not cleaned:
+        return False
+    if cleaned in {"嗯", "啊", "呃", "哦", "是", "好", "好的"}:
+        return False
+    return bool(re.search(r"[\u4e00-\u9fffA-Za-z0-9]", cleaned))
+
+
+def _as_segment_payload(item: Any, index: int) -> Dict[str, object]:
+    if hasattr(item, "to_dict"):
+        return item.to_dict()
+    return {
+        "index": index,
+        "text": getattr(item, "text", ""),
+        "confidence": getattr(item, "confidence", 0.0),
+        "engine": getattr(item, "engine", ""),
+    }
 
 
 @router.post("/mic/start")
@@ -514,6 +539,19 @@ async def push_mic_chunk(
 
     save_name = file.filename or f"{session_id}_{seq}.webm"
     saved_path = storage.save_upload(file.file, save_name)
+    file_size = saved_path.stat().st_size if saved_path.exists() else 0
+    if file_size < 2048:
+        with mic_lock:
+            session = mic_sessions.get(session_id)
+            if session is not None:
+                session["skipped_count"] = int(session.get("skipped_count", 0)) + 1
+        return {
+            "session_id": session_id,
+            "seq": seq,
+            "status": "skipped",
+            "reason": "audio chunk too small",
+            "size": file_size,
+        }
     denoise_enabled = str(session.get("denoise_mode", "off")) == "on"
     if settings.asr_provider == "qwen_api":
         # Qwen API accepts compressed audio directly; skip ffmpeg to reduce latency and avoid chunk decode failures.
@@ -524,8 +562,58 @@ async def push_mic_chunk(
             enable_denoise=denoise_enabled,
         )
         processed_path = Path(prepared.processed_path) if prepared.processed_path else saved_path
-    result = shared_asr.transcribe(file_path=processed_path)
+    try:
+        result = shared_asr.transcribe(file_path=processed_path)
+    except RuntimeError as exc:
+        message = str(exc)
+        if "audio is empty" in message or "InvalidParameter" in message:
+            with mic_lock:
+                session = mic_sessions.get(session_id)
+                if session is not None:
+                    session["skipped_count"] = int(session.get("skipped_count", 0)) + 1
+            ws_manager.publish(
+                channel_id,
+                {
+                    "type": "stream_status",
+                    "stage": "mic_chunk_skipped",
+                    "mode": "mic_live_demo",
+                    "channel_id": channel_id,
+                    "index": seq,
+                    "reason": "empty_audio",
+                },
+            )
+            return {
+                "session_id": session_id,
+                "seq": seq,
+                "status": "skipped",
+                "reason": "empty_audio",
+            }
+        raise
     text = result.text
+    if not _is_informative_text(text):
+        with mic_lock:
+            session = mic_sessions.get(session_id)
+            if session is not None:
+                session["skipped_count"] = int(session.get("skipped_count", 0)) + 1
+        ws_manager.publish(
+            channel_id,
+            {
+                "type": "stream_status",
+                "stage": "mic_chunk_skipped",
+                "mode": "mic_live_demo",
+                "channel_id": channel_id,
+                "index": seq,
+                "reason": "uninformative_text",
+                "text": text,
+            },
+        )
+        return {
+            "session_id": session_id,
+            "seq": seq,
+            "status": "skipped",
+            "reason": "uninformative_text",
+            "text": text,
+        }
     resolution = entity_resolver.resolve(text)
     text_for_rules = resolution.resolved_text
 
@@ -614,6 +702,7 @@ async def stop_mic_stream(
             "channel_id": channel_id,
             "session_id": session_id,
             "chunk_count": int(session.get("chunk_count", 0)),
+            "skipped_count": int(session.get("skipped_count", 0)),
             "events": len(events),
         },
     )
@@ -622,6 +711,7 @@ async def stop_mic_stream(
         "channel_id": channel_id,
         "status": "completed",
         "chunk_count": int(session.get("chunk_count", 0)),
+        "skipped_count": int(session.get("skipped_count", 0)),
         "text": summary_text,
         "events": events,
     }

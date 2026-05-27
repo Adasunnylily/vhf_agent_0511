@@ -348,6 +348,11 @@ def render_dashboard(settings: Settings) -> str:
       gap: 8px;
       align-items: center;
     }
+    .ship.selected {
+      border-color: rgba(20,132,87,0.55);
+      background: #f1fbf6;
+      box-shadow: inset 4px 0 0 #148457;
+    }
     .ship-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
     .mini {
       display: inline-flex;
@@ -457,7 +462,7 @@ def render_dashboard(settings: Settings) -> str:
               <select id="processingMode">
                 <option value="batch">离线识别（稳定）</option>
                 <option value="stream_sim">模拟流式（VAD分段）</option>
-                <option value="stream_rt">准实时流式（chunk回放）</option>
+                <option value="stream_rt">准实时回放（API稳定）</option>
               </select>
               <select id="denoiseMode">
                 <option value="off">原音识别</option>
@@ -496,6 +501,7 @@ def render_dashboard(settings: Settings) -> str:
                 <input id="minTonnage" value="5000" placeholder="最小吨位 t" />
               </div>
               <select id="shipTypes" multiple>
+                <option value="__all__" selected>全部船型</option>
                 <option value="集装箱船">集装箱船</option>
                 <option value="散货船">散货船</option>
                 <option value="液货船">液货船</option>
@@ -601,7 +607,8 @@ def render_dashboard(settings: Settings) -> str:
             </div>
             <div class="work-card">
               <h3>处置建议 / 回复</h3>
-              <div id="llmSuggestion" class="suggest-box">等待处置决策</div>
+              <div id="llmSuggestion" class="suggest-box" contenteditable="true" spellcheck="false">等待处置决策</div>
+              <small style="color:#617689;">话术可直接编辑，TTS会播放编辑后的内容。</small>
               <div class="toolbar" style="margin-top:10px;">
                 <button type="button" class="green" id="playTts">一键 TTS</button>
                 <button type="button" class="red" id="manualTakeover">人工接管</button>
@@ -681,7 +688,9 @@ def render_dashboard(settings: Settings) -> str:
       micSeq: 0,
       micActive: false,
       micUploading: false,
-      micPendingBlob: null
+      micPendingBlob: null,
+      micLocalChunks: [],
+      micMimeType: ""
     };
 
     const $ = (id) => document.getElementById(id);
@@ -754,6 +763,10 @@ def render_dashboard(settings: Settings) -> str:
 
     async function uploadMicChunk(blob) {
       if (!state.micSessionId || !blob || blob.size <= 0) return;
+      if (blob.size < 2048) {
+        logLine(`MIC CHUNK SKIP: too small (${blob.size} bytes)`);
+        return;
+      }
       if (state.micUploading) {
         state.micPendingBlob = blob;
         return;
@@ -810,16 +823,25 @@ def render_dashboard(settings: Settings) -> str:
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       state.micStream = stream;
       const mimeType = pickMicMimeType();
+      state.micMimeType = mimeType || "audio/webm";
+      state.micLocalChunks = [];
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       state.micRecorder = recorder;
       recorder.ondataavailable = async (event) => {
+        if (event.data && event.data.size > 0) {
+          state.micLocalChunks.push(event.data);
+        }
         if (!state.micActive) return;
         await uploadMicChunk(event.data);
       };
       recorder.onstop = () => {
+        if (state.micLocalChunks.length) {
+          const micBlob = new Blob(state.micLocalChunks, { type: state.micMimeType || "audio/webm" });
+          $("audioPlayer").src = URL.createObjectURL(micBlob);
+        }
         setMicStatus("麦克风已停止");
       };
-      recorder.start(800);
+      recorder.start(5000);
       state.micActive = true;
       $("micStartBtn").disabled = true;
       $("micStopBtn").disabled = false;
@@ -843,6 +865,9 @@ def render_dashboard(settings: Settings) -> str:
       state.micActive = false;
       try {
         if (state.micRecorder && state.micRecorder.state !== "inactive") {
+          if (state.micRecorder.requestData) {
+            state.micRecorder.requestData();
+          }
           state.micRecorder.stop();
         }
       } catch (error) {
@@ -857,6 +882,10 @@ def render_dashboard(settings: Settings) -> str:
       state.micSessionId = "";
       state.micUploading = false;
       state.micPendingBlob = null;
+      if (state.micLocalChunks.length) {
+        const micBlob = new Blob(state.micLocalChunks, { type: state.micMimeType || "audio/webm" });
+        $("audioPlayer").src = URL.createObjectURL(micBlob);
+      }
       $("micStartBtn").disabled = false;
       $("micStopBtn").disabled = true;
       setMicStatus("正在汇总识别结果...");
@@ -876,12 +905,12 @@ def render_dashboard(settings: Settings) -> str:
           }
           setBadge("现场流式完成", "green");
           setSteps(4, "done");
-          setMicStatus(`已完成，分片 ${stopResp.chunk_count || 0} 段`);
+          setMicStatus(`已完成，有效分片 ${stopResp.chunk_count || 0} 段，跳过空片 ${stopResp.skipped_count || 0} 段`);
           setAgent(
             "现场守听完成",
             "数字值班员已完成现场语音汇总，结果已进入处置台。",
             {
-              evidence: `麦克风分片 ${stopResp.chunk_count || 0} 段`,
+              evidence: `麦克风有效分片 ${stopResp.chunk_count || 0} 段，跳过空片 ${stopResp.skipped_count || 0} 段`,
               intent: "待值班员复核现场语义",
               policy: "现场输入低置信度优先人工复核",
               nextAction: "可一键播报建议或人工接管"
@@ -1068,6 +1097,7 @@ def render_dashboard(settings: Settings) -> str:
       if (!event) return;
       const riskLevel = String(event.risk_level || "");
       if (riskLevel === "L1" || riskLevel === "L2") {
+        state.activeRecordType = "risk";
         setBadge("高危拦截", "red");
         setSteps(2, "danger");
         setAgent(
@@ -1088,10 +1118,13 @@ def render_dashboard(settings: Settings) -> str:
         $("llmSuggestion").textContent = event.suggestion || $("llmSuggestion").textContent;
         if (event.broadcast_text) {
           state.activeReply = event.broadcast_text;
+        } else if (event.suggestion) {
+          state.activeReply = event.suggestion;
         }
         state.counts.risk += 1;
         state.counts.manual += 1;
       } else if (event.is_auto_reply || event.action_type === "auto_reply") {
+        state.activeRecordType = "auto";
         setBadge("自动回复", "green");
         setSteps(3, "done");
         setAgent(
@@ -1111,6 +1144,7 @@ def render_dashboard(settings: Settings) -> str:
         $("manualReason").textContent = "系统可自动处置";
         state.counts.auto += 1;
       } else {
+        state.activeRecordType = "manual";
         setBadge("人工复核", "amber");
         setSteps(3, "warn");
         setAgent(
@@ -1131,6 +1165,7 @@ def render_dashboard(settings: Settings) -> str:
 
     function saveRecord() {
       if (!state.activeText) return;
+      state.activeReply = $("llmSuggestion").textContent.trim() || state.activeReply;
       state.records.unshift({
         id: `rec_${Date.now()}`,
         type: state.activeRecordType || "manual",
@@ -1181,7 +1216,7 @@ def render_dashboard(settings: Settings) -> str:
         return;
       }
       container.innerHTML = state.ships.map((ship) => `
-        <div class="item ship">
+        <div class="item ship ${state.selectedShipNames.includes(ship.ship_name) ? "selected" : ""}">
           <div>
             <b>${ship.ship_name}</b>
             <span>${ship.position_label} · ${ship.destination}</span>
@@ -1192,7 +1227,7 @@ def render_dashboard(settings: Settings) -> str:
             </div>
           </div>
           <div class="toolbar">
-            <span class="badge">${ship.position_label.includes("A3") ? "A3" : "AIS"}</span>
+            <span class="badge">${state.selectedShipNames.includes(ship.ship_name) ? "已选" : ship.position_label.includes("A3") ? "A3" : "AIS"}</span>
             <button type="button" class="secondary" data-delete-ship="${ship.ship_id || ''}">删除</button>
           </div>
         </div>
@@ -1338,6 +1373,9 @@ def render_dashboard(settings: Settings) -> str:
               }
             );
           }
+          if (payload.type === "stream_status" && payload.stage === "mic_chunk_skipped") {
+            setMicStatus(`已跳过空白/无效分片：${payload.reason || "empty"}`);
+          }
         } catch (error) {
           logLine(event.data);
         }
@@ -1352,7 +1390,38 @@ def render_dashboard(settings: Settings) -> str:
     }
 
     function selectedShipTypes() {
-      return Array.from($("shipTypes").selectedOptions).map((o) => o.value);
+      const values = Array.from($("shipTypes").selectedOptions).map((o) => o.value);
+      return values.includes("__all__") ? [] : values;
+    }
+
+    async function previewInspectionTargets(reason = "manual") {
+      if (!$("inspectionForm")) return;
+      try {
+        const previewForm = new FormData();
+        previewForm.append("area_name", $("areaName").value.trim());
+        previewForm.append("min_draft_m", $("minDraft").value.trim());
+        previewForm.append("min_tonnage_t", $("minTonnage").value.trim());
+        previewForm.append("area_geometry", getCurrentGeometry());
+        previewForm.append("ship_types", selectedShipTypes().join(","));
+        const preview = await requestJson("/api/inspection/filter", { method: "POST", body: previewForm });
+        state.selectedShipNames = (preview.items || []).map((s) => s.ship_name);
+        renderShips();
+        renderShipMarkers();
+        setAgent(
+          "数字值班员预筛点验目标",
+          `已根据当前地图范围和船舶条件预筛 ${state.selectedShipNames.length} 艘船。`,
+          {
+            evidence: state.selectedShipNames.slice(0, 6).join("、") || "暂无命中船舶",
+            intent: reason === "draw" ? "地图选区筛船" : "条件筛船",
+            policy: "命中船舶高亮显示，确认后生成点验通知",
+            nextAction: "选择点验场景并生成通知"
+          }
+        );
+        logLine(`点验预筛: ${state.selectedShipNames.length} 艘`);
+      } catch (error) {
+        const message = error && error.message ? error.message : String(error);
+        logLine(`INSPECTION PREVIEW ERROR: ${message}`);
+      }
     }
 
     function renderScenarioOptions() {
@@ -1437,6 +1506,9 @@ def render_dashboard(settings: Settings) -> str:
         state.shapes = [];
         state.overlays.forEach((o) => state.map && state.map.remove(o));
         state.overlays = [];
+        state.selectedShipNames = [];
+        renderShips();
+        renderShipMarkers();
       });
       state.map.on("click", (e) => {
         if (!state.startPoint) {
@@ -1453,6 +1525,7 @@ def render_dashboard(settings: Settings) -> str:
         state.shapes.push(shape);
         addShapeOverlay(shape);
         state.startPoint = null;
+        previewInspectionTargets("draw");
       });
       state.mouseTool.on("draw", (evt) => {
         state.overlays.forEach((o) => state.map && state.map.remove(o));
@@ -1474,6 +1547,7 @@ def render_dashboard(settings: Settings) -> str:
             }];
           }
         }
+        previewInspectionTargets("draw");
       });
     }
 
@@ -1544,7 +1618,14 @@ def render_dashboard(settings: Settings) -> str:
         logLine("已复制 ASR 文本");
       });
       $("saveRecord").addEventListener("click", saveRecord);
-      $("playTts").addEventListener("click", () => speak(state.activeReply || state.activeText));
+      $("playTts").addEventListener("click", () => {
+        const editedReply = $("llmSuggestion").textContent.trim();
+        state.activeReply = editedReply || state.activeReply;
+        speak(state.activeReply || state.activeText);
+      });
+      $("llmSuggestion").addEventListener("input", () => {
+        state.activeReply = $("llmSuggestion").textContent.trim();
+      });
       $("manualTakeover").addEventListener("click", () => {
         setBadge("人工接管", "red");
         logLine("值班员已人工接管当前任务");
@@ -1579,6 +1660,9 @@ def render_dashboard(settings: Settings) -> str:
         if (selected) {
           $("noticeTemplate").value = selected.notice_template;
         }
+      });
+      ["shipTypes", "minDraft", "minTonnage", "areaName"].forEach((id) => {
+        $(id).addEventListener("change", () => previewInspectionTargets("filter"));
       });
       $("saveScenarioBtn").addEventListener("click", async () => {
         try {
@@ -1740,6 +1824,7 @@ def render_dashboard(settings: Settings) -> str:
           previewForm.append("ship_types", selectedShipTypes().join(","));
           const preview = await requestJson("/api/inspection/filter", { method: "POST", body: previewForm });
           state.selectedShipNames = (preview.items || []).map((s) => s.ship_name);
+          renderShips();
           renderShipMarkers();
           setAgent(
             "数字值班员锁定点验目标",

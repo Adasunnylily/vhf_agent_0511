@@ -211,7 +211,7 @@ class InspectionTaskSimulator:
                 continue
             if type_set and ship.ship_type not in type_set:
                 continue
-            if geometry is not None and not self._matches_geometry(ship.position_label, geometry):
+            if geometry is not None and not self._matches_geometry(ship, geometry):
                 continue
             if geometry is None and not self._matches_area(area_name, ship.position_label):
                 continue
@@ -253,8 +253,8 @@ class InspectionTaskSimulator:
         except Exception:
             return None
 
-    def _matches_geometry(self, position_label: str, geometry: Dict[str, float]) -> bool:
-        x, y = self._mock_position_xy(position_label)
+    def _matches_geometry(self, ship: InspectionShip, geometry: Dict[str, float]) -> bool:
+        x, y = ship.lng, ship.lat
         shape_type = str(geometry.get("type", ""))
         if shape_type == "rect":
             x1 = float(geometry.get("lng1", geometry.get("x1", x)))
@@ -274,12 +274,6 @@ class InspectionTaskSimulator:
             distance = self._point_to_segment_distance(x, y, x1, y1, x2, y2)
             return distance <= 0.01
         return False
-
-    def _mock_position_xy(self, position_label: str) -> tuple[float, float]:
-        for ship in self._ships:
-            if ship.position_label == position_label:
-                return ship.lng, ship.lat
-        return 121.84, 29.92
 
     def _load_or_init_ships(self) -> List[InspectionShip]:
         self.data_dir.mkdir(parents=True, exist_ok=True)

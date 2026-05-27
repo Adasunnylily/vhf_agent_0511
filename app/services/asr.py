@@ -415,8 +415,11 @@ class QwenASRAdapter(BaseASRAdapter):
             ".wav": "audio/wav",
             ".mp3": "audio/mpeg",
             ".m4a": "audio/mp4",
+            ".mp4": "audio/mp4",
             ".aac": "audio/aac",
             ".flac": "audio/flac",
+            ".webm": "audio/webm",
+            ".ogg": "audio/ogg",
             ".pcm": "audio/wav",
         }.get(suffix, "audio/wav")
         encoded = base64.b64encode(file_path.read_bytes()).decode("utf-8")
