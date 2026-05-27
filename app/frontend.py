@@ -122,6 +122,43 @@ def render_dashboard(settings: Settings) -> str:
       font-size: 12px;
       line-height: 1.3;
     }
+    .agent-strip {
+      display: grid;
+      grid-template-columns: 76px minmax(240px, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px;
+      margin-bottom: 12px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #ffffff, #eef7fb);
+      border: 1px solid #c9dcea;
+    }
+    .agent-avatar {
+      width: 64px;
+      height: 64px;
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      background: #102f43;
+      color: #f7fbff;
+      font-size: 30px;
+      font-weight: 800;
+      box-shadow: inset 0 -10px 24px rgba(44,178,195,0.24);
+    }
+    .agent-strip h3 { margin: 0 0 6px; font-size: 18px; }
+    .agent-strip p { margin: 0; color: var(--muted); line-height: 1.5; font-size: 13px; }
+    .agent-pills { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .agent-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: #e8f2f8;
+      color: #1d425d;
+      font-size: 12px;
+      font-weight: 700;
+    }
     .layout {
       display: grid;
       grid-template-columns: 330px minmax(520px, 1fr) 390px;
@@ -199,6 +236,27 @@ def render_dashboard(settings: Settings) -> str:
     .step.done { border-color: rgba(20,132,87,0.45); background: #f3fbf7; }
     .step.warn { border-color: rgba(191,125,23,0.5); background: #fff9ef; }
     .step.danger { border-color: rgba(208,75,70,0.5); background: #fff4f4; }
+    .agent-action {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .agent-action .work-card {
+      min-height: 96px;
+      background: #fbfdff;
+    }
+    .agent-action b {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .agent-action span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
     .decision-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -301,6 +359,34 @@ def render_dashboard(settings: Settings) -> str:
       font-size: 11px;
     }
     .search { margin-bottom: 8px; }
+    .checklist {
+      display: grid;
+      gap: 7px;
+    }
+    .check {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 8px;
+      align-items: start;
+      padding: 8px;
+      border-radius: 10px;
+      background: #f7fbff;
+      border: 1px solid #d9e6ef;
+    }
+    .check i {
+      width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #183246;
+      color: white;
+      font-style: normal;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .check b { display: block; font-size: 12px; margin-bottom: 3px; }
+    .check span { display: block; color: var(--muted); font-size: 11px; line-height: 1.45; }
     .log {
       min-height: 156px;
       max-height: 240px;
@@ -318,7 +404,10 @@ def render_dashboard(settings: Settings) -> str:
     @media (max-width: 1220px) {
       .layout { grid-template-columns: 1fr; }
       .stats { grid-template-columns: repeat(3, 1fr); }
+      .agent-strip { grid-template-columns: 1fr; }
+      .agent-pills { justify-content: flex-start; }
       .pipeline { grid-template-columns: 1fr 1fr; }
+      .agent-action { grid-template-columns: 1fr 1fr; }
       .decision-grid, .card-grid { grid-template-columns: 1fr; }
       .topbar { grid-template-columns: 1fr; }
     }
@@ -332,28 +421,27 @@ def render_dashboard(settings: Settings) -> str:
         <div>
           <h1>数字值班员</h1>
           <div class="brand-tags">
-            <span class="tag">VHF</span>
-            <span class="tag">高危拦截</span>
-            <span class="tag">自动回复</span>
-            <span class="tag">人工建议</span>
+            <span class="tag">连续守听</span>
+            <span class="tag">风险判断</span>
+            <span class="tag">处置建议</span>
+            <span class="tag">一键播报</span>
             <span class="tag">AIS点验</span>
-            <span class="tag">TTS</span>
           </div>
         </div>
       </div>
       <div class="stats">
-        <div class="stat"><strong id="statRisk">0</strong><span>高危事件</span></div>
+        <div class="stat"><strong id="statRisk">0</strong><span>高危接管</span></div>
         <div class="stat"><strong id="statAuto">0</strong><span>自动回复</span></div>
-        <div class="stat"><strong id="statManual">0</strong><span>人工处理</span></div>
-        <div class="stat"><strong id="statRecords">0</strong><span>汇报索引</span></div>
-        <div class="stat"><strong id="statInspection">0</strong><span>点验通知</span></div>
+        <div class="stat"><strong id="statManual">0</strong><span>人工建议</span></div>
+        <div class="stat"><strong id="statRecords">0</strong><span>已留档</span></div>
+        <div class="stat"><strong id="statInspection">0</strong><span>点验播报</span></div>
       </div>
     </header>
 
     <section class="layout">
       <aside class="panel">
         <div class="panel-head">
-          <h2>任务入口</h2>
+          <h2>值班员接入</h2>
           <span class="badge green">ONLINE</span>
         </div>
         <div class="panel-body">
@@ -453,16 +541,35 @@ def render_dashboard(settings: Settings) -> str:
 
       <section class="panel">
         <div class="panel-head">
-          <h2>处置流转</h2>
+          <h2>智能体处置台</h2>
           <span id="currentState" class="badge">待命</span>
         </div>
         <div class="panel-body">
+          <div class="agent-strip">
+            <div class="agent-avatar">AI</div>
+            <div>
+              <h3 id="agentTitle">数字值班员待命</h3>
+              <p id="agentNarrative">等待VHF音频或点验任务。接入后将依次完成转写、风险分流、处置建议和播报留档。</p>
+            </div>
+            <div class="agent-pills">
+              <span class="agent-pill">人机协同</span>
+              <span class="agent-pill">低置信度复核</span>
+              <span class="agent-pill">高危优先</span>
+            </div>
+          </div>
           <div class="pipeline">
-            <div class="step active" id="stepInput"><b>01 输入</b><span>原音保留、建立任务</span></div>
-            <div class="step" id="stepAsr"><b>02 转写</b><span>ASR / 切段 / 留痕</span></div>
-            <div class="step" id="stepRisk"><b>03 风险判断</b><span>高危拦截 / 常规分流</span></div>
-            <div class="step" id="stepDecision"><b>04 回复决策</b><span>自动回复 / 人工建议</span></div>
-            <div class="step" id="stepOutput"><b>05 播报</b><span>TTS 播放 / 留档索引</span></div>
+            <div class="step active" id="stepInput"><b>01 接入</b><span>保存原音，绑定频道和任务</span></div>
+            <div class="step" id="stepAsr"><b>02 听写</b><span>ASR转写，保留片段证据</span></div>
+            <div class="step" id="stepRisk"><b>03 判断</b><span>高危、申请、常规报告分流</span></div>
+            <div class="step" id="stepDecision"><b>04 建议</b><span>生成回复、告警或人工话术</span></div>
+            <div class="step" id="stepOutput"><b>05 执行</b><span>TTS播报，事件留档可检索</span></div>
+          </div>
+
+          <div class="agent-action">
+            <div class="work-card"><b>输入证据</b><span id="agentEvidence">待接入音频，原音可回放。</span></div>
+            <div class="work-card"><b>业务意图</b><span id="agentIntent">等待识别船名、地点和业务动作。</span></div>
+            <div class="work-card"><b>处置策略</b><span id="agentPolicy">高危转人工，常规报告可自动回复。</span></div>
+            <div class="work-card"><b>输出动作</b><span id="agentNextAction">等待生成播报或值班员确认。</span></div>
           </div>
 
           <div class="decision-grid">
@@ -506,10 +613,21 @@ def render_dashboard(settings: Settings) -> str:
 
       <aside class="panel">
         <div class="panel-head">
-          <h2>值班侧栏</h2>
+          <h2>汇报与留档</h2>
           <span id="clock" class="badge dark">--:--:--</span>
         </div>
         <div class="panel-body">
+          <div class="work-card">
+            <h3>A线汇报检查</h3>
+            <div class="checklist">
+              <div class="check"><i>1</i><div><b>接入是否成功</b><span>上传/麦克风有任务，原音能播放，状态不报错。</span></div></div>
+              <div class="check"><i>2</i><div><b>转写是否可解释</b><span>ASR文本出现，低质音频可说明需人工复核。</span></div></div>
+              <div class="check"><i>3</i><div><b>分流是否清楚</b><span>高危、自动回复、人工建议三类结果能展示。</span></div></div>
+              <div class="check"><i>4</i><div><b>播报是否闭环</b><span>建议话术可TTS播放，并能存入汇报索引。</span></div></div>
+              <div class="check"><i>5</i><div><b>点验是否可演示</b><span>地图选区、筛船、生成通知、选中目标可视化。</span></div></div>
+            </div>
+          </div>
+
           <div class="work-card">
             <h3>汇报索引</h3>
             <input id="recordSearch" class="search" placeholder="搜索船名 / 靠泊 / 抛锚 / 高危" />
@@ -602,6 +720,15 @@ def render_dashboard(settings: Settings) -> str:
       if (node) node.textContent = text;
     }
 
+    function setAgent(stage, narrative, details = {}) {
+      if ($("agentTitle")) $("agentTitle").textContent = stage;
+      if ($("agentNarrative")) $("agentNarrative").textContent = narrative;
+      if (Object.prototype.hasOwnProperty.call(details, "evidence") && $("agentEvidence")) $("agentEvidence").textContent = details.evidence;
+      if (Object.prototype.hasOwnProperty.call(details, "intent") && $("agentIntent")) $("agentIntent").textContent = details.intent;
+      if (Object.prototype.hasOwnProperty.call(details, "policy") && $("agentPolicy")) $("agentPolicy").textContent = details.policy;
+      if (Object.prototype.hasOwnProperty.call(details, "nextAction") && $("agentNextAction")) $("agentNextAction").textContent = details.nextAction;
+    }
+
     function pickMicMimeType() {
       const candidates = [
         "audio/webm;codecs=opus",
@@ -662,6 +789,16 @@ def render_dashboard(settings: Settings) -> str:
       const channelId = $("channelId").value.trim() || "__DEFAULT_CHANNEL__";
       connectSocket(channelId);
       resetFlow();
+      setAgent(
+        "数字值班员接入现场麦克风",
+        "正在建立现场语音守听通道，后续分片转写并持续刷新处置台。",
+        {
+          evidence: "现场麦克风输入，实时分片上传",
+          intent: "等待首段语音进入ASR",
+          policy: "先展示可听写文本，高危词触发人工接管",
+          nextAction: "开始说话后观察处置台实时更新"
+        }
+      );
       state.streamText = "";
       state.micSeq = 0;
       const startForm = new FormData();
@@ -689,6 +826,16 @@ def render_dashboard(settings: Settings) -> str:
       setBadge("现场流式守听中", "dark");
       setSteps(1, "active");
       setMicStatus(`已启动，Session=${state.micSessionId}`);
+      setAgent(
+        "数字值班员正在现场守听",
+        "麦克风输入已启动，系统会持续接收语音分片并刷新识别内容。",
+        {
+          evidence: `现场会话 ${state.micSessionId}`,
+          intent: "实时识别中",
+          policy: "高危优先弹出，低置信度保留人工复核",
+          nextAction: "等待语音片段返回"
+        }
+      );
     }
 
     async function stopMicCapture() {
@@ -713,6 +860,11 @@ def render_dashboard(settings: Settings) -> str:
       $("micStartBtn").disabled = false;
       $("micStopBtn").disabled = true;
       setMicStatus("正在汇总识别结果...");
+      setAgent(
+        "数字值班员汇总现场语音",
+        "现场守听已停止，正在整理分片转写结果并准备人工复核。",
+        { nextAction: "查看转写结果，必要时人工接管或播报。" }
+      );
       if (sessionId) {
         try {
           const stopForm = new FormData();
@@ -725,6 +877,16 @@ def render_dashboard(settings: Settings) -> str:
           setBadge("现场流式完成", "green");
           setSteps(4, "done");
           setMicStatus(`已完成，分片 ${stopResp.chunk_count || 0} 段`);
+          setAgent(
+            "现场守听完成",
+            "数字值班员已完成现场语音汇总，结果已进入处置台。",
+            {
+              evidence: `麦克风分片 ${stopResp.chunk_count || 0} 段`,
+              intent: "待值班员复核现场语义",
+              policy: "现场输入低置信度优先人工复核",
+              nextAction: "可一键播报建议或人工接管"
+            }
+          );
         } catch (error) {
           const message = error && error.message ? error.message : String(error);
           setMicStatus(`停止失败: ${message}`);
@@ -840,6 +1002,16 @@ def render_dashboard(settings: Settings) -> str:
       if (outcome.type === "risk") {
         setSteps(2, "danger");
         setBadge("高危拦截", "red");
+        setAgent(
+          "数字值班员发现疑似风险",
+          "系统已将该通话提升为人工优先处理，保留转写证据并生成处置建议。",
+          {
+            evidence: outcome.text ? outcome.text.slice(0, 80) : "未识别到有效文本",
+            intent: "疑似高危或通航风险",
+            policy: "立即人工接管，核实AIS与周边态势",
+            nextAction: "值班员确认后播报提醒"
+          }
+        );
         $("riskLabel").textContent = "是";
         $("riskReason").textContent = outcome.reason;
         $("autoLabel").textContent = "否";
@@ -851,6 +1023,16 @@ def render_dashboard(settings: Settings) -> str:
       } else if (outcome.type === "auto") {
         setSteps(3, "done");
         setBadge("自动回复", "green");
+        setAgent(
+          "数字值班员生成标准回复",
+          "该通话被识别为常规由动转静报告，可留档并播报标准回复。",
+          {
+            evidence: outcome.text ? outcome.text.slice(0, 80) : "未识别到有效文本",
+            intent: "常规报告",
+            policy: "自动记录并生成标准回复",
+            nextAction: "一键TTS播报或存入汇报索引"
+          }
+        );
         $("riskLabel").textContent = "否";
         $("riskReason").textContent = "未命中高危规则";
         $("autoLabel").textContent = "是";
@@ -861,6 +1043,16 @@ def render_dashboard(settings: Settings) -> str:
       } else {
         setSteps(3, "warn");
         setBadge("人工复核", "amber");
+        setAgent(
+          "数字值班员建议人工复核",
+          "该通话未满足自动回复条件，系统给出话术建议，由值班员最终确认。",
+          {
+            evidence: outcome.text ? outcome.text.slice(0, 80) : "未识别到有效文本",
+            intent: "一般业务或低置信度通话",
+            policy: "人机协同，避免误处置",
+            nextAction: "人工确认后回复或接管"
+          }
+        );
         $("riskLabel").textContent = "否";
         $("riskReason").textContent = "未命中高危规则";
         $("autoLabel").textContent = "否";
@@ -878,6 +1070,15 @@ def render_dashboard(settings: Settings) -> str:
       if (riskLevel === "L1" || riskLevel === "L2") {
         setBadge("高危拦截", "red");
         setSteps(2, "danger");
+        setAgent(
+          "数字值班员触发高危接管",
+          event.summary || event.event_type || "检测到疑似高危通话，已转入人工优先处置。",
+          {
+            intent: event.event_type || "疑似高危事件",
+            policy: "高危不自动回复，优先人工确认",
+            nextAction: event.broadcast_text || event.suggestion || "准备播报提醒"
+          }
+        );
         $("riskLabel").textContent = "是";
         $("riskReason").textContent = event.summary || event.event_type || "高危事件";
         $("autoLabel").textContent = "否";
@@ -893,6 +1094,15 @@ def render_dashboard(settings: Settings) -> str:
       } else if (event.is_auto_reply || event.action_type === "auto_reply") {
         setBadge("自动回复", "green");
         setSteps(3, "done");
+        setAgent(
+          "数字值班员确认可自动回复",
+          event.summary || "识别为标准化常规业务，已生成回复建议。",
+          {
+            intent: event.event_type || "常规业务",
+            policy: "自动记录，值班员可一键播报",
+            nextAction: event.broadcast_text || "播放标准回复"
+          }
+        );
         $("riskLabel").textContent = "否";
         $("riskReason").textContent = "未命中高危";
         $("autoLabel").textContent = "是";
@@ -903,6 +1113,15 @@ def render_dashboard(settings: Settings) -> str:
       } else {
         setBadge("人工复核", "amber");
         setSteps(3, "warn");
+        setAgent(
+          "数字值班员请求人工确认",
+          event.summary || "该事件需要值班员结合态势确认。",
+          {
+            intent: event.event_type || "待复核业务",
+            policy: "不自动处置，先给出建议",
+            nextAction: event.suggestion || "人工确认后回复"
+          }
+        );
         $("manualLabel").textContent = "建议处理";
         $("manualReason").textContent = event.suggestion || "建议人工复核";
         state.counts.manual += 1;
@@ -1052,6 +1271,16 @@ def render_dashboard(settings: Settings) -> str:
             state.notices.unshift(payload.payload);
             renderNotices();
             updateStats();
+            setAgent(
+              "数字值班员生成点验通知",
+              "已根据圈选范围、船舶特征和通知模板生成播报内容。",
+              {
+                evidence: payload.payload.ship_name ? `命中船舶：${payload.payload.ship_name}` : "AIS点验命中目标",
+                intent: "点验通知",
+                policy: "按模板生成通知，值班员确认后一键播报",
+                nextAction: payload.payload.notice_text || "检查点验通知列表"
+              }
+            );
           }
           if (payload.type === "stream_chunk_result") {
             state.streamText = payload.cumulative_text || payload.text || "";
@@ -1059,6 +1288,16 @@ def render_dashboard(settings: Settings) -> str:
             $("asrText").textContent = state.streamText || "等待流式转写...";
             setSteps(1, "active");
             setBadge("流式转写中", "dark");
+            setAgent(
+              "数字值班员正在听写",
+              "已收到流式语音分片，正在把连续语音转为可复核文本。",
+              {
+                evidence: state.streamText ? state.streamText.slice(-90) : "等待首段文本",
+                intent: "流式ASR转写中",
+                policy: "先转写、后分流；高危关键词即时触发",
+                nextAction: "继续守听并等待最终分流"
+              }
+            );
           }
           if (payload.type === "segment_result" && payload.segment) {
             const segText = payload.segment.text || "";
@@ -1067,6 +1306,16 @@ def render_dashboard(settings: Settings) -> str:
             $("asrText").textContent = state.streamText || "等待流式转写...";
             setSteps(1, "active");
             setBadge("流式转写中", "dark");
+            setAgent(
+              "数字值班员正在整理语音片段",
+              "VAD/分片识别结果已返回，处置台正在累积上下文。",
+              {
+                evidence: segText || "片段无有效文本",
+                intent: "片段转写",
+                policy: "多段对话先保留证据，再交给规则/LLM分流",
+                nextAction: "等待任务完成或风险事件"
+              }
+            );
           }
           if (payload.type === "risk_event" && payload.event) {
             applyRiskEvent(payload.event);
@@ -1078,6 +1327,16 @@ def render_dashboard(settings: Settings) -> str:
             }
             setSteps(4, "done");
             setBadge("流式完成", "green");
+            setAgent(
+              "数字值班员完成流式处置",
+              "流式输入已结束，当前结果可进入人工复核、播报或留档。",
+              {
+                evidence: state.activeText ? state.activeText.slice(0, 120) : "本次无有效转写",
+                intent: "流式守听完成",
+                policy: state.activeReply ? "已生成建议话术" : "未命中事件，建议人工复核",
+                nextAction: state.activeReply || "请值班员确认是否需要播报"
+              }
+            );
           }
         } catch (error) {
           logLine(event.data);
@@ -1243,6 +1502,16 @@ def render_dashboard(settings: Settings) -> str:
       $("manualReason").textContent = "处理中";
       $("asrText").textContent = "处理中";
       $("llmSuggestion").textContent = "处理中";
+      setAgent(
+        "数字值班员开始处置",
+        "新任务已接入，正在按接入、听写、判断、建议、执行五步流转。",
+        {
+          evidence: "已创建任务，等待音频进入处理链路",
+          intent: "待识别",
+          policy: "高危优先，常规报告自动回复，其他业务人工建议",
+          nextAction: "等待ASR和分流结果"
+        }
+      );
     }
 
     function setupTabs() {
@@ -1279,13 +1548,31 @@ def render_dashboard(settings: Settings) -> str:
       $("manualTakeover").addEventListener("click", () => {
         setBadge("人工接管", "red");
         logLine("值班员已人工接管当前任务");
+        setAgent(
+          "值班员人工接管",
+          "当前任务已从自动建议切换为人工处置，系统保留转写、证据和建议话术。",
+          {
+            policy: "人工优先，系统辅助",
+            nextAction: "值班员确认后播报或记录处置结果"
+          }
+        );
       });
       $("recordSearch").addEventListener("input", (event) => renderRecords(event.target.value));
       $("audioFile").addEventListener("change", (event) => {
         const file = event.target.files[0];
         if (!file) return;
         $("audioPlayer").src = URL.createObjectURL(file);
-        setUploadStatus(`已选择：${file.name}`);
+        setStatus(`已选择：${file.name}`);
+        setAgent(
+          "数字值班员已接入录音",
+          "原音已绑定到当前任务，后续识别结果会进入处置流转。",
+          {
+            evidence: `原音文件：${file.name}`,
+            intent: "待转写",
+            policy: "先听写，再判断是否高危或可自动回复",
+            nextAction: "点击上传并开始识别"
+          }
+        );
       });
       $("inspectionScenario").addEventListener("change", () => {
         const selected = state.scenarios.find((item) => item.scenario_id === $("inspectionScenario").value);
@@ -1345,6 +1632,16 @@ def render_dashboard(settings: Settings) -> str:
           resetFlow();
           state.streamText = "";
           setStatus("上传中...", "");
+          setAgent(
+            "数字值班员接入VHF录音",
+            "音频正在上传，系统会保留原音并进入ASR识别链路。",
+            {
+              evidence: `待处理文件：${file.name}`,
+              intent: "接入中",
+              policy: "离线识别用于稳定演示，流式模式用于模拟实时守听",
+              nextAction: "等待任务创建"
+            }
+          );
           const formData = new FormData();
           formData.append("file", file);
           formData.append("channel_id", channelId);
@@ -1355,6 +1652,16 @@ def render_dashboard(settings: Settings) -> str:
           if (mode === "stream_rt") endpoint = "/api/streaming/upload";
           const createTask = await requestJson(endpoint, { method: "POST", body: formData });
           logLine(createTask);
+          setAgent(
+            "数字值班员开始听写",
+            mode === "batch" ? "任务已创建，正在进行完整录音识别。" : "任务已创建，正在按流式/准流式模式返回片段结果。",
+            {
+              evidence: `任务ID：${createTask.task_id || "已创建"}`,
+              intent: "ASR识别中",
+              policy: "识别完成后自动分流为高危、自动回复或人工建议",
+              nextAction: "等待ASR文本与业务判断"
+            }
+          );
           if (mode === "batch") {
             setSteps(1, "active");
           } else {
@@ -1382,6 +1689,16 @@ def render_dashboard(settings: Settings) -> str:
               $("manualLabel").textContent = "建议处理";
               $("manualReason").textContent = "流式未命中事件，建议人工确认";
               $("llmSuggestion").textContent = buildManualAdvice(state.activeText || text);
+              setAgent(
+                "数字值班员建议人工复核",
+                "本次流式输入未命中明确高危或自动回复条件，建议值班员复核上下文。",
+                {
+                  evidence: (state.activeText || text || "无有效转写").slice(0, 120),
+                  intent: "未明确分类",
+                  policy: "不自动处置，转人工建议",
+                  nextAction: $("llmSuggestion").textContent
+                }
+              );
             }
             setSteps(4, "done");
           }
@@ -1399,6 +1716,16 @@ def render_dashboard(settings: Settings) -> str:
           const channelId = $("inspectionChannel").value.trim() || "__DEFAULT_CHANNEL__";
           connectSocket(channelId);
           setBadge("点验处理中", "amber");
+          setAgent(
+            "数字值班员执行AIS点验",
+            "正在根据地图范围、船舶类型、吃水和吨位条件筛选需要通知的目标。",
+            {
+              evidence: $("areaName").value.trim() ? `点验范围：${$("areaName").value.trim()}` : "已接入地图选区",
+              intent: "AIS目标筛选",
+              policy: "先筛船，再按模板生成通知",
+              nextAction: "等待命中船舶列表"
+            }
+          );
           const scenario = $("inspectionScenario").value;
           const selected = state.scenarios.find((item) => item.scenario_id === scenario);
           if (selected) {
@@ -1414,6 +1741,16 @@ def render_dashboard(settings: Settings) -> str:
           const preview = await requestJson("/api/inspection/filter", { method: "POST", body: previewForm });
           state.selectedShipNames = (preview.items || []).map((s) => s.ship_name);
           renderShipMarkers();
+          setAgent(
+            "数字值班员锁定点验目标",
+            `已筛选出 ${state.selectedShipNames.length} 艘候选船舶，地图上会高亮显示。`,
+            {
+              evidence: state.selectedShipNames.slice(0, 5).join("、") || "暂无命中船舶",
+              intent: "目标船舶筛选完成",
+              policy: "对命中船舶生成同一场景通知模板",
+              nextAction: "生成点验通知并准备TTS播报"
+            }
+          );
 
           const formData = new FormData();
           formData.append("channel_id", channelId);
@@ -1435,6 +1772,16 @@ def render_dashboard(settings: Settings) -> str:
           $("llmSuggestion").textContent = notices.map((item) => item.notice_text).join("\n") || "无匹配船舶";
           state.activeReply = notices[0] ? notices[0].notice_text : "";
           updateStats();
+          setAgent(
+            "数字值班员完成点验通知",
+            "点验任务已完成，命中船舶和通知话术已进入右侧留档列表。",
+            {
+              evidence: `命中目标：${task.meta.matched_count} 艘`,
+              intent: "点验通知",
+              policy: "值班员确认后一键TTS播报",
+              nextAction: state.activeReply || "无匹配船舶，无需播报"
+            }
+          );
         } catch (error) {
           const message = error && error.message ? error.message : String(error);
           setBadge("点验失败", "red");
