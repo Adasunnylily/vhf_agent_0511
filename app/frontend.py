@@ -325,6 +325,17 @@ def render_dashboard(settings: Settings) -> str:
       white-space: pre-wrap;
       word-break: break-word;
     }
+    .ais-match {
+      margin-top: 10px;
+      display: grid;
+      gap: 5px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,194,255,0.26);
+      background: linear-gradient(135deg, rgba(0,194,255,0.12), rgba(47,128,255,0.05));
+    }
+    .ais-match b { color: #c9f5ff; font-size: 13px; }
+    .ais-match span { color: #9fc6dd; font-size: 12px; line-height: 1.45; }
     .map {
       height: 320px;
       border-radius: 12px;
@@ -636,6 +647,48 @@ def render_dashboard(settings: Settings) -> str:
       gap: 12px;
       margin-top: 12px;
     }
+    .analytics-screen { grid-template-columns: 1fr; }
+    .analytics-main { min-height: 720px; }
+    .analytics-hero {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .analytics-hero div {
+      min-height: 120px;
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(113,199,227,0.16);
+      background: radial-gradient(circle at 80% 0%, rgba(53,213,239,0.16), transparent 38%), rgba(5,18,31,0.62);
+    }
+    .analytics-hero b { display: block; font-size: 38px; color: #f7fbff; margin-bottom: 8px; }
+    .analytics-hero span { color: var(--muted); }
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .bar-list { display: grid; gap: 10px; }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 42px;
+      gap: 10px;
+      align-items: center;
+      font-size: 12px;
+      color: #cfe7fb;
+    }
+    .bar-track {
+      height: 9px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(143,170,189,0.16);
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #1677ff, #00c2ff);
+    }
     .broadcast-options {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -710,7 +763,7 @@ def render_dashboard(settings: Settings) -> str:
         <button type="button" class="nav-item tab active" data-mode="audioMode">语音交互</button>
         <button type="button" class="nav-item tab" data-mode="inspectionMode">围栏广播</button>
         <button type="button" class="nav-item">船舶监控</button>
-        <button type="button" class="nav-item">事件中心</button>
+        <button type="button" class="nav-item tab" data-mode="analyticsMode">事件中心</button>
         <button type="button" class="nav-item">知识库</button>
         <button type="button" class="nav-item">设置中心</button>
       </nav>
@@ -778,6 +831,10 @@ def render_dashboard(settings: Settings) -> str:
           <div class="panel-head"><h2>语音识别结果</h2><span class="badge dark">ASR</span></div>
           <div class="panel-body">
             <div id="asrText" class="text-box">你好，我是海运888，请求进入盐田港，请问可以进港吗？</div>
+            <div id="aisMatchCard" class="ais-match">
+              <b>AIS 关联</b>
+              <span id="aisMatchText">等待识别文本与当前水域AIS目标匹配</span>
+            </div>
             <div class="agent-action">
               <div class="work-card"><b>输入证据</b><span id="agentEvidence">VHF CH16 · 清晰语音</span></div>
               <div class="work-card"><b>语义理解</b><span id="agentIntent">意图：进港申请；实体：海运888；目标港口：盐田港</span></div>
@@ -945,8 +1002,30 @@ def render_dashboard(settings: Settings) -> str:
               <div class="row-2"><input id="newShipLng" placeholder="经度" /><input id="newShipLat" placeholder="纬度" /></div>
               <div class="row-2"><input id="newShipType" placeholder="船型" /><input id="newShipPositionLabel" placeholder="位置标签" /></div>
               <div class="row-2"><input id="newShipTonnage" placeholder="吨位 t" /><input id="newShipDraft" placeholder="吃水 m" /></div>
+              <div class="row-2"><input id="newShipMmsi" placeholder="MMSI" /><input id="newShipCallsign" placeholder="呼号" /></div>
+              <div class="row-2"><input id="newShipSpeed" placeholder="航速 kn" /><input id="newShipHeading" placeholder="航向 °" /></div>
               <input id="newShipDestination" placeholder="目的地（可选）" />
               <button type="button" id="saveShipBtn" class="secondary">保存船舶</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="analyticsMode" class="mode screen analytics-screen">
+        <section class="panel analytics-main">
+          <div class="panel-head"><h2>事件中心与事故分析</h2><span class="badge dark">AIS + VHF</span></div>
+          <div class="panel-body">
+            <div class="analytics-hero">
+              <div><b id="analyticsEventCount">0</b><span>风险/业务事件</span></div>
+              <div><b id="analyticsAisCount">0</b><span>AIS目标</span></div>
+              <div><b id="analyticsCorrectionCount">0</b><span>ASR实体纠错</span></div>
+              <div><b id="analyticsManualCount">0</b><span>人工复核</span></div>
+            </div>
+            <div class="analytics-grid">
+              <div class="work-card"><h3>风险等级分布</h3><div id="riskChart" class="bar-list"></div></div>
+              <div class="work-card"><h3>船型分布</h3><div id="shipTypeChart" class="bar-list"></div></div>
+              <div class="work-card"><h3>区域热区</h3><div id="areaChart" class="bar-list"></div></div>
+              <div class="work-card"><h3>近期事件台账</h3><div id="analyticsEvents" class="list"></div></div>
             </div>
           </div>
         </section>
@@ -963,6 +1042,7 @@ def render_dashboard(settings: Settings) -> str:
       records: [],
       notices: [],
       ships: [],
+      analytics: null,
       counts: { risk: 0, auto: 0, manual: 0 },
       drawMode: "rect",
       drawing: false,
@@ -1318,6 +1398,7 @@ def render_dashboard(settings: Settings) -> str:
       $("statInspection").textContent = state.notices.length;
       if ($("opsNotice")) $("opsNotice").textContent = String(state.notices.length);
       if ($("opsArchive")) $("opsArchive").textContent = String(state.records.length);
+      loadAnalytics();
     }
 
     function speak(text) {
@@ -1336,6 +1417,34 @@ def render_dashboard(settings: Settings) -> str:
         return segments.flatMap((group) => group.items || []);
       }
       return segments;
+    }
+
+    function renderAisMatchFromSegments(segments = [], events = []) {
+      const node = $("aisMatchText");
+      if (!node) return;
+      const candidates = [];
+      segments.forEach((segment) => {
+        (segment.entities || []).forEach((entity) => {
+          if (entity.entity_type === "ship") candidates.push(entity);
+        });
+      });
+      events.forEach((event) => {
+        if (event.ais_context) {
+          candidates.push({
+            canonical: event.ais_context.ship_name,
+            score: 1,
+            source: "event_ais",
+            metadata: event.ais_context
+          });
+        }
+      });
+      const best = candidates.sort((a, b) => Number(b.score || 0) - Number(a.score || 0))[0];
+      if (!best) {
+        node.textContent = "未关联到当前AIS目标，建议人工核对船名/呼号。";
+        return;
+      }
+      const meta = best.metadata || {};
+      node.textContent = `${best.canonical || meta.ship_name} · MMSI ${meta.mmsi || "未知"} · ${meta.ship_type || "未知船型"} · 航速 ${meta.sog_kn || 0} kn · 航向 ${meta.heading_deg || meta.cog_deg || 0}° · 匹配分 ${(Number(best.score || 0) * 100).toFixed(0)}%`;
     }
 
     function buildManualAdvice(text) {
@@ -1393,12 +1502,15 @@ def render_dashboard(settings: Settings) -> str:
 
     function renderOutcome(task) {
       const outcome = deriveOutcome(task);
+      const segments = flattenSegments(task.segments || []);
+      const events = Array.isArray(task.events) ? task.events : [];
       state.activeText = outcome.text || "未识别到有效文本";
       state.activeReply = outcome.reply || "";
       state.activeRecordType = outcome.type;
 
       $("asrText").textContent = state.activeText;
       $("llmSuggestion").textContent = state.activeReply || "等待后续结果";
+      renderAisMatchFromSegments(segments, events);
 
       if (outcome.type === "risk") {
         setSteps(2, "danger");
@@ -1467,6 +1579,7 @@ def render_dashboard(settings: Settings) -> str:
 
     function applyRiskEvent(event) {
       if (!event) return;
+      renderAisMatchFromSegments([], [event]);
       const riskLevel = String(event.risk_level || "");
       if (riskLevel === "L1" || riskLevel === "L2") {
         state.activeRecordType = "risk";
@@ -1598,10 +1711,12 @@ def render_dashboard(settings: Settings) -> str:
           <div>
             <b>${ship.ship_name}</b>
             <span>${ship.position_label} · ${ship.destination}</span>
+            <span>MMSI ${ship.mmsi || "未填"} · 呼号 ${ship.callsign || "未填"} · 航速 ${ship.sog_kn || 0}kn · 航向 ${ship.heading_deg || ship.cog_deg || 0}°</span>
             <div class="ship-meta">
               <span class="mini">${ship.ship_type}</span>
               <span class="mini">吨位 ${ship.tonnage_t}t</span>
               <span class="mini">吃水 ${ship.draft_m}m</span>
+              <span class="mini">${ship.nav_status || "AIS"}</span>
             </div>
           </div>
           <div class="toolbar">
@@ -1621,13 +1736,14 @@ def render_dashboard(settings: Settings) -> str:
             const formData = new FormData();
             formData.append("ship_id", shipId);
             await requestJson("/api/inspection/ships/delete", { method: "POST", body: formData });
-            const ships = await requestJson("/api/inspection/ships");
+            const ships = await requestJson("/api/ais/ships");
             state.ships = ships.items || [];
             state.selectedShipNames = state.selectedShipNames.filter(
               (name) => state.ships.some((item) => item.ship_name === name)
             );
             renderShips();
             renderShipMarkers();
+            loadAnalytics();
             logLine(`已删除船舶: ${shipId}`);
           } catch (error) {
             const message = error && error.message ? error.message : String(error);
@@ -1660,6 +1776,51 @@ def render_dashboard(settings: Settings) -> str:
       container.querySelectorAll("[data-notice]").forEach((button) => {
         button.addEventListener("click", () => speak(decodeURIComponent(button.dataset.notice || "")));
       });
+    }
+
+    function renderBarList(containerId, data) {
+      const container = $(containerId);
+      if (!container) return;
+      const entries = Object.entries(data || {}).sort((a, b) => Number(b[1]) - Number(a[1]));
+      const max = Math.max(1, ...entries.map((item) => Number(item[1])));
+      if (!entries.length) {
+        container.innerHTML = '<div class="item"><span>暂无数据，完成一次识别或点验后自动更新。</span></div>';
+        return;
+      }
+      container.innerHTML = entries.map(([name, value]) => `
+        <div class="bar-row">
+          <span>${name}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.max(8, Number(value) / max * 100)}%"></div></div>
+          <b>${value}</b>
+        </div>
+      `).join("");
+    }
+
+    async function loadAnalytics() {
+      try {
+        const summary = await requestJson("/api/analytics/summary");
+        state.analytics = summary;
+        if ($("analyticsEventCount")) $("analyticsEventCount").textContent = summary.event_count || 0;
+        if ($("analyticsAisCount")) $("analyticsAisCount").textContent = summary.ais_ship_count || state.ships.length || 0;
+        if ($("analyticsCorrectionCount")) $("analyticsCorrectionCount").textContent = summary.asr_correction_count || 0;
+        if ($("analyticsManualCount")) $("analyticsManualCount").textContent = summary.manual_count || 0;
+        renderBarList("riskChart", summary.by_risk_level || {});
+        renderBarList("shipTypeChart", summary.by_ship_type || {});
+        renderBarList("areaChart", summary.by_area || {});
+        const events = summary.recent_events || [];
+        const box = $("analyticsEvents");
+        if (box) {
+          box.innerHTML = events.length ? events.map((event) => `
+            <div class="item">
+              <b>${event.event_type || "事件"} · ${event.risk_level || "unknown"}</b>
+              <span>${event.summary || event.resolved_text || event.asr_text || "无摘要"}</span>
+              <span>${event.ais_context ? `${event.ais_context.ship_name || "AIS目标"} · ${event.ais_context.position_label || ""}` : "未关联AIS"}</span>
+            </div>
+          `).join("") : '<div class="item"><span>暂无事件台账。完成语音识别或高危仿真后将自动出现。</span></div>';
+        }
+      } catch (error) {
+        logLine(`ANALYTICS ERROR: ${error && error.message ? error.message : error}`);
+      }
     }
 
     async function pollTask(taskId) {
@@ -1703,6 +1864,9 @@ def render_dashboard(settings: Settings) -> str:
             state.streamText = payload.cumulative_text || payload.text || "";
             state.activeText = state.streamText;
             $("asrText").textContent = state.streamText || "等待流式转写...";
+            if (payload.entities) {
+              renderAisMatchFromSegments([{ entities: payload.entities }], []);
+            }
             setSteps(1, "active");
             setBadge("流式转写中", "dark");
             setAgent(
@@ -1721,6 +1885,7 @@ def render_dashboard(settings: Settings) -> str:
             state.streamText = `${state.streamText}\n${segText}`.trim();
             state.activeText = state.streamText;
             $("asrText").textContent = state.streamText || "等待流式转写...";
+            renderAisMatchFromSegments([payload.segment], []);
             setSteps(1, "active");
             setBadge("流式转写中", "dark");
             setAgent(
@@ -1861,8 +2026,8 @@ def render_dashboard(settings: Settings) -> str:
 
     function setupMap() {
       const mapKey = "__AMAP_KEY__";
-      if (!mapKey) {
-        logLine("未配置 AMAP_KEY，点验地图仅显示列表。");
+      if (!mapKey || !window.AMap) {
+        logLine(!mapKey ? "未配置 AMAP_KEY，点验地图仅显示列表。" : "高德地图 SDK 未加载，点验地图仅显示列表。");
         return;
       }
       state.map = new AMap.Map("amapContainer", {
@@ -1938,13 +2103,14 @@ def render_dashboard(settings: Settings) -> str:
     }
 
     async function loadInitialData() {
-      const ships = await requestJson("/api/inspection/ships");
+      const ships = await requestJson("/api/ais/ships");
       state.ships = ships.items || [];
       renderShips();
       renderShipMarkers();
       const scenarios = await requestJson("/api/inspection/scenarios");
       state.scenarios = scenarios.items || [];
       renderScenarioOptions();
+      await loadAnalytics();
     }
 
     function resetFlow() {
@@ -1979,6 +2145,9 @@ def render_dashboard(settings: Settings) -> str:
           $(button.dataset.mode).classList.add("active");
           if (button.dataset.mode === "inspectionMode" && state.map) {
             window.setTimeout(() => state.map && state.map.resize(), 80);
+          }
+          if (button.dataset.mode === "analyticsMode") {
+            loadAnalytics();
           }
         });
       });
@@ -2076,11 +2245,17 @@ def render_dashboard(settings: Settings) -> str:
           formData.append("position_label", $("newShipPositionLabel").value.trim() || "自定义点位");
           formData.append("lng", $("newShipLng").value.trim());
           formData.append("lat", $("newShipLat").value.trim());
+          formData.append("mmsi", $("newShipMmsi").value.trim());
+          formData.append("callsign", $("newShipCallsign").value.trim());
+          formData.append("sog_kn", $("newShipSpeed").value.trim() || "0");
+          formData.append("heading_deg", $("newShipHeading").value.trim() || "0");
+          formData.append("ais_source", "manual_frontend");
           await requestJson("/api/inspection/ships", { method: "POST", body: formData });
-          const ships = await requestJson("/api/inspection/ships");
+          const ships = await requestJson("/api/ais/ships");
           state.ships = ships.items || [];
           renderShips();
           renderShipMarkers();
+          loadAnalytics();
           logLine("已保存新船舶坐标。");
         } catch (error) {
           const message = error && error.message ? error.message : String(error);

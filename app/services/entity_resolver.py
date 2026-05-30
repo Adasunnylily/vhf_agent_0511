@@ -21,9 +21,14 @@ class EntityCandidate:
     matched_text: str
     score: float
     reason: str
+    source: str = "lexicon"
+    metadata: Dict[str, object] = None  # type: ignore[assignment]
 
     def to_dict(self) -> Dict[str, object]:
-        return asdict(self)
+        payload = asdict(self)
+        if payload.get("metadata") is None:
+            payload["metadata"] = {}
+        return payload
 
 
 @dataclass(frozen=True)
@@ -47,7 +52,8 @@ class EntityResolver:
         self.lexicon_path = lexicon_path
         self.enabled = enabled
         self.min_score = min_score
-        self._entries: List[Tuple[str, str, List[str]]] = []
+        self._entries: List[Tuple[str, str, List[str], str, Dict[str, object]]] = []
+        self._dynamic_entries: List[Tuple[str, str, List[str], str, Dict[str, object]]] = []
         self._loaded = False
 
     def resolve(self, text: str) -> EntityResolution:
@@ -65,6 +71,9 @@ class EntityResolver:
             candidates=candidates,
         )
 
+    def set_dynamic_lexicon(self, payload: Dict[str, List[Dict[str, object]]]) -> None:
+        self._dynamic_entries = self._payload_to_entries(payload, default_source="ais_active")
+
     def _ensure_loaded(self) -> None:
         if self._loaded:
             return
@@ -80,7 +89,14 @@ class EntityResolver:
         except Exception:
             return
 
-        entries: List[Tuple[str, str, List[str]]] = []
+        self._entries = self._payload_to_entries(payload, default_source="lexicon")
+
+    def _payload_to_entries(
+        self,
+        payload: Dict[str, List[Dict[str, object]]],
+        default_source: str,
+    ) -> List[Tuple[str, str, List[str], str, Dict[str, object]]]:
+        entries: List[Tuple[str, str, List[str], str, Dict[str, object]]] = []
         for section, entity_type in (("ships", "ship"), ("locations", "location"), ("callsigns", "callsign")):
             for item in payload.get(section, []):
                 canonical = str(item.get("canonical", "")).strip()
@@ -88,17 +104,19 @@ class EntityResolver:
                     continue
                 aliases = [str(alias).strip() for alias in item.get("aliases", []) if str(alias).strip()]
                 values = sorted(set([canonical, *aliases]), key=len, reverse=True)
-                entries.append((entity_type, canonical, values))
-        self._entries = entries
+                source = str(item.get("source") or default_source)
+                metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+                entries.append((entity_type, canonical, values, source, metadata))  # type: ignore[arg-type]
+        return entries
 
     def _match_candidates(self, text: str) -> List[EntityCandidate]:
         normalized_text = normalize_entity_text(text)
         found: Dict[Tuple[str, str], EntityCandidate] = {}
 
-        for entity_type, canonical, aliases in self._entries:
+        for entity_type, canonical, aliases, source, metadata in [*self._dynamic_entries, *self._entries]:
             best: Optional[EntityCandidate] = None
             for alias in aliases:
-                candidate = self._score_alias(text, normalized_text, canonical, alias, entity_type)
+                candidate = self._score_alias(text, normalized_text, canonical, alias, entity_type, source, metadata)
                 if candidate and (best is None or candidate.score > best.score):
                     best = candidate
             if best and best.score >= self.min_score:
@@ -116,18 +134,22 @@ class EntityResolver:
         canonical: str,
         alias: str,
         entity_type: str,
+        source: str,
+        metadata: Dict[str, object],
     ) -> Optional[EntityCandidate]:
         normalized_alias = normalize_entity_text(alias)
         if not normalized_alias:
             return None
         if alias and alias in raw_text:
-            return EntityCandidate(entity_type, canonical, alias, 1.0, "exact")
+            return EntityCandidate(entity_type, canonical, alias, 1.0, "exact", source, metadata)
         if normalized_alias in normalized_text:
-            return EntityCandidate(entity_type, canonical, alias, 0.96, "normalized_exact")
+            return EntityCandidate(entity_type, canonical, alias, 0.96, "normalized_exact", source, metadata)
 
         score = self._best_window_similarity(normalized_text, normalized_alias)
+        if source == "ais_active" and score >= max(0.76, self.min_score - 0.06):
+            score = min(0.95, score + 0.04)
         if score >= self.min_score:
-            return EntityCandidate(entity_type, canonical, alias, score, "fuzzy")
+            return EntityCandidate(entity_type, canonical, alias, score, "fuzzy", source, metadata)
         return None
 
     def _best_window_similarity(self, text: str, alias: str) -> float:
@@ -147,11 +169,17 @@ class EntityResolver:
 
     def _apply_safe_replacements(self, text: str, candidates: Iterable[EntityCandidate]) -> str:
         resolved = text
+        fuzzy_hints: List[str] = []
         for candidate in sorted(candidates, key=lambda item: len(item.matched_text), reverse=True):
+            if candidate.reason == "fuzzy" and candidate.source == "ais_active" and candidate.score >= 0.86:
+                fuzzy_hints.append(candidate.canonical)
+                continue
             if candidate.reason not in {"exact", "normalized_exact"} or candidate.score < 0.96:
                 continue
             if candidate.canonical == candidate.matched_text:
                 continue
             if candidate.matched_text in resolved:
                 resolved = resolved.replace(candidate.matched_text, candidate.canonical)
+        if fuzzy_hints:
+            resolved = f"{resolved}（AIS候选：{'、'.join(sorted(set(fuzzy_hints))[:3])}）"
         return resolved

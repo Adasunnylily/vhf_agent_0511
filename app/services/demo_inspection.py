@@ -22,6 +22,19 @@ class InspectionShip:
     position_label: str
     lng: float
     lat: float
+    mmsi: str = ""
+    callsign: str = ""
+    imo: str = ""
+    length_m: float = 0.0
+    width_m: float = 0.0
+    sog_kn: float = 0.0
+    cog_deg: float = 0.0
+    heading_deg: float = 0.0
+    nav_status: str = "under_way"
+    cargo_type: str = ""
+    eta: str = ""
+    ais_update_time: str = ""
+    ais_source: str = "mock"
 
     def to_dict(self) -> Dict[str, object]:
         return asdict(self)
@@ -38,10 +51,10 @@ class InspectionScenario:
 
 
 DEFAULT_SHIPS: List[InspectionShip] = [
-    InspectionShip("ship_hf32", "海丰32", 12800, 11.2, "集装箱船", "北仑港二期码头", "主航道A3段", 121.8572, 29.9374),
-    InspectionShip("ship_ny8", "宁远8", 4600, 8.6, "杂货船", "锚地待泊", "主航道A3段", 121.8515, 29.9328),
-    InspectionShip("ship_hl876", "货轮876", 22600, 13.5, "散货船", "穿越警戒线后进港", "警戒线北口", 121.8689, 29.9441),
-    InspectionShip("ship_cy3", "长阳3", 9800, 10.4, "液货船", "内港调头区", "主航道B1段", 121.8436, 29.9289),
+    InspectionShip("ship_jl008", "锦龙008", 16800, 10.8, "集装箱船", "北仑山多用途码头", "北仑港主航道", 121.8842, 29.9138, "413245008", "JL008", "", 172, 27, 7.2, 83, 84, "进港", "集装箱", "今日 16:30", "", "mock_ais"),
+    InspectionShip("ship_jh662", "锦华662", 9800, 8.7, "杂货船", "北仑司2号泊", "北仑港主航道", 121.8736, 29.9234, "413000662", "JH662", "", 128, 20, 4.3, 62, 63, "航行中", "杂货", "今日 17:10", "", "mock_ais"),
+    InspectionShip("ship_zgyc", "中国银川", 22600, 13.5, "散货船", "算山6号泊", "北仑港警戒区北口", 121.9005, 29.9342, "413512345", "CN-YC", "", 198, 32, 6.8, 112, 110, "进港", "散货", "今日 18:00", "", "mock_ais"),
+    InspectionShip("ship_yg20", "甬港拖20", 4600, 5.2, "拖船", "协和码头", "北仑港内港水域", 121.8585, 29.9058, "412320020", "YGT20", "", 38, 10, 9.5, 126, 128, "作业中", "拖带", "待定", "", "mock_ais"),
 ]
 
 DEFAULT_SCENARIOS: List[InspectionScenario] = [
@@ -111,7 +124,7 @@ class InspectionTaskSimulator:
         )
 
         for ship in matched:
-            notice_text = notice_template.replace("{船名}", ship.ship_name).replace("{区域}", area_name)
+            notice_text = self.build_notice_text(ship, area_name, notice_template)
             payload = {
                 "notice_id": f"notice_{uuid.uuid4().hex[:10]}",
                 "ship": ship.to_dict(),
@@ -159,6 +172,23 @@ class InspectionTaskSimulator:
         self._ships.append(ship)
         self._save_ships()
         return ship.to_dict()
+
+    def upsert_ships(self, ships: List[InspectionShip]) -> Dict[str, object]:
+        existing = {self._ship_key(ship): ship for ship in self._ships}
+        created = 0
+        updated = 0
+        for ship in ships:
+            if not ship.ship_id:
+                ship = replace(ship, ship_id=f"ship_{uuid.uuid4().hex[:10]}")
+            key = self._ship_key(ship)
+            if key in existing:
+                updated += 1
+            else:
+                created += 1
+            existing[key] = ship
+        self._ships = list(existing.values())
+        self._save_ships()
+        return {"created": created, "updated": updated, "total": len(self._ships)}
 
     def remove_ship(self, ship_id: str) -> bool:
         target = ship_id.strip()
@@ -219,7 +249,69 @@ class InspectionTaskSimulator:
         return result
 
     def build_notice_text(self, ship: InspectionShip, area_name: str, template: str) -> str:
-        return template.replace("{船名}", ship.ship_name).replace("{区域}", area_name)
+        values = {
+            "船名": ship.ship_name,
+            "区域": area_name,
+            "MMSI": ship.mmsi,
+            "呼号": ship.callsign,
+            "船型": ship.ship_type,
+            "吃水": f"{ship.draft_m:g}",
+            "吨位": str(ship.tonnage_t),
+            "航速": f"{ship.sog_kn:g}",
+            "航向": f"{ship.heading_deg:g}",
+            "目的地": ship.destination,
+            "位置": ship.position_label,
+        }
+        text = template
+        for key, value in values.items():
+            text = text.replace("{" + key + "}", str(value))
+        return text
+
+    def find_ship_context(self, text: str) -> Optional[Dict[str, object]]:
+        needle = (text or "").strip()
+        if not needle:
+            return None
+        for ship in self._ships:
+            values = [ship.ship_name, ship.mmsi, ship.callsign]
+            if any(value and value in needle for value in values):
+                return ship.to_dict()
+        return None
+
+    def dynamic_lexicon_payload(self) -> Dict[str, List[Dict[str, object]]]:
+        ships = []
+        for ship in self._ships:
+            aliases = [ship.ship_name]
+            if ship.callsign:
+                aliases.append(ship.callsign)
+            if ship.mmsi:
+                aliases.append(ship.mmsi)
+            # VHF常把阿拉伯数字读成中文数字，这里为常见船名生成一组轻量别名。
+            spoken = self._spoken_number_alias(ship.ship_name)
+            if spoken != ship.ship_name:
+                aliases.append(spoken)
+            ships.append(
+                {
+                    "canonical": ship.ship_name,
+                    "aliases": sorted(set(alias for alias in aliases if alias)),
+                    "source": "ais_active",
+                    "metadata": ship.to_dict(),
+                }
+            )
+        locations = sorted(
+            set(
+                value
+                for ship in self._ships
+                for value in [ship.destination, ship.position_label]
+                if value
+            )
+        )
+        return {
+            "ships": ships,
+            "locations": [
+                {"canonical": item, "aliases": [item], "source": "ais_active"}
+                for item in locations
+            ],
+        }
 
     def _delay(self) -> None:
         if self.playback_speed <= 0:
@@ -285,20 +377,14 @@ class InspectionTaskSimulator:
                     fingerprint = f"{row.get('ship_name', '')}_{row.get('lng', '')}_{row.get('lat', '')}"
                     fallback_id = f"ship_{uuid.uuid5(uuid.NAMESPACE_DNS, fingerprint).hex[:10]}"
                     ships.append(
-                        InspectionShip(
-                            ship_id=str(row.get("ship_id") or fallback_id),
-                            ship_name=str(row["ship_name"]),
-                            tonnage_t=int(row["tonnage_t"]),
-                            draft_m=float(row["draft_m"]),
-                            ship_type=str(row["ship_type"]),
-                            destination=str(row["destination"]),
-                            position_label=str(row["position_label"]),
-                            lng=float(row["lng"]),
-                            lat=float(row["lat"]),
-                        )
+                        self._ship_from_row(row, fallback_id=fallback_id)
                     )
                 if ships:
-                    return ships
+                    merged = self._merge_seed_ships(ships)
+                    if len(merged) != len(ships):
+                        self._ships = merged
+                        self._save_ships()
+                    return merged
             except Exception:
                 pass
         self.ships_path.write_text(
@@ -360,3 +446,56 @@ class InspectionTaskSimulator:
         proj_x = x1 + t * dx
         proj_y = y1 + t * dy
         return math.hypot(px - proj_x, py - proj_y)
+
+    def _ship_from_row(self, row: Dict[str, object], fallback_id: str = "") -> InspectionShip:
+        return InspectionShip(
+            ship_id=str(row.get("ship_id") or fallback_id or f"ship_{uuid.uuid4().hex[:10]}"),
+            ship_name=str(row.get("ship_name") or row.get("name") or "").strip(),
+            tonnage_t=int(self._safe_float(row.get("tonnage_t") or row.get("tonnage") or row.get("dwt"), 0)),
+            draft_m=self._safe_float(row.get("draft_m") or row.get("draft"), 0),
+            ship_type=str(row.get("ship_type") or row.get("type") or "其他").strip(),
+            destination=str(row.get("destination") or row.get("dest") or "待定").strip(),
+            position_label=str(row.get("position_label") or row.get("area") or "AIS目标").strip(),
+            lng=self._safe_float(row.get("lng") or row.get("longitude"), 0),
+            lat=self._safe_float(row.get("lat") or row.get("latitude"), 0),
+            mmsi=str(row.get("mmsi") or "").strip(),
+            callsign=str(row.get("callsign") or row.get("call_sign") or "").strip(),
+            imo=str(row.get("imo") or "").strip(),
+            length_m=self._safe_float(row.get("length_m") or row.get("length"), 0),
+            width_m=self._safe_float(row.get("width_m") or row.get("width"), 0),
+            sog_kn=self._safe_float(row.get("sog_kn") or row.get("sog") or row.get("speed"), 0),
+            cog_deg=self._safe_float(row.get("cog_deg") or row.get("cog"), 0),
+            heading_deg=self._safe_float(row.get("heading_deg") or row.get("heading"), 0),
+            nav_status=str(row.get("nav_status") or row.get("status") or "under_way").strip(),
+            cargo_type=str(row.get("cargo_type") or row.get("cargo") or "").strip(),
+            eta=str(row.get("eta") or "").strip(),
+            ais_update_time=str(row.get("ais_update_time") or row.get("update_time") or "").strip(),
+            ais_source=str(row.get("ais_source") or row.get("source") or "manual").strip(),
+        )
+
+    def _ship_key(self, ship: InspectionShip) -> str:
+        if ship.mmsi:
+            return f"mmsi:{ship.mmsi}"
+        if ship.callsign:
+            return f"callsign:{ship.callsign}"
+        return f"name:{ship.ship_name}"
+
+    def _merge_seed_ships(self, ships: List[InspectionShip]) -> List[InspectionShip]:
+        existing_keys = {self._ship_key(ship) for ship in ships}
+        merged = list(ships)
+        for seed in DEFAULT_SHIPS:
+            if self._ship_key(seed) not in existing_keys:
+                merged.append(seed)
+        return merged
+
+    def _spoken_number_alias(self, value: str) -> str:
+        table = str.maketrans("0123456789", "零一二三四五六七八九")
+        return value.translate(table)
+
+    def _safe_float(self, value: object, default: float) -> float:
+        try:
+            if value is None or str(value).strip() == "":
+                return default
+            return float(value)
+        except (TypeError, ValueError):
+            return default

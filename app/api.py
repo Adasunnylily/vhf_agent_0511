@@ -3,6 +3,9 @@ from __future__ import annotations
 import threading
 import uuid
 import re
+import csv
+import io
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -34,6 +37,41 @@ mic_sessions: Dict[str, Dict[str, Any]] = {}
 mic_lock = threading.Lock()
 
 
+def _sync_dynamic_ais_lexicon() -> None:
+    entity_resolver.set_dynamic_lexicon(inspection_simulator.dynamic_lexicon_payload())
+
+
+def _best_ais_context_from_entities(entities: List[Dict[str, Any]]) -> Optional[Dict[str, object]]:
+    for entity in entities:
+        if entity.get("entity_type") != "ship":
+            continue
+        metadata = entity.get("metadata")
+        if isinstance(metadata, dict) and metadata:
+            return metadata
+        context = inspection_simulator.find_ship_context(str(entity.get("canonical") or ""))
+        if context:
+            return context
+    return None
+
+
+def _enrich_event_payloads(
+    events: List[Dict[str, Any]],
+    segments: List[AudioSegment],
+) -> List[Dict[str, Any]]:
+    segment_map = {segment.id: segment for segment in segments}
+    enriched: List[Dict[str, Any]] = []
+    for event in events:
+        payload = dict(event)
+        segment = segment_map.get(str(payload.get("segment_id")))
+        if segment:
+            payload["asr_text"] = segment.text
+            payload["resolved_text"] = segment.resolved_text or segment.text
+            payload["entities"] = segment.entities
+            payload["ais_context"] = _best_ais_context_from_entities(segment.entities)
+        enriched.append(payload)
+    return enriched
+
+
 @router.get("/demo/scenarios")
 async def list_demo_scenarios() -> Dict[str, List[Dict[str, object]]]:
     return {"items": scenario_simulator.list_scenarios()}
@@ -49,6 +87,38 @@ async def list_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
     return {"items": inspection_simulator.list_mock_ships()}
 
 
+@router.get("/ais/ships")
+async def list_ais_ships() -> Dict[str, List[Dict[str, object]]]:
+    return {"items": inspection_simulator.list_mock_ships()}
+
+
+@router.post("/ais/ships/import")
+async def import_ais_ships(
+    file: UploadFile = File(...),
+) -> Dict[str, object]:
+    raw = await file.read()
+    text = raw.decode("utf-8-sig")
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix == ".json":
+        payload = json.loads(text)
+        if isinstance(payload, dict):
+            rows = list(payload.get("items") or payload.get("ships") or [])
+        elif isinstance(payload, list):
+            rows = payload
+        else:
+            rows = []
+    else:
+        rows = list(csv.DictReader(io.StringIO(text)))
+    ships = [
+        inspection_simulator._ship_from_row(row)
+        for row in rows
+        if isinstance(row, dict) and (row.get("ship_name") or row.get("name"))
+    ]
+    result = inspection_simulator.upsert_ships(ships)
+    _sync_dynamic_ais_lexicon()
+    return {"ok": True, **result}
+
+
 @router.post("/inspection/ships")
 async def add_inspection_ship(
     ship_name: str = Form(...),
@@ -59,6 +129,19 @@ async def add_inspection_ship(
     position_label: str = Form(""),
     lng: float = Form(...),
     lat: float = Form(...),
+    mmsi: str = Form(""),
+    callsign: str = Form(""),
+    imo: str = Form(""),
+    length_m: float = Form(0),
+    width_m: float = Form(0),
+    sog_kn: float = Form(0),
+    cog_deg: float = Form(0),
+    heading_deg: float = Form(0),
+    nav_status: str = Form("under_way"),
+    cargo_type: str = Form(""),
+    eta: str = Form(""),
+    ais_update_time: str = Form(""),
+    ais_source: str = Form("manual"),
 ) -> Dict[str, object]:
     if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
         raise HTTPException(status_code=400, detail="经纬度范围非法。")
@@ -72,8 +155,22 @@ async def add_inspection_ship(
         position_label=position_label.strip() or "自定义点位",
         lng=float(lng),
         lat=float(lat),
+        mmsi=mmsi.strip(),
+        callsign=callsign.strip(),
+        imo=imo.strip(),
+        length_m=float(length_m),
+        width_m=float(width_m),
+        sog_kn=float(sog_kn),
+        cog_deg=float(cog_deg),
+        heading_deg=float(heading_deg),
+        nav_status=nav_status.strip() or "under_way",
+        cargo_type=cargo_type.strip(),
+        eta=eta.strip(),
+        ais_update_time=ais_update_time.strip(),
+        ais_source=ais_source.strip() or "manual",
     )
     item = inspection_simulator.add_ship(ship=ship)
+    _sync_dynamic_ais_lexicon()
     return {"item": item}
 
 
@@ -84,6 +181,7 @@ async def delete_inspection_ship(
     removed = inspection_simulator.remove_ship(ship_id=ship_id)
     if not removed:
         raise HTTPException(status_code=404, detail="未找到该船舶。")
+    _sync_dynamic_ais_lexicon()
     return {"ok": True, "ship_id": ship_id}
 
 
@@ -321,10 +419,10 @@ async def upload_audio(
                 force_full_file_transcribe=False,
                 enable_denoise=True,
             )
-            combined_events = [
-                *[event.to_dict() for event in base_run.events],
-                *[event.to_dict() for event in denoise_run.events],
-            ]
+            combined_events = _enrich_event_payloads(
+                [*[event.to_dict() for event in base_run.events], *[event.to_dict() for event in denoise_run.events]],
+                [*base_run.segments, *denoise_run.segments],
+            )
             task_manager.update(
                 task.id,
                 status="completed",
@@ -357,17 +455,18 @@ async def upload_audio(
             force_full_file_transcribe=False,
             enable_denoise=(mode == "on"),
         )
+        event_payloads = _enrich_event_payloads([event.to_dict() for event in run.events], run.segments)
         task_manager.update(
             task.id,
             status="completed",
             segments=[segment.to_dict() for segment in run.segments],
-            events=[event.to_dict() for event in run.events],
+            events=event_payloads,
             meta={
                 "denoise_mode": mode,
                 "preprocess": run.preprocess,
             },
         )
-        event_store.extend([event.to_dict() for event in run.events])
+        event_store.extend(event_payloads)
 
     task_manager.run_async(task.id, runner)
     return {"task_id": task.id, "status": "queued", "denoise_mode": denoise_mode}
@@ -390,14 +489,15 @@ async def upload_stream_simulation(
             transcript_override=transcript_override,
             enable_denoise=denoise_mode.strip().lower() == "on",
         )
+        event_payloads = _enrich_event_payloads([event.to_dict() for event in events], segments)
         task_manager.update(
             task.id,
             status="completed",
             segments=[segment.to_dict() for segment in segments],
-            events=[event.to_dict() for event in events],
+            events=event_payloads,
             meta={"denoise_mode": denoise_mode.strip().lower()},
         )
-        event_store.extend([event.to_dict() for event in events])
+        event_store.extend(event_payloads)
 
     task_manager.run_async(task.id, runner)
     return {
@@ -435,14 +535,19 @@ async def upload_true_streaming(
                 enable_denoise=denoise_mode.strip().lower() == "on",
             )
             mode = "paraformer_streaming"
+        event_payloads = (
+            _enrich_event_payloads([event.to_dict() for event in events], chunk_results)  # type: ignore[arg-type]
+            if chunk_results and hasattr(chunk_results[0], "to_dict") and hasattr(chunk_results[0], "id")
+            else [event.to_dict() for event in events]
+        )
         task_manager.update(
             task.id,
             status="completed",
             segments=[_as_segment_payload(item, index) for index, item in enumerate(chunk_results)],
-            events=[event.to_dict() for event in events],
+            events=event_payloads,
             meta={"denoise_mode": denoise_mode.strip().lower(), "mode": mode},
         )
-        event_store.extend([event.to_dict() for event in events])
+        event_store.extend(event_payloads)
 
     task_manager.run_async(task.id, runner)
     return {
@@ -649,6 +754,8 @@ async def push_mic_chunk(
             "channel_id": channel_id,
             "index": seq,
             "text": text,
+            "resolved_text": text_for_rules,
+            "entities": [candidate.to_dict() for candidate in resolution.candidates],
             "cumulative_text": cumulative_text,
             "confidence": result.confidence,
             "engine": result.engine,
@@ -656,21 +763,23 @@ async def push_mic_chunk(
     )
 
     events = mic_risk_engine.evaluate(segment)
-    for event in events:
+    event_payloads = _enrich_event_payloads([event.to_dict() for event in events], [segment])
+    for index, event in enumerate(events):
+        payload = event_payloads[index] if index < len(event_payloads) else event.to_dict()
         ws_manager.publish(
             channel_id,
             {
                 "type": "risk_event",
                 "mode": "mic_live_demo",
                 "channel_id": channel_id,
-                "event": event.to_dict(),
+                "event": payload,
             },
         )
     with mic_lock:
         session = mic_sessions.get(session_id)
         if session is not None and events:
             session_events = session.get("events", [])
-            session_events.extend([event.to_dict() for event in events])
+            session_events.extend(event_payloads)
             session["events"] = session_events
 
     return {
@@ -678,7 +787,7 @@ async def push_mic_chunk(
         "seq": seq,
         "text": text,
         "cumulative_text": cumulative_text,
-        "events": [event.to_dict() for event in events],
+        "events": event_payloads,
     }
 
 
@@ -728,6 +837,44 @@ async def get_task(task_id: str) -> Dict[str, object]:
 @router.get("/events")
 async def list_events() -> Dict[str, List[Dict[str, object]]]:
     return {"items": list(reversed(event_store))}
+
+
+@router.get("/analytics/summary")
+async def analytics_summary() -> Dict[str, object]:
+    events = list(event_store)
+    ships = inspection_simulator.list_mock_ships()
+    by_risk: Dict[str, int] = {}
+    by_type: Dict[str, int] = {}
+    by_area: Dict[str, int] = {}
+    auto_count = 0
+    manual_count = 0
+    corrected_count = 0
+    for event in events:
+        risk = str(event.get("risk_level") or "unknown")
+        by_risk[risk] = by_risk.get(risk, 0) + 1
+        if event.get("is_auto_reply") or event.get("action_type") == "auto_reply":
+            auto_count += 1
+        if event.get("requires_human_review", True):
+            manual_count += 1
+        if event.get("asr_text") and event.get("resolved_text") and event.get("asr_text") != event.get("resolved_text"):
+            corrected_count += 1
+        ais = event.get("ais_context") if isinstance(event.get("ais_context"), dict) else {}
+        ship_type = str(ais.get("ship_type") or "未关联")
+        area = str(ais.get("position_label") or "未关联")
+        by_type[ship_type] = by_type.get(ship_type, 0) + 1
+        by_area[area] = by_area.get(area, 0) + 1
+    return {
+        "event_count": len(events),
+        "ais_ship_count": len(ships),
+        "auto_count": auto_count,
+        "manual_count": manual_count,
+        "asr_correction_count": corrected_count,
+        "by_risk_level": by_risk,
+        "by_ship_type": by_type,
+        "by_area": by_area,
+        "recent_events": list(reversed(events))[:12],
+        "ais_samples": ships[:8],
+    }
 
 
 @router.get("/events/{event_id}")

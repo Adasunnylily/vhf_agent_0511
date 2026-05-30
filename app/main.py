@@ -107,6 +107,7 @@ scenario_simulator = ScenarioSimulator(
     ws_manager=ws_manager,
 )
 inspection_simulator = InspectionTaskSimulator(ws_manager=ws_manager, data_dir=settings.data_dir)
+entity_resolver.set_dynamic_lexicon(inspection_simulator.dynamic_lexicon_payload())
 
 app = FastAPI(title=settings.project_name, version=settings.version)
 
