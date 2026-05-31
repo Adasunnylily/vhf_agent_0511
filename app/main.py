@@ -130,11 +130,6 @@ async def on_startup() -> None:
 
 @app.get("/", response_class=HTMLResponse)
 async def root() -> str:
-    return _render_prototype()
-
-
-@app.get("/legacy", response_class=HTMLResponse)
-async def legacy_dashboard() -> str:
     return render_dashboard(settings)
     return f"""
 <!DOCTYPE html>
