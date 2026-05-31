@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from fastapi import FastAPI, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
 from app.config import settings
@@ -113,6 +115,12 @@ inspection_simulator = InspectionTaskSimulator(ws_manager=ws_manager, data_dir=s
 entity_resolver.set_dynamic_lexicon(inspection_simulator.dynamic_lexicon_payload())
 
 app = FastAPI(title=settings.project_name, version=settings.version)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
@@ -830,7 +838,15 @@ async def root() -> str:
   </script>
 </body>
 </html>
-"""
+    """
+
+
+@app.get("/prototype", response_class=HTMLResponse)
+async def prototype() -> str:
+    prototype_path = Path(__file__).resolve().parent.parent / "ui_prototype" / "maritime_ai_agent.html"
+    if not prototype_path.exists():
+        return "<h1>Prototype not found</h1>"
+    return prototype_path.read_text(encoding="utf-8")
 
 
 @app.get("/favicon.ico", include_in_schema=False)

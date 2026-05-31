@@ -422,33 +422,31 @@ class InspectionTaskSimulator:
     def _matches_geometry(self, ship: InspectionShip, geometry: Dict[str, object]) -> bool:
         x, y = ship.lng, ship.lat
         shape_type = str(geometry.get("type", ""))
+        raw_points = geometry.get("points", geometry.get("geometry", []))
+        points = [
+            (float(point[0]), float(point[1]))
+            for point in raw_points
+            if isinstance(point, list) and len(point) >= 2
+        ] if isinstance(raw_points, list) else []
         if shape_type == "rect":
-            x1 = float(geometry.get("lng1", geometry.get("x1", x)))
-            y1 = float(geometry.get("lat1", geometry.get("y1", y)))
-            x2 = float(geometry.get("lng2", geometry.get("x2", x)))
-            y2 = float(geometry.get("lat2", geometry.get("y2", y)))
+            x1 = points[0][0] if len(points) >= 2 else float(geometry.get("lng1", geometry.get("x1", x)))
+            y1 = points[0][1] if len(points) >= 2 else float(geometry.get("lat1", geometry.get("y1", y)))
+            x2 = points[2][0] if len(points) >= 3 else points[1][0] if len(points) >= 2 else float(geometry.get("lng2", geometry.get("x2", x)))
+            y2 = points[2][1] if len(points) >= 3 else points[1][1] if len(points) >= 2 else float(geometry.get("lat2", geometry.get("y2", y)))
             left = min(x1, x2)
             right = max(x1, x2)
             top = min(y1, y2)
             bottom = max(y1, y2)
             return left <= x <= right and top <= y <= bottom
         if shape_type == "line":
-            x1 = float(geometry.get("lng1", geometry.get("x1", x)))
-            y1 = float(geometry.get("lat1", geometry.get("y1", y)))
-            x2 = float(geometry.get("lng2", geometry.get("x2", x)))
-            y2 = float(geometry.get("lat2", geometry.get("y2", y)))
+            x1 = points[0][0] if len(points) >= 2 else float(geometry.get("lng1", geometry.get("x1", x)))
+            y1 = points[0][1] if len(points) >= 2 else float(geometry.get("lat1", geometry.get("y1", y)))
+            x2 = points[1][0] if len(points) >= 2 else float(geometry.get("lng2", geometry.get("x2", x)))
+            y2 = points[1][1] if len(points) >= 2 else float(geometry.get("lat2", geometry.get("y2", y)))
             distance = self._point_to_segment_distance(x, y, x1, y1, x2, y2)
             buffer_m = float(geometry.get("line_buffer_m", 500.0))
             return distance <= max(0.0001, buffer_m / 111_000.0)
         if shape_type == "polygon":
-            raw_points = geometry.get("points", geometry.get("geometry", []))
-            if not isinstance(raw_points, list):
-                return False
-            points = [
-                (float(point[0]), float(point[1]))
-                for point in raw_points
-                if isinstance(point, list) and len(point) >= 2
-            ]
             return self._point_in_polygon(x, y, points)
         return False
 
