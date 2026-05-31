@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>海事交管智能体 UI Prototype</title>
+  <style>
+    :root {
+      --bg: #f6f9fd;
+      --card: rgba(255, 255, 255, 0.82);
+      --card-solid: #ffffff;
+      --line: #dde8f5;
+      --text: #142033;
+      --muted: #667085;
+      --blue: #1677ff;
+      --blue-2: #00a6ff;
+      --green: #00b884;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --shadow: 0 24px 70px rgba(31, 64, 108, 0.12);
+      --radius: 28px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "SF Pro Display", "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 8%, rgba(22, 119, 255, 0.14), transparent 28%),
+        radial-gradient(circle at 86% 12%, rgba(0, 166, 255, 0.12), transparent 26%),
+        linear-gradient(135deg, #ffffff, var(--bg) 52%, #eef5ff);
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button {
+      border: 0;
+      border-radius: 16px;
+      padding: 13px 18px;
+      min-height: 46px;
+      color: #fff;
+      font-weight: 760;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--blue), var(--blue-2));
+      box-shadow: 0 14px 32px rgba(22, 119, 255, 0.24);
+      transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 20px 42px rgba(22, 119, 255, 0.28); }
+    button.secondary {
+      color: #1d3354;
+      background: #f3f7fc;
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+    button.green { background: linear-gradient(135deg, #00b884, #00d2a0); box-shadow: 0 14px 32px rgba(0, 184, 132, 0.2); }
+    button.red { background: linear-gradient(135deg, #ef4444, #fb7185); box-shadow: 0 14px 32px rgba(239, 68, 68, 0.18); }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 13px 14px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.82);
+      outline: none;
+    }
+    textarea { min-height: 118px; resize: vertical; line-height: 1.62; }
+
+    .app {
+      width: min(1720px, calc(100vw - 36px));
+      min-height: calc(100vh - 36px);
+      margin: 18px auto;
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 18px;
+    }
+    .rail, .panel, .stat, .decision, .ship-card, .event-row {
+      background: var(--card);
+      border: 1px solid rgba(221, 232, 245, 0.86);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px);
+    }
+    .rail {
+      border-radius: var(--radius);
+      padding: 22px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 28px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      border-radius: 18px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--blue), #00d4ff);
+      font-weight: 900;
+      box-shadow: 0 16px 34px rgba(22, 119, 255, 0.28);
+    }
+    .brand b { display: block; font-size: 16px; }
+    .brand span { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .nav { display: grid; gap: 10px; align-content: start; }
+    .nav button {
+      justify-content: flex-start;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      color: #43546b;
+      background: transparent;
+      box-shadow: none;
+      border: 1px solid transparent;
+    }
+    .nav button.active {
+      color: #0754c9;
+      background: linear-gradient(135deg, rgba(22, 119, 255, 0.14), rgba(0, 166, 255, 0.08));
+      border-color: rgba(22, 119, 255, 0.25);
+    }
+    .rail-foot {
+      display: grid;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .workspace { min-width: 0; display: grid; grid-template-rows: auto 1fr; gap: 18px; }
+    .topbar {
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 22px;
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+    .topbar h1 { margin: 0; font-size: 28px; letter-spacing: -0.02em; }
+    .topbar .right { display: flex; align-items: center; gap: 10px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #eef6ff;
+      color: #0754c9;
+      font-weight: 760;
+      font-size: 13px;
+      border: 1px solid rgba(22, 119, 255, 0.12);
+    }
+    .pill.green { color: #047857; background: #e8fbf4; border-color: rgba(0, 184, 132, 0.14); }
+    .page { display: none; min-height: 0; }
+    .page.active { display: grid; }
+
+    .voice-page {
+      grid-template-columns: 360px minmax(460px, 1fr) 420px;
+      grid-template-rows: 350px minmax(320px, 1fr);
+      gap: 18px;
+    }
+    .panel {
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-head h2 { margin: 0; font-size: 18px; }
+    .panel-body { padding: 20px; }
+    .access { grid-column: 1; grid-row: 1; }
+    .mic-panel {
+      grid-column: 2;
+      grid-row: 1;
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(22, 119, 255, 0.16), transparent 42%),
+        rgba(255, 255, 255, 0.82);
+    }
+    .mic-stage { display: flex; align-items: center; justify-content: center; gap: 28px; }
+    .wave {
+      --level: 0.35;
+      width: 170px;
+      height: 82px;
+      opacity: calc(0.45 + var(--level) * 0.55);
+      transform: scaleY(calc(0.75 + var(--level)));
+      background:
+        repeating-linear-gradient(90deg, transparent 0 9px, rgba(22,119,255,0.32) 9px 12px, transparent 12px 18px),
+        linear-gradient(90deg, transparent, rgba(0,166,255,0.48), transparent);
+      clip-path: polygon(0 50%, 8% 47%, 14% 42%, 20% 57%, 28% 16%, 36% 74%, 44% 28%, 52% 84%, 60% 24%, 70% 68%, 80% 39%, 90% 55%, 100% 49%, 100% 54%, 0 54%);
+      filter: drop-shadow(0 0 calc(8px + var(--level) * 20px) rgba(22, 119, 255, 0.32));
+    }
+    .wave.right { transform: scaleX(-1) scaleY(calc(0.75 + var(--level))); }
+    .mic {
+      --level: 0.35;
+      width: 150px;
+      height: 150px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #0b6fff, #00a6ff);
+      box-shadow:
+        0 0 0 calc(14px + var(--level) * 22px) rgba(22,119,255,0.08),
+        0 0 calc(56px + var(--level) * 80px) rgba(22,119,255,0.35);
+      transform: scale(calc(1 + var(--level) * 0.1));
+    }
+    .mic svg { width: 72px; height: 72px; color: #fff; }
+    .mic-meta { text-align: center; margin-top: 22px; }
+    .mic-meta b { display: block; font-size: 24px; margin-bottom: 8px; }
+    .mic-meta span { color: var(--muted); }
+    .transcript { grid-column: 1 / 3; grid-row: 2; }
+    .decision-panel { grid-column: 3; grid-row: 1 / 3; }
+    .text-box, .reply-box {
+      min-height: 142px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      padding: 18px;
+      background: #f8fbff;
+      line-height: 1.72;
+      white-space: pre-wrap;
+    }
+    .entity-grid {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .entity {
+      border-radius: 18px;
+      padding: 14px;
+      background: #f8fbff;
+      border: 1px solid var(--line);
+    }
+    .entity span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+    .entity b { color: #0754c9; }
+    .decision-stack { display: grid; gap: 14px; }
+    .decision {
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: none;
+    }
+    .decision b { display: block; font-size: 15px; margin-bottom: 8px; }
+    .decision strong { display: block; font-size: 28px; margin-bottom: 6px; }
+    .decision small { color: var(--muted); line-height: 1.5; }
+    .decision.auto { background: #ecfdf5; border-color: rgba(0,184,132,0.18); }
+    .decision.manual { background: #eff6ff; border-color: rgba(22,119,255,0.18); }
+    .decision.risk { background: #fff1f2; border-color: rgba(239,68,68,0.18); }
+    .decision.auto strong { color: #047857; }
+    .decision.manual strong { color: #0754c9; }
+    .decision.risk strong { color: #be123c; }
+    .reply-box { min-height: 136px; margin: 16px 0; outline: none; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .inspection-page {
+      grid-template-columns: minmax(680px, 1fr) 390px;
+      grid-template-rows: minmax(520px, 1fr) auto;
+      gap: 18px;
+    }
+    .map-panel { grid-column: 1; grid-row: 1; }
+    .config-panel { grid-column: 2; grid-row: 1; }
+    .bottom-grid {
+      grid-column: 1 / 3;
+      grid-row: 2;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+    .map {
+      height: 520px;
+      border-radius: 24px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(90deg, rgba(22,119,255,0.08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(22,119,255,0.08) 1px, transparent 1px),
+        linear-gradient(135deg, #eff8ff, #dceffa 60%, #f8fbff);
+      background-size: 42px 42px, 42px 42px, auto;
+    }
+    .map svg { width: 100%; height: 100%; display: block; }
+    .ship-dot {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2px solid var(--blue);
+      box-shadow: 0 12px 28px rgba(22,119,255,0.18);
+      cursor: pointer;
+    }
+    .ship-dot.selected { border-color: var(--green); box-shadow: 0 0 0 12px rgba(0,184,132,0.1), 0 18px 36px rgba(0,184,132,0.22); }
+    .ship-dot.risk { border-color: var(--red); }
+    .ship-dot::before {
+      content: "";
+      width: 0;
+      height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 18px solid currentColor;
+      color: var(--blue);
+      transform: rotate(42deg);
+    }
+    .ship-dot.selected::before { color: var(--green); }
+    .ship-dot.risk::before { color: var(--red); }
+    .floating-info {
+      position: absolute;
+      left: 48%;
+      top: 34%;
+      width: 230px;
+      border-radius: 20px;
+      padding: 16px;
+      background: rgba(255,255,255,0.88);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+    .floating-info span { display: block; color: var(--muted); line-height: 1.62; font-size: 13px; }
+    .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .check-row { display: grid; gap: 8px; margin: 12px 0; }
+    .check-row label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+    .check-row input { width: auto; accent-color: var(--blue); }
+    .stat {
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: none;
+    }
+    .stat strong { display: block; font-size: 32px; margin-bottom: 8px; }
+    .stat span { color: var(--muted); }
+    .list { display: grid; gap: 10px; max-height: 370px; overflow: auto; }
+    .ship-card, .event-row {
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: none;
+    }
+    .ship-card.selected { border-color: rgba(0,184,132,0.32); background: #ecfdf5; }
+    .ship-card b, .event-row b { display: block; margin-bottom: 6px; }
+    .ship-card span, .event-row span { display: block; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+    .monitor-page {
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .monitor-page .wide { grid-column: 1 / 3; }
+
+    @media (max-width: 1200px) {
+      .app { grid-template-columns: 1fr; }
+      .rail { grid-template-rows: auto auto auto; }
+      .nav { grid-template-columns: repeat(3, 1fr); }
+      .voice-page, .inspection-page, .monitor-page { grid-template-columns: 1fr; grid-template-rows: auto; }
+      .access, .mic-panel, .transcript, .decision-panel, .map-panel, .config-panel, .bottom-grid, .monitor-page .wide {
+        grid-column: auto;
+        grid-row: auto;
+      }
+      .bottom-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <aside class="rail">
+      <div class="brand">
+        <div class="logo">AI</div>
+        <div><b>海事交管智能体</b><span>Maritime AI Agent</span></div>
+      </div>
+      <nav class="nav">
+        <button class="nav-btn active" data-page="voice">语音交互</button>
+        <button class="nav-btn" data-page="inspection">点验界面</button>
+        <button class="nav-btn" data-page="monitor">船舶监控</button>
+        <button class="nav-btn" data-page="events">事件中心</button>
+        <button class="nav-btn" data-page="knowledge">知识库</button>
+        <button class="nav-btn" data-page="settings">设置中心</button>
+      </nav>
+      <div class="rail-foot">
+        <span class="pill green">在线</span>
+        <span id="clock">--:--:--</span>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <h1 id="pageTitle">语音交互与智能应答</h1>
+        <div class="right">
+          <span class="pill green" id="agentState">待命</span>
+          <button class="secondary" id="archiveBtn">存入汇报索引</button>
+        </div>
+      </header>
+
+      <section class="page voice-page active" id="voicePage">
+        <section class="panel access">
+          <div class="panel-head"><h2>音频接入</h2><span class="pill">VHF</span></div>
+          <div class="panel-body">
+            <div style="display:grid;gap:12px">
+              <select id="inputMode">
+                <option>现场麦克风</option>
+                <option>上传录音</option>
+                <option>模拟流式</option>
+              </select>
+              <input type="file" accept="audio/*" />
+              <button id="runDemoBtn">开始识别</button>
+              <button class="secondary" id="riskDemoBtn">高危样例</button>
+              <button class="secondary" id="normalDemoBtn">常规样例</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel mic-panel">
+          <div>
+            <div class="mic-stage">
+              <div class="wave"></div>
+              <button class="mic" id="micBtn" aria-label="麦克风">
+                <svg viewBox="0 0 64 64" fill="none">
+                  <path d="M32 8c-6.1 0-11 4.9-11 11v14c0 6.1 4.9 11 11 11s11-4.9 11-11V19c0-6.1-4.9-11-11-11Z" fill="currentColor"/>
+                  <path d="M16 31c0 8.8 7.2 16 16 16s16-7.2 16-16" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+                  <path d="M32 47v9M23 56h18" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+                </svg>
+              </button>
+              <div class="wave right"></div>
+            </div>
+            <div class="mic-meta">
+              <b id="listenTitle">我在听，请说话...</b>
+              <span id="timer">00:00</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel transcript">
+          <div class="panel-head"><h2>语音识别结果</h2><span class="pill" id="asrStatus">ASR</span></div>
+          <div class="panel-body">
+            <div class="text-box" id="asrText">等待语音输入</div>
+            <div class="entity-grid">
+              <div class="entity"><span>意图</span><b id="intentText">待识别</b></div>
+              <div class="entity"><span>船舶</span><b id="shipText">待匹配</b></div>
+              <div class="entity"><span>AIS关联</span><b id="aisText">待匹配</b></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel decision-panel">
+          <div class="panel-head"><h2>智能决策</h2><span class="pill" id="decisionStatus">Decision</span></div>
+          <div class="panel-body">
+            <div class="decision-stack">
+              <div class="decision risk"><b>高危情况</b><strong id="riskLabel">否</strong><small id="riskReason">未命中高危信号</small></div>
+              <div class="decision auto"><b>自动回复</b><strong id="autoLabel">待定</strong><small id="autoReason">等待识别结果</small></div>
+              <div class="decision manual"><b>人工判断</b><strong id="manualLabel">待命</strong><small id="manualReason">复杂业务进入人工复核</small></div>
+            </div>
+            <div class="reply-box" id="replyText" contenteditable="true">等待生成回复内容</div>
+            <div class="actions">
+              <button class="green" id="speakBtn">发送语音回复</button>
+              <button class="red" id="manualBtn">转人工处理</button>
+              <button class="secondary" id="copyBtn">复制结果</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="page inspection-page" id="inspectionPage">
+        <section class="panel map-panel">
+          <div class="panel-head"><h2>点验界面</h2><span class="pill green">实时监控</span></div>
+          <div class="panel-body">
+            <div class="map" id="map">
+              <svg viewBox="0 0 1000 600" preserveAspectRatio="none">
+                <path d="M60 430 C250 350,360 280,510 240 S770 130,950 95" stroke="#1677ff" stroke-width="4" stroke-dasharray="12 12" fill="none" opacity=".32"/>
+                <path d="M110 500 C300 390,460 360,620 290 S820 220,960 205" stroke="#00a6ff" stroke-width="3" stroke-dasharray="8 12" fill="none" opacity=".26"/>
+                <polygon points="140,150 330,70 500,135 475,300 260,340 100,250" fill="rgba(22,119,255,.10)" stroke="#1677ff" stroke-width="3" stroke-dasharray="10 8"/>
+                <polygon points="660,385 795,300 940,390 875,520 715,495" fill="rgba(239,68,68,.10)" stroke="#ef4444" stroke-width="3" stroke-dasharray="10 8"/>
+              </svg>
+              <button class="ship-dot selected" style="left:48%;top:38%" data-ship="海运888"></button>
+              <button class="ship-dot" style="left:58%;top:66%" data-ship="锦华662"></button>
+              <button class="ship-dot risk" style="left:72%;top:72%" data-ship="甬港拖20"></button>
+              <button class="ship-dot" style="left:40%;top:76%" data-ship="中远海运123"></button>
+              <div class="floating-info" id="shipInfo">
+                <b>海运888</b>
+                <span>MMSI: 413512345</span>
+                <span>航速: 12.5 kn · 航向: 128°</span>
+                <span>状态: 进入点验区域</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel config-panel">
+          <div class="panel-head"><h2>点验通知配置</h2><span class="pill">Rule</span></div>
+          <div class="panel-body" style="display:grid;gap:12px">
+            <input id="areaName" value="北仑主航道A3段" />
+            <div class="filter-row"><input id="minDraft" value="10" /><input id="minTon" value="5000" /></div>
+            <select id="shipType"><option>全部船型</option><option>集装箱船</option><option>散货船</option><option>拖船</option></select>
+            <select id="sceneType"><option>进入重点水域</option><option>穿越警戒区</option><option>危险作业提醒</option><option>靠泊前提醒</option></select>
+            <textarea id="noticeText">各船注意，你船已进入北仑主航道A3段关注范围，请保持安全航速，加强瞭望并保持 VHF 守听。</textarea>
+            <div class="check-row">
+              <label><input type="checkbox" checked /> VHF 广播</label>
+              <label><input type="checkbox" checked /> AIS 消息</label>
+              <label><input type="checkbox" /> 短信推送</label>
+            </div>
+            <button id="filterBtn">筛选船舶</button>
+            <button class="green" id="broadcastBtn">生成点验通知</button>
+          </div>
+        </aside>
+
+        <section class="bottom-grid">
+          <div class="stat"><strong id="shipCount">4</strong><span>区域船舶</span></div>
+          <div class="stat"><strong id="selectedCount">1</strong><span>命中目标</span></div>
+          <div class="stat"><strong id="noticeCount">0</strong><span>通知生成</span></div>
+          <div class="stat"><strong>91%</strong><span>广播成功率</span></div>
+        </section>
+      </section>
+
+      <section class="page monitor-page" id="monitorPage">
+        <section class="panel wide">
+          <div class="panel-head"><h2>船舶监控</h2><button class="secondary" id="refreshShips">刷新AIS目标</button></div>
+          <div class="panel-body">
+            <div class="list" id="shipList"></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="page monitor-page" id="eventsPage">
+        <section class="panel wide">
+          <div class="panel-head"><h2>事件中心</h2><span class="pill">Archive</span></div>
+          <div class="panel-body"><div class="list" id="eventList"></div></div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const ships = [
+      { name: "海运888", mmsi: "413512345", type: "集装箱船", draft: 12.5, ton: 52000, speed: 12.5, area: "北仑主航道A3段", selected: true },
+      { name: "锦华662", mmsi: "413009662", type: "散货船", draft: 9.2, ton: 18000, speed: 4.8, area: "警戒区北侧", selected: false },
+      { name: "甬港拖20", mmsi: "413020020", type: "拖船", draft: 4.1, ton: 900, speed: 8.3, area: "危险作业区", selected: false },
+      { name: "中远海运123", mmsi: "413100123", type: "集装箱船", draft: 13.1, ton: 64000, speed: 10.2, area: "港池入口", selected: false }
+    ];
+    const events = [];
+    let seconds = 0;
+    let listening = false;
+    let timer = null;
+
+    const $ = (id) => document.getElementById(id);
+    const setLevel = (level) => document.querySelectorAll(".mic,.wave").forEach((el) => el.style.setProperty("--level", level));
+
+    function setPage(page) {
+      document.querySelectorAll(".nav-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.page === page));
+      document.querySelectorAll(".page").forEach((item) => item.classList.remove("active"));
+      const target = page === "inspection" ? "inspectionPage" : page === "monitor" ? "monitorPage" : page === "events" ? "eventsPage" : "voicePage";
+      $(target).classList.add("active");
+      $("pageTitle").textContent = page === "inspection" ? "点验界面" : page === "monitor" ? "船舶监控" : page === "events" ? "事件中心" : "语音交互与智能应答";
+    }
+
+    function tick() {
+      seconds += 1;
+      $("timer").textContent = `00:${String(seconds).padStart(2, "0")}`;
+      setLevel((0.25 + Math.random() * 0.75).toFixed(2));
+    }
+
+    function decide(kind) {
+      const risk = kind === "risk";
+      const auto = kind === "normal";
+      $("riskLabel").textContent = risk ? "是" : "否";
+      $("riskReason").textContent = risk ? "命中冒烟/着火/求救风险信号" : "未命中高危信号";
+      $("autoLabel").textContent = auto ? "可自动" : "否";
+      $("autoReason").textContent = auto ? "常规由动转静报告，可自动回复" : risk ? "高危事件不自动回复" : "需人工确认";
+      $("manualLabel").textContent = risk ? "立即处理" : auto ? "无需" : "建议处理";
+      $("manualReason").textContent = risk ? "值班员优先接管" : auto ? "可一键播报并留档" : "值班员确认后执行";
+      $("agentState").textContent = risk ? "高危优先" : auto ? "自动回复" : "人工复核";
+      $("agentState").className = risk ? "pill" : "pill green";
+    }
+
+    function setVoiceScenario(kind) {
+      if (kind === "risk") {
+        $("asrText").textContent = "宁波交管，锦华662机舱冒烟，疑似起火，请求协助。";
+        $("intentText").textContent = "高危险情";
+        $("shipText").textContent = "锦华662";
+        $("aisText").textContent = "MMSI 413009662 · 警戒区北侧";
+        $("replyText").textContent = "锦华662，VTS收到。请立即报告船位、火情位置和人员情况，保持VHF守听，附近船舶注意避让。";
+        decide("risk");
+      } else {
+        $("asrText").textContent = "宁波交管，锦龙008接到码头通知，今天早晨不抛锚了，直接进码头。";
+        $("intentText").textContent = "靠泊报告";
+        $("shipText").textContent = "锦龙008";
+        $("aisText").textContent = "AIS候选匹配 · 北仑主航道";
+        $("replyText").textContent = "锦龙008，VTS收到，靠泊信息已记录，请保持守听，如计划变化请及时报告。";
+        decide("normal");
+      }
+    }
+
+    function renderShips() {
+      $("shipList").innerHTML = ships.map((ship) => `
+        <div class="ship-card ${ship.selected ? "selected" : ""}">
+          <b>${ship.name}</b>
+          <span>${ship.type} · MMSI ${ship.mmsi} · ${ship.area}</span>
+          <span>吃水 ${ship.draft}m · 吨位 ${ship.ton}t · 航速 ${ship.speed}kn</span>
+        </div>
+      `).join("");
+      $("shipCount").textContent = ships.length;
+      $("selectedCount").textContent = ships.filter((ship) => ship.selected).length;
+    }
+
+    function renderEvents() {
+      $("eventList").innerHTML = events.length ? events.map((event) => `
+        <div class="event-row"><b>${event.title}</b><span>${event.time}</span><span>${event.text}</span></div>
+      `).join("") : '<div class="event-row"><b>暂无归档事件</b><span>完成语音处置或点验通知后显示</span></div>';
+    }
+
+    document.querySelectorAll(".nav-btn").forEach((btn) => btn.addEventListener("click", () => setPage(btn.dataset.page)));
+    $("micBtn").addEventListener("click", () => {
+      listening = !listening;
+      $("listenTitle").textContent = listening ? "正在听..." : "我在听，请说话...";
+      $("agentState").textContent = listening ? "监听中" : "待命";
+      if (listening) {
+        seconds = 0;
+        timer = setInterval(tick, 1000);
+      } else {
+        clearInterval(timer);
+        setLevel(0.25);
+      }
+    });
+    $("runDemoBtn").addEventListener("click", () => setVoiceScenario("normal"));
+    $("riskDemoBtn").addEventListener("click", () => setVoiceScenario("risk"));
+    $("normalDemoBtn").addEventListener("click", () => setVoiceScenario("normal"));
+    $("speakBtn").addEventListener("click", () => {
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance($("replyText").textContent));
+      $("agentState").textContent = "播报中";
+    });
+    $("manualBtn").addEventListener("click", () => {
+      $("agentState").textContent = "人工接管";
+      $("agentState").className = "pill";
+    });
+    $("copyBtn").addEventListener("click", () => navigator.clipboard.writeText($("asrText").textContent));
+    $("archiveBtn").addEventListener("click", () => {
+      events.unshift({ title: $("intentText").textContent, time: new Date().toLocaleString(), text: $("asrText").textContent });
+      renderEvents();
+      $("agentState").textContent = "已留档";
+    });
+    $("filterBtn").addEventListener("click", () => {
+      const all = $("shipType").value === "全部船型";
+      ships.forEach((ship) => ship.selected = all || ship.type === $("shipType").value);
+      renderShips();
+      document.querySelectorAll(".ship-dot").forEach((dot) => dot.classList.toggle("selected", ships.find((s) => s.name === dot.dataset.ship)?.selected));
+    });
+    $("broadcastBtn").addEventListener("click", () => {
+      const selected = ships.filter((ship) => ship.selected);
+      $("noticeCount").textContent = String(Number($("noticeCount").textContent) + selected.length);
+      selected.forEach((ship) => events.unshift({ title: `${ship.name} 点验通知`, time: new Date().toLocaleString(), text: $("noticeText").value }));
+      renderEvents();
+      $("agentState").textContent = "点验完成";
+      setPage("events");
+    });
+    document.querySelectorAll(".ship-dot").forEach((dot) => dot.addEventListener("click", () => {
+      const ship = ships.find((item) => item.name === dot.dataset.ship);
+      if (!ship) return;
+      ship.selected = !ship.selected;
+      dot.classList.toggle("selected", ship.selected);
+      $("shipInfo").innerHTML = `<b>${ship.name}</b><span>MMSI: ${ship.mmsi}</span><span>${ship.type} · 吃水 ${ship.draft}m</span><span>状态: ${ship.area}</span>`;
+      renderShips();
+    }));
+    $("sceneType").addEventListener("change", () => {
+      $("noticeText").value = `各船注意，你船已进入${$("areaName").value}，请遵守${$("sceneType").value}相关要求，保持安全航速并守听VHF。`;
+    });
+    $("refreshShips").addEventListener("click", renderShips);
+    setInterval(() => $("clock").textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false }), 1000);
+    renderShips();
+    renderEvents();
+  </script>
+</body>
+</html>

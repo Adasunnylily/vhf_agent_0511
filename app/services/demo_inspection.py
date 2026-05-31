@@ -50,6 +50,19 @@ class InspectionScenario:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class InspectionArea:
+    area_id: str
+    area_name: str
+    geometry_type: str
+    geometry: List[List[float]]
+    line_buffer_m: float = 500.0
+    enabled: bool = True
+
+    def to_dict(self) -> Dict[str, object]:
+        return asdict(self)
+
+
 DEFAULT_SHIPS: List[InspectionShip] = [
     InspectionShip("ship_jl008", "锦龙008", 16800, 10.8, "集装箱船", "北仑山多用途码头", "北仑港主航道", 121.8842, 29.9138, "413245008", "JL008", "", 172, 27, 7.2, 83, 84, "进港", "集装箱", "今日 16:30", "", "mock_ais"),
     InspectionShip("ship_jh662", "锦华662", 9800, 8.7, "杂货船", "北仑司2号泊", "北仑港主航道", 121.8736, 29.9234, "413000662", "JH662", "", 128, 20, 4.3, 62, 63, "航行中", "杂货", "今日 17:10", "", "mock_ais"),
@@ -75,6 +88,20 @@ DEFAULT_SCENARIOS: List[InspectionScenario] = [
     ),
 ]
 
+DEFAULT_AREAS: List[InspectionArea] = [
+    InspectionArea(
+        area_id="area_beilun_a3",
+        area_name="北仑主航道A3段",
+        geometry_type="polygon",
+        geometry=[
+            [121.855, 29.902],
+            [121.915, 29.902],
+            [121.915, 29.945],
+            [121.855, 29.945],
+        ],
+    ),
+]
+
 
 class InspectionTaskSimulator:
     def __init__(
@@ -88,8 +115,10 @@ class InspectionTaskSimulator:
         self.data_dir = data_dir or Path("data")
         self.ships_path = self.data_dir / "inspection_ships.json"
         self.scenarios_path = self.data_dir / "inspection_scenarios.json"
+        self.areas_path = self.data_dir / "inspection_areas.json"
         self._ships: List[InspectionShip] = self._load_or_init_ships()
         self._scenarios: List[InspectionScenario] = self._load_or_init_scenarios()
+        self._areas: List[InspectionArea] = self._load_or_init_areas()
 
     def run(
         self,
@@ -100,6 +129,9 @@ class InspectionTaskSimulator:
         notice_template: str,
         area_geometry: str = "",
         allowed_ship_types: Optional[List[str]] = None,
+        min_speed_kn: float = 0.0,
+        max_speed_kn: float = 999.0,
+        destination_keyword: str = "",
     ) -> Dict[str, object]:
         matched = self.filter_ships(
             area_name=area_name,
@@ -107,6 +139,9 @@ class InspectionTaskSimulator:
             min_tonnage_t=min_tonnage_t,
             area_geometry=area_geometry,
             allowed_ship_types=allowed_ship_types,
+            min_speed_kn=min_speed_kn,
+            max_speed_kn=max_speed_kn,
+            destination_keyword=destination_keyword,
         )
         notices = []
 
@@ -148,6 +183,9 @@ class InspectionTaskSimulator:
             "min_tonnage_t": min_tonnage_t,
             "area_geometry": area_geometry,
             "allowed_ship_types": allowed_ship_types or [],
+            "min_speed_kn": min_speed_kn,
+            "max_speed_kn": max_speed_kn,
+            "destination_keyword": destination_keyword,
             "matched_count": len(matched),
             "matched_ships": [ship.to_dict() for ship in matched],
             "notices": notices,
@@ -204,6 +242,35 @@ class InspectionTaskSimulator:
     def list_scenarios(self) -> List[Dict[str, object]]:
         return [item.to_dict() for item in self._scenarios]
 
+    def list_areas(self) -> List[Dict[str, object]]:
+        return [item.to_dict() for item in self._areas]
+
+    def add_area(
+        self,
+        area_name: str,
+        geometry_type: str,
+        geometry: List[List[float]],
+        line_buffer_m: float = 500.0,
+    ) -> Dict[str, object]:
+        area = InspectionArea(
+            area_id=f"area_{uuid.uuid4().hex[:10]}",
+            area_name=area_name.strip(),
+            geometry_type=geometry_type.strip(),
+            geometry=geometry,
+            line_buffer_m=float(line_buffer_m),
+        )
+        self._areas.append(area)
+        self._save_areas()
+        return area.to_dict()
+
+    def remove_area(self, area_id: str) -> bool:
+        before = len(self._areas)
+        self._areas = [area for area in self._areas if area.area_id != area_id.strip()]
+        removed = len(self._areas) < before
+        if removed:
+            self._save_areas()
+        return removed
+
     def add_scenario(self, scenario_name: str, notice_template: str) -> Dict[str, object]:
         scenario = InspectionScenario(
             scenario_id=f"custom_{uuid.uuid4().hex[:8]}",
@@ -230,6 +297,9 @@ class InspectionTaskSimulator:
         min_tonnage_t: int,
         area_geometry: str = "",
         allowed_ship_types: Optional[List[str]] = None,
+        min_speed_kn: float = 0.0,
+        max_speed_kn: float = 999.0,
+        destination_keyword: str = "",
     ) -> List[InspectionShip]:
         geometry = self._parse_geometry(area_geometry)
         type_set = {item.strip() for item in (allowed_ship_types or []) if item.strip()}
@@ -240,6 +310,10 @@ class InspectionTaskSimulator:
             if ship.tonnage_t < min_tonnage_t:
                 continue
             if type_set and ship.ship_type not in type_set:
+                continue
+            if ship.sog_kn < min_speed_kn or ship.sog_kn > max_speed_kn:
+                continue
+            if destination_keyword.strip() and destination_keyword.strip() not in ship.destination:
                 continue
             if geometry is not None and not self._matches_geometry(ship, geometry):
                 continue
@@ -331,7 +405,7 @@ class InspectionTaskSimulator:
         upper_position = position_label.upper()
         return any(token in upper_position for token in tokens) or area_name[:2] in position_label
 
-    def _parse_geometry(self, area_geometry: str) -> Optional[Dict[str, float]]:
+    def _parse_geometry(self, area_geometry: str) -> Optional[Dict[str, object]]:
         raw = area_geometry.strip()
         if not raw:
             return None
@@ -339,13 +413,13 @@ class InspectionTaskSimulator:
             data = json.loads(raw)
             if not isinstance(data, dict):
                 return None
-            if data.get("type") not in {"rect", "line"}:
+            if data.get("type") not in {"rect", "line", "polygon"}:
                 return None
-            return {k: float(v) if k != "type" else v for k, v in data.items()}  # type: ignore[return-value]
+            return data
         except Exception:
             return None
 
-    def _matches_geometry(self, ship: InspectionShip, geometry: Dict[str, float]) -> bool:
+    def _matches_geometry(self, ship: InspectionShip, geometry: Dict[str, object]) -> bool:
         x, y = ship.lng, ship.lat
         shape_type = str(geometry.get("type", ""))
         if shape_type == "rect":
@@ -364,8 +438,36 @@ class InspectionTaskSimulator:
             x2 = float(geometry.get("lng2", geometry.get("x2", x)))
             y2 = float(geometry.get("lat2", geometry.get("y2", y)))
             distance = self._point_to_segment_distance(x, y, x1, y1, x2, y2)
-            return distance <= 0.01
+            buffer_m = float(geometry.get("line_buffer_m", 500.0))
+            return distance <= max(0.0001, buffer_m / 111_000.0)
+        if shape_type == "polygon":
+            raw_points = geometry.get("points", geometry.get("geometry", []))
+            if not isinstance(raw_points, list):
+                return False
+            points = [
+                (float(point[0]), float(point[1]))
+                for point in raw_points
+                if isinstance(point, list) and len(point) >= 2
+            ]
+            return self._point_in_polygon(x, y, points)
         return False
+
+    @staticmethod
+    def _point_in_polygon(x: float, y: float, points: List[tuple[float, float]]) -> bool:
+        if len(points) < 3:
+            return False
+        inside = False
+        previous = points[-1]
+        for current in points:
+            x1, y1 = previous
+            x2, y2 = current
+            intersects = ((y1 > y) != (y2 > y)) and (
+                x < (x2 - x1) * (y - y1) / ((y2 - y1) or 1e-12) + x1
+            )
+            if intersects:
+                inside = not inside
+            previous = current
+        return inside
 
     def _load_or_init_ships(self) -> List[InspectionShip]:
         self.data_dir.mkdir(parents=True, exist_ok=True)
@@ -425,6 +527,41 @@ class InspectionTaskSimulator:
     def _save_scenarios(self) -> None:
         self.scenarios_path.write_text(
             json.dumps([item.to_dict() for item in self._scenarios], ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def _load_or_init_areas(self) -> List[InspectionArea]:
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        if self.areas_path.exists():
+            try:
+                rows = json.loads(self.areas_path.read_text(encoding="utf-8"))
+                areas = [
+                    InspectionArea(
+                        area_id=str(row["area_id"]),
+                        area_name=str(row["area_name"]),
+                        geometry_type=str(row["geometry_type"]),
+                        geometry=[
+                            [float(point[0]), float(point[1])]
+                            for point in row.get("geometry", [])
+                        ],
+                        line_buffer_m=float(row.get("line_buffer_m", 500.0)),
+                        enabled=bool(row.get("enabled", True)),
+                    )
+                    for row in rows
+                ]
+                if areas:
+                    return areas
+            except Exception:
+                pass
+        self.areas_path.write_text(
+            json.dumps([item.to_dict() for item in DEFAULT_AREAS], ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return list(DEFAULT_AREAS)
+
+    def _save_areas(self) -> None:
+        self.areas_path.write_text(
+            json.dumps([item.to_dict() for item in self._areas], ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
 

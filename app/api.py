@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 
 from app.domain.models import AudioSegment
 from app.config import settings
@@ -17,6 +17,7 @@ from app.main import (
     event_store,
     entity_resolver,
     inspection_simulator,
+    knowledge_repository,
     pipeline,
     preprocessor,
     realtime_stream_processor,
@@ -70,6 +71,66 @@ def _enrich_event_payloads(
             payload["ais_context"] = _best_ais_context_from_entities(segment.entities)
         enriched.append(payload)
     return enriched
+
+
+def _decision_business_type(payload: Dict[str, Any]) -> str:
+    risk_level = str(payload.get("risk_level") or "")
+    action_type = str(payload.get("action_type") or "")
+    if risk_level in {"L1", "L2", "L3"}:
+        return "emergency_risk"
+    if action_type == "auto_reply":
+        return "routine_report"
+    if action_type in {"manual_business", "manual_review"}:
+        return "other_business"
+    return "other_business"
+
+
+def _persist_decisions(
+    *,
+    source_type: str,
+    audio_path: str,
+    segments: List[AudioSegment],
+    events: List[Dict[str, Any]],
+) -> List[Dict[str, object]]:
+    event_by_segment = {str(event.get("segment_id") or ""): dict(event) for event in events}
+    decisions: List[Dict[str, object]] = []
+    for segment in segments:
+        payload = event_by_segment.get(segment.id)
+        if payload is None:
+            event_id = f"evt_{uuid.uuid4().hex[:12]}"
+            payload = {
+                "event_id": event_id,
+                "id": event_id,
+                "segment_id": segment.id,
+                "channel_id": segment.channel_id,
+                "event_type": "一般业务通话",
+                "risk_level": "INFO",
+                "summary": "未命中自动回复或高危规则，已归档供值班员复核。",
+                "evidence": [],
+                "suggestion": "建议值班员结合上下文确认是否需要进一步处置。",
+                "broadcast_text": "",
+                "action_type": "manual_review",
+                "requires_human_review": True,
+                "is_auto_reply": False,
+                "review_status": "pending",
+            }
+        payload["source_type"] = source_type
+        payload["audio_path"] = audio_path
+        payload["asr_text"] = segment.text
+        payload["resolved_text"] = segment.resolved_text or segment.text
+        payload["entities"] = segment.entities
+        payload["ais_context"] = _best_ais_context_from_entities(segment.entities) or {}
+        payload["business_type"] = _decision_business_type(payload)
+        decisions.append(payload)
+    if not segments:
+        for event in events:
+            payload = dict(event)
+            payload["source_type"] = source_type
+            payload["audio_path"] = audio_path
+            payload["business_type"] = _decision_business_type(payload)
+            decisions.append(payload)
+    event_store.extend(decisions)
+    return decisions
 
 
 @router.get("/demo/scenarios")
@@ -204,6 +265,45 @@ async def add_inspection_scenario(
     return {"item": item}
 
 
+@router.get("/inspection/areas")
+async def list_inspection_areas() -> Dict[str, List[Dict[str, object]]]:
+    return {"items": inspection_simulator.list_areas()}
+
+
+@router.post("/inspection/areas")
+async def add_inspection_area(
+    payload: Dict[str, Any] = Body(...),
+) -> Dict[str, object]:
+    area_name = str(payload.get("area_name") or "").strip()
+    geometry_type = str(payload.get("geometry_type") or "").strip()
+    geometry = payload.get("geometry")
+    if not area_name or geometry_type not in {"rect", "line", "polygon"}:
+        raise HTTPException(status_code=400, detail="区域名称或区域类型非法。")
+    if not isinstance(geometry, list) or len(geometry) < 2:
+        raise HTTPException(status_code=400, detail="区域经纬度点位不足。")
+    if geometry_type == "polygon" and len(geometry) < 3:
+        raise HTTPException(status_code=400, detail="多边形至少需要三个点。")
+    points = [
+        [float(point[0]), float(point[1])]
+        for point in geometry
+        if isinstance(point, list) and len(point) >= 2
+    ]
+    item = inspection_simulator.add_area(
+        area_name=area_name,
+        geometry_type=geometry_type,
+        geometry=points,
+        line_buffer_m=float(payload.get("line_buffer_m") or 500.0),
+    )
+    return {"item": item}
+
+
+@router.delete("/inspection/areas/{area_id}")
+async def delete_inspection_area(area_id: str) -> Dict[str, object]:
+    if not inspection_simulator.remove_area(area_id):
+        raise HTTPException(status_code=404, detail="未找到该点验区域。")
+    return {"ok": True, "area_id": area_id}
+
+
 @router.post("/inspection/filter")
 async def filter_inspection_ships(
     area_name: str = Form("北仑主航道A3段"),
@@ -211,6 +311,9 @@ async def filter_inspection_ships(
     min_tonnage_t: int = Form(5000),
     area_geometry: str = Form(""),
     ship_types: str = Form(""),
+    min_speed_kn: float = Form(0.0),
+    max_speed_kn: float = Form(999.0),
+    destination_keyword: str = Form(""),
 ) -> Dict[str, object]:
     allowed_ship_types = [item.strip() for item in ship_types.split(",") if item.strip()]
     matched = inspection_simulator.filter_ships(
@@ -219,12 +322,18 @@ async def filter_inspection_ships(
         min_tonnage_t=min_tonnage_t,
         area_geometry=area_geometry,
         allowed_ship_types=allowed_ship_types,
+        min_speed_kn=min_speed_kn,
+        max_speed_kn=max_speed_kn,
+        destination_keyword=destination_keyword,
     )
     return {
         "area_name": area_name,
         "min_draft_m": min_draft_m,
         "min_tonnage_t": min_tonnage_t,
         "ship_types": allowed_ship_types,
+        "min_speed_kn": min_speed_kn,
+        "max_speed_kn": max_speed_kn,
+        "destination_keyword": destination_keyword,
         "matched_count": len(matched),
         "items": [ship.to_dict() for ship in matched],
     }
@@ -238,6 +347,9 @@ async def preview_inspection_notices(
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
     area_geometry: str = Form(""),
     ship_types: str = Form(""),
+    min_speed_kn: float = Form(0.0),
+    max_speed_kn: float = Form(999.0),
+    destination_keyword: str = Form(""),
 ) -> Dict[str, object]:
     allowed_ship_types = [item.strip() for item in ship_types.split(",") if item.strip()]
     matched = inspection_simulator.filter_ships(
@@ -246,6 +358,9 @@ async def preview_inspection_notices(
         min_tonnage_t=min_tonnage_t,
         area_geometry=area_geometry,
         allowed_ship_types=allowed_ship_types,
+        min_speed_kn=min_speed_kn,
+        max_speed_kn=max_speed_kn,
+        destination_keyword=destination_keyword,
     )
     notices = [
         {
@@ -263,6 +378,30 @@ async def preview_inspection_notices(
 @router.get("/asr/compare-options")
 async def get_asr_compare_options() -> Dict[str, List[Dict[str, object]]]:
     return {"items": list_asr_compare_options()}
+
+
+@router.get("/knowledge/documents")
+async def list_knowledge_documents() -> Dict[str, List[Dict[str, str]]]:
+    return {"items": knowledge_repository.list_entries()}
+
+
+@router.get("/knowledge/search")
+async def search_knowledge(q: str = "") -> Dict[str, object]:
+    items = knowledge_repository.search(q)
+    return {"query": q, "count": len(items), "items": items[:20]}
+
+
+@router.post("/knowledge/documents/import")
+async def import_knowledge_document(
+    file: UploadFile = File(...),
+    category: str = Form("法规资料"),
+) -> Dict[str, object]:
+    item = knowledge_repository.import_document(
+        source=file.file,
+        filename=file.filename or "knowledge.bin",
+        category=category,
+    )
+    return {"item": item}
 
 
 @router.post("/demo/scenario/{scenario_id}")
@@ -284,7 +423,12 @@ async def run_demo_scenario(
             events=[event.to_dict() for event in events],
             meta=meta,
         )
-        event_store.extend([event.to_dict() for event in events])
+        _persist_decisions(
+            source_type="demo_scenario",
+            audio_path=f"scenario:{scenario_id}",
+            segments=segments,
+            events=[event.to_dict() for event in events],
+        )
 
     task_manager.run_async(task.id, runner)
     return {
@@ -305,6 +449,9 @@ async def run_demo_inspection_task(
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
     area_geometry: str = Form(""),
     ship_types: str = Form(""),
+    min_speed_kn: float = Form(0.0),
+    max_speed_kn: float = Form(999.0),
+    destination_keyword: str = Form(""),
 ) -> Dict[str, str]:
     task = task_manager.create(filename=f"inspection:{area_name}", channel_id=channel_id)
     allowed_ship_types = [item.strip() for item in ship_types.split(",") if item.strip()]
@@ -322,6 +469,9 @@ async def run_demo_inspection_task(
             notice_template=resolved_template,
             area_geometry=area_geometry,
             allowed_ship_types=allowed_ship_types,
+            min_speed_kn=min_speed_kn,
+            max_speed_kn=max_speed_kn,
+            destination_keyword=destination_keyword,
         )
         task_manager.update(
             task.id,
@@ -333,6 +483,27 @@ async def run_demo_inspection_task(
                 **meta,
             },
         )
+        inspection_events = [
+            {
+                "event_id": f"evt_{uuid.uuid4().hex[:12]}",
+                "event_type": "AIS点验通知",
+                "risk_level": "INFO",
+                "business_type": "inspection_notice",
+                "action_type": "inspection_notice",
+                "requires_human_review": False,
+                "is_auto_reply": True,
+                "review_status": "broadcasted",
+                "summary": f"{notice['ship']['ship_name']} 已生成点验通知。",
+                "evidence": [f"点验区域: {area_name}"],
+                "suggestion": notice["notice_text"],
+                "broadcast_text": notice["notice_text"],
+                "ais_context": notice["ship"],
+                "source_type": "inspection",
+                "audio_path": "",
+            }
+            for notice in meta["notices"]
+        ]
+        event_store.extend(inspection_events)
 
     task_manager.run_async(task.id, runner)
     return {
@@ -353,6 +524,9 @@ async def run_inspection_task(
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
     area_geometry: str = Form(""),
     ship_types: str = Form(""),
+    min_speed_kn: float = Form(0.0),
+    max_speed_kn: float = Form(999.0),
+    destination_keyword: str = Form(""),
 ) -> Dict[str, str]:
     return await run_demo_inspection_task(
         channel_id=channel_id,
@@ -363,6 +537,9 @@ async def run_inspection_task(
         notice_template=notice_template,
         area_geometry=area_geometry,
         ship_types=ship_types,
+        min_speed_kn=min_speed_kn,
+        max_speed_kn=max_speed_kn,
+        destination_keyword=destination_keyword,
     )
 
 
@@ -376,6 +553,9 @@ async def run_inspection_tts(
     notice_template: str = Form("{船名}，请注意，您已进入{区域}，请按规定守听并回复。"),
     area_geometry: str = Form(""),
     ship_types: str = Form(""),
+    min_speed_kn: float = Form(0.0),
+    max_speed_kn: float = Form(999.0),
+    destination_keyword: str = Form(""),
 ) -> Dict[str, str]:
     return await run_demo_inspection_task(
         channel_id=channel_id,
@@ -386,6 +566,9 @@ async def run_inspection_tts(
         notice_template=notice_template,
         area_geometry=area_geometry,
         ship_types=ship_types,
+        min_speed_kn=min_speed_kn,
+        max_speed_kn=max_speed_kn,
+        destination_keyword=destination_keyword,
     )
 
 
@@ -445,7 +628,12 @@ async def upload_audio(
                     "denoised_texts": [segment.text for segment in denoise_run.segments],
                 },
             )
-            event_store.extend(combined_events)
+            _persist_decisions(
+                source_type="audio_upload",
+                audio_path=str(saved_path),
+                segments=[*base_run.segments, *denoise_run.segments],
+                events=combined_events,
+            )
             return
 
         run = pipeline.process(
@@ -466,7 +654,12 @@ async def upload_audio(
                 "preprocess": run.preprocess,
             },
         )
-        event_store.extend(event_payloads)
+        _persist_decisions(
+            source_type="audio_upload",
+            audio_path=str(saved_path),
+            segments=run.segments,
+            events=event_payloads,
+        )
 
     task_manager.run_async(task.id, runner)
     return {"task_id": task.id, "status": "queued", "denoise_mode": denoise_mode}
@@ -497,7 +690,12 @@ async def upload_stream_simulation(
             events=event_payloads,
             meta={"denoise_mode": denoise_mode.strip().lower()},
         )
-        event_store.extend(event_payloads)
+        _persist_decisions(
+            source_type="stream_sim",
+            audio_path=str(saved_path),
+            segments=segments,
+            events=event_payloads,
+        )
 
     task_manager.run_async(task.id, runner)
     return {
@@ -547,7 +745,15 @@ async def upload_true_streaming(
             events=event_payloads,
             meta={"denoise_mode": denoise_mode.strip().lower(), "mode": mode},
         )
-        event_store.extend(event_payloads)
+        typed_segments = [
+            item for item in chunk_results if isinstance(item, AudioSegment)
+        ]
+        _persist_decisions(
+            source_type="stream_replay",
+            audio_path=str(saved_path),
+            segments=typed_segments,
+            events=event_payloads,
+        )
 
     task_manager.run_async(task.id, runner)
     return {
@@ -764,6 +970,12 @@ async def push_mic_chunk(
 
     events = mic_risk_engine.evaluate(segment)
     event_payloads = _enrich_event_payloads([event.to_dict() for event in events], [segment])
+    _persist_decisions(
+        source_type="mic_stream",
+        audio_path=str(processed_path),
+        segments=[segment],
+        events=event_payloads,
+    )
     for index, event in enumerate(events):
         payload = event_payloads[index] if index < len(event_payloads) else event.to_dict()
         ws_manager.publish(
@@ -836,19 +1048,21 @@ async def get_task(task_id: str) -> Dict[str, object]:
 
 @router.get("/events")
 async def list_events() -> Dict[str, List[Dict[str, object]]]:
-    return {"items": list(reversed(event_store))}
+    return {"items": event_store.list()}
 
 
 @router.get("/analytics/summary")
 async def analytics_summary() -> Dict[str, object]:
-    events = list(event_store)
+    events = event_store.list()
     ships = inspection_simulator.list_mock_ships()
     by_risk: Dict[str, int] = {}
+    by_business: Dict[str, int] = {}
     by_type: Dict[str, int] = {}
     by_area: Dict[str, int] = {}
     auto_count = 0
     manual_count = 0
     corrected_count = 0
+    closed_count = 0
     for event in events:
         risk = str(event.get("risk_level") or "unknown")
         by_risk[risk] = by_risk.get(risk, 0) + 1
@@ -856,6 +1070,8 @@ async def analytics_summary() -> Dict[str, object]:
             auto_count += 1
         if event.get("requires_human_review", True):
             manual_count += 1
+        if event.get("review_status") in {"confirmed", "broadcasted", "archived"}:
+            closed_count += 1
         if event.get("asr_text") and event.get("resolved_text") and event.get("asr_text") != event.get("resolved_text"):
             corrected_count += 1
         ais = event.get("ais_context") if isinstance(event.get("ais_context"), dict) else {}
@@ -863,26 +1079,48 @@ async def analytics_summary() -> Dict[str, object]:
         area = str(ais.get("position_label") or "未关联")
         by_type[ship_type] = by_type.get(ship_type, 0) + 1
         by_area[area] = by_area.get(area, 0) + 1
+        business_type = str(event.get("business_type") or "other_business")
+        by_business[business_type] = by_business.get(business_type, 0) + 1
+    total = len(events)
     return {
-        "event_count": len(events),
+        "event_count": total,
         "ais_ship_count": len(ships),
         "auto_count": auto_count,
         "manual_count": manual_count,
+        "closed_count": closed_count,
+        "auto_rate": round(auto_count / total, 4) if total else 0.0,
+        "manual_rate": round(manual_count / total, 4) if total else 0.0,
+        "closure_rate": round(closed_count / total, 4) if total else 0.0,
         "asr_correction_count": corrected_count,
         "by_risk_level": by_risk,
+        "by_business_type": by_business,
         "by_ship_type": by_type,
         "by_area": by_area,
-        "recent_events": list(reversed(events))[:12],
+        "recent_events": events[:12],
         "ais_samples": ships[:8],
     }
 
 
 @router.get("/events/{event_id}")
 async def get_event(event_id: str) -> Dict[str, object]:
-    for event in event_store:
-        if event["id"] == event_id:
-            return event
+    event = event_store.get(event_id)
+    if event:
+        return event
     raise HTTPException(status_code=404, detail="event not found")
+
+
+@router.patch("/events/{event_id}/review-status")
+async def update_event_review_status(
+    event_id: str,
+    payload: Dict[str, str] = Body(...),
+) -> Dict[str, object]:
+    review_status = str(payload.get("review_status") or "").strip()
+    if review_status not in {"pending", "confirmed", "broadcasted", "archived"}:
+        raise HTTPException(status_code=400, detail="review_status 非法。")
+    event = event_store.update_review_status(event_id, review_status)
+    if not event:
+        raise HTTPException(status_code=404, detail="event not found")
+    return event
 
 
 @router.websocket("/ws/monitor/{channel_id}")
