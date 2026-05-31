@@ -4,16 +4,27 @@
 
 ## 打开方式
 
-本地或服务器启动静态页面：
+先启动 FastAPI 后端：
 
 ```bash
-cd ui_prototype
-python3 -m http.server 8766 --bind 0.0.0.0
+bash scripts/start_autodl.sh
+```
+
+再启动前端网关：
+
+```bash
+bash scripts/start_ui_prototype.sh
 ```
 
 浏览器打开 `http://服务器地址:8766/maritime_ai_agent.html`。
 
-也可以由 FastAPI 同源打开：`http://服务器地址:8000/prototype`。
+前端网关会把 `/api/*` 转发到本机 `8000` FastAPI，因此只需要映射或转发 `8766` 端口。
+
+点验真实底图需要在 `.env` 设置高德 Web 端 Key：
+
+```bash
+AMAP_KEY=你的高德Web端key
+```
 
 ## 已接入能力入口
 

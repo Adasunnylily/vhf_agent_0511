@@ -338,6 +338,40 @@
       background-size: 42px 42px, 42px 42px, auto;
     }
     .map svg { width: 100%; height: 100%; display: block; }
+    #amapContainer { position: absolute; inset: 0; z-index: 1; }
+    #baseMapSvg { position: absolute; inset: 0; z-index: 0; }
+    .map.real-map #baseMapSvg { display: none; }
+    .map .ship-dot { z-index: 3; }
+    .map.real-map .ship-dot { display: none; }
+    .amap-ship-marker {
+      display: grid;
+      place-items: center;
+      min-width: 34px;
+      min-height: 34px;
+      padding: 7px;
+      border-radius: 50%;
+      color: #fff;
+      background: #1677ff;
+      border: 2px solid rgba(255,255,255,.92);
+      box-shadow: 0 10px 28px rgba(22,119,255,.32);
+      cursor: pointer;
+    }
+    .amap-ship-marker.selected { background: #00b884; box-shadow: 0 0 0 10px rgba(0,184,132,.14), 0 12px 30px rgba(0,184,132,.32); }
+    .amap-ship-marker::after { content: "▲"; font-size: 15px; line-height: 1; }
+    .map-status {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      z-index: 4;
+      padding: 8px 11px;
+      border-radius: 999px;
+      color: #0754c9;
+      background: rgba(255,255,255,.88);
+      border: 1px solid var(--line);
+      box-shadow: 0 10px 24px rgba(31,64,108,.12);
+      font-size: 12px;
+      font-weight: 760;
+    }
     .map-toolbar {
       display: flex;
       gap: 8px;
@@ -375,6 +409,7 @@
     .ship-dot.risk::before { color: var(--red); }
     .floating-info {
       position: absolute;
+      z-index: 4;
       left: 48%;
       top: 34%;
       width: 230px;
@@ -544,6 +579,7 @@
           <div class="panel-head"><h2>点验界面</h2><span class="pill green">实时监控</span></div>
           <div class="panel-body">
             <div class="map" id="map">
+              <div id="amapContainer"></div>
               <svg id="baseMapSvg" viewBox="0 0 1000 600" preserveAspectRatio="none">
                 <path d="M60 430 C250 350,360 280,510 240 S770 130,950 95" stroke="#1677ff" stroke-width="4" stroke-dasharray="12 12" fill="none" opacity=".32"/>
                 <path d="M110 500 C300 390,460 360,620 290 S820 220,960 205" stroke="#00a6ff" stroke-width="3" stroke-dasharray="8 12" fill="none" opacity=".26"/>
@@ -561,6 +597,7 @@
                 <span>航速: 12.5 kn · 航向: 128°</span>
                 <span>状态: 进入点验区域</span>
               </div>
+              <div class="map-status" id="mapStatus">底图加载中</div>
             </div>
             <div class="map-toolbar">
               <button class="secondary area-mode active" data-area-mode="rect">框选区域</button>
@@ -665,6 +702,9 @@
       mic: null,
       areaMode: "rect",
       areaGeometry: [],
+      map: null,
+      mapMarkers: [],
+      mapOverlay: null,
     };
     const fallbackShips = [
       { ship_id: "ship_jl008", ship_name: "锦龙008", mmsi: "413245008", ship_type: "集装箱船", draft_m: 10.8, tonnage_t: 16800, sog_kn: 7.2, lng: 121.8842, lat: 29.9138, position_label: "北仑港主航道" },
@@ -672,8 +712,8 @@
       { ship_id: "ship_zgyc", ship_name: "中国银川", mmsi: "413512345", ship_type: "散货船", draft_m: 13.5, tonnage_t: 22600, sog_kn: 6.8, lng: 121.9005, lat: 29.9342, position_label: "警戒区北口" },
       { ship_id: "ship_yg20", ship_name: "甬港拖20", mmsi: "412320020", ship_type: "拖船", draft_m: 5.2, tonnage_t: 4600, sog_kn: 9.5, lng: 121.8585, lat: 29.9058, position_label: "内港水域" },
     ];
-    const defaultApiBase = location.port === "8000" ? location.origin : `${location.protocol}//${location.hostname}:8000`;
-    let API_BASE = localStorage.getItem("vhf_api_base") || defaultApiBase;
+    const defaultApiBase = location.origin;
+    let API_BASE = defaultApiBase;
 
     function channelId() { return $("channelInput").value.trim() || "vhf_demo_01"; }
     function setLevel(level) { document.querySelectorAll(".mic,.wave").forEach((el) => el.style.setProperty("--level", level)); }
@@ -904,6 +944,70 @@
       try { state.mic ? await stopMic() : await startMic(); } catch (error) { toast(`麦克风接入失败：${error.message}`, true); }
     }
 
+    async function setupRuntime() {
+      try {
+        const config = await request("/api/config/public");
+        if (config.default_channel_id) $("channelInput").value = config.default_channel_id;
+        await loadAmapSdk(config.amap_key || "");
+      } catch (error) {
+        $("mapStatus").textContent = "后端暂未连接，使用演示底图";
+      }
+    }
+    function loadAmapSdk(key) {
+      if (!key || key === "你的高德Web端key" || key === "你的key") {
+        $("mapStatus").textContent = "未配置 AMAP_KEY，使用演示底图";
+        return Promise.resolve();
+      }
+      if (window.AMap) {
+        initAmap();
+        return Promise.resolve();
+      }
+      return new Promise((resolve) => {
+        const script = document.createElement("script");
+        script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}`;
+        script.onload = () => { initAmap(); resolve(); };
+        script.onerror = () => { $("mapStatus").textContent = "高德底图加载失败，使用演示底图"; resolve(); };
+        document.head.appendChild(script);
+      });
+    }
+    function initAmap() {
+      if (!window.AMap || state.map) return;
+      state.map = new AMap.Map("amapContainer", {
+        zoom: 12,
+        center: [121.8842, 29.919],
+        mapStyle: "amap://styles/normal",
+        viewMode: "2D",
+      });
+      $("map").classList.add("real-map");
+      $("mapStatus").textContent = "高德底图 · AIS实时船位";
+      state.map.on("click", (event) => addAreaLngLat([event.lnglat.lng, event.lnglat.lat]));
+      renderAmapMarkers();
+    }
+    function renderAmapMarkers() {
+      if (!state.map || !window.AMap) return;
+      state.mapMarkers.forEach((marker) => state.map.remove(marker));
+      state.mapMarkers = [];
+      state.ships.forEach((ship) => {
+        const content = document.createElement("div");
+        content.className = `amap-ship-marker${state.selectedShipIds.has(ship.ship_id) ? " selected" : ""}`;
+        content.title = ship.ship_name;
+        const marker = new AMap.Marker({
+          position: [Number(ship.lng), Number(ship.lat)],
+          content,
+          offset: new AMap.Pixel(-17, -17),
+          title: ship.ship_name,
+        });
+        marker.on("click", () => toggleShip(ship));
+        state.map.add(marker);
+        state.mapMarkers.push(marker);
+      });
+      if (state.mapMarkers.length) state.map.setFitView(state.mapMarkers, false, [70, 70, 70, 70], 16);
+    }
+    function clearMapOverlay() {
+      if (state.map && state.mapOverlay) state.map.remove(state.mapOverlay);
+      state.mapOverlay = null;
+    }
+
     function normalizedShip(row) {
       return { ...row, ship_id: row.ship_id || row.mmsi || row.ship_name, ship_name: row.ship_name || row.name || "未命名船舶" };
     }
@@ -944,6 +1048,7 @@
         dot.onclick = (event) => { event.stopPropagation(); toggleShip(ship); };
         map.appendChild(dot);
       });
+      renderAmapMarkers();
       $("shipCount").textContent = ships.length;
       $("selectedCount").textContent = state.selectedShipIds.size;
       if (ships[0]) showShipInfo(ships[0]);
@@ -1004,10 +1109,21 @@
     function renderArea() {
       const points = state.areaGeometry.map(([lng, lat]) => `${((lng - 121.84) / .09) * 1000},${(1 - (lat - 29.89) / .07) * 600}`).join(" ");
       $("drawLayer").innerHTML = points ? `<polyline points="${points}" fill="${state.areaMode === "polygon" || (state.areaMode === "rect" && state.areaGeometry.length === 4) ? "rgba(22,119,255,.14)" : "none"}" stroke="#1677ff" stroke-width="5" stroke-dasharray="9 7" />` : "";
+      clearMapOverlay();
+      if (!state.map || !window.AMap || state.areaGeometry.length < 2) return;
+      if (state.areaMode === "line") {
+        state.mapOverlay = new AMap.Polyline({ path: state.areaGeometry, strokeColor: "#1677ff", strokeWeight: 5, strokeStyle: "dashed" });
+      } else {
+        state.mapOverlay = new AMap.Polygon({ path: state.areaGeometry, strokeColor: "#1677ff", strokeWeight: 4, strokeStyle: "dashed", fillColor: "#1677ff", fillOpacity: .16 });
+      }
+      state.map.add(state.mapOverlay);
     }
     function addAreaPoint(event) {
+      if (state.map) return;
       if (event.target.closest(".ship-dot")) return;
-      const point = mapPoint(event);
+      addAreaLngLat(mapPoint(event));
+    }
+    function addAreaLngLat(point) {
       if (state.areaMode === "rect") {
         state.areaGeometry = state.areaGeometry.length >= 2 ? [point] : [...state.areaGeometry, point];
         if (state.areaGeometry.length === 2) {
@@ -1091,6 +1207,7 @@
     $("saveSettingsBtn").addEventListener("click", () => { API_BASE = $("apiBaseInput").value.trim() || defaultApiBase; localStorage.setItem("vhf_api_base", API_BASE); toast("设置已保存"); });
     setInterval(() => $("clock").textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false }), 1000);
     $("apiBaseInput").value = API_BASE;
+    setupRuntime();
     loadShips();
     loadEvents();
   </script>

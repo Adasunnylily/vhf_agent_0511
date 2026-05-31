@@ -26,6 +26,24 @@ DEFAULT_ENTRIES = [
         "source": "数字值班员MVP规则",
         "content": "自动回复仅用于靠泊、锚泊、过报告线等规则明确的由动转静报告。离泊、出港、穿越警戒区和高危情况必须转人工确认。",
     },
+    {
+        "title": "COLREG避碰责任",
+        "category": "IMO规范",
+        "source": "1972年国际海上避碰规则（COLREG）",
+        "content": "船舶应始终保持正规瞭望，使用安全航速，并根据会遇态势及时采取明显、有效且留有充分余地的避让行动。",
+    },
+    {
+        "title": "SOLAS遇险通信",
+        "category": "IMO规范",
+        "source": "SOLAS公约与GMDSS遇险通信要求",
+        "content": "涉及火灾、碰撞、进水、人员落水、失控等紧急情况时，应优先处理遇险通信，核实船名、船位、险情性质、人员状态和所需协助。",
+    },
+    {
+        "title": "离泊与关键动态人工确认",
+        "category": "VTS业务",
+        "source": "VTS值班业务规则",
+        "content": "离泊、出港、穿越重点水域和航行计划变更涉及实时交通态势，应进入人工确认流程，不由系统直接自动批准。",
+    },
 ]
 
 
@@ -77,6 +95,12 @@ class KnowledgeRepository:
             try:
                 rows = json.loads(self.index_path.read_text(encoding="utf-8"))
                 if isinstance(rows, list) and rows:
+                    existing_titles = {str(row.get("title") or "") for row in rows}
+                    for index, entry in enumerate(DEFAULT_ENTRIES, start=1):
+                        if entry["title"] not in existing_titles:
+                            rows.append({"id": f"kb_seed_{index}", **entry})
+                    self._entries = rows
+                    self._save()
                     return rows
             except Exception:
                 pass

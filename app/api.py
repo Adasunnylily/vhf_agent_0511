@@ -38,6 +38,14 @@ mic_sessions: Dict[str, Dict[str, Any]] = {}
 mic_lock = threading.Lock()
 
 
+@router.get("/config/public")
+async def public_config() -> Dict[str, object]:
+    return {
+        "default_channel_id": settings.default_channel_id,
+        "amap_key": settings.amap_key,
+    }
+
+
 def _sync_dynamic_ais_lexicon() -> None:
     entity_resolver.set_dynamic_lexicon(inspection_simulator.dynamic_lexicon_payload())
 
