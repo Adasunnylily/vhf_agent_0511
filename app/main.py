@@ -130,6 +130,11 @@ async def on_startup() -> None:
 
 @app.get("/", response_class=HTMLResponse)
 async def root() -> str:
+    return _render_prototype()
+
+
+@app.get("/legacy", response_class=HTMLResponse)
+async def legacy_dashboard() -> str:
     return render_dashboard(settings)
     return f"""
 <!DOCTYPE html>
@@ -843,6 +848,10 @@ async def root() -> str:
 
 @app.get("/prototype", response_class=HTMLResponse)
 async def prototype() -> str:
+    return _render_prototype()
+
+
+def _render_prototype() -> str:
     prototype_path = Path(__file__).resolve().parent.parent / "ui_prototype" / "maritime_ai_agent.html"
     if not prototype_path.exists():
         return "<h1>Prototype not found</h1>"
