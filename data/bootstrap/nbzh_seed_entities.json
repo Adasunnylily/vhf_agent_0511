@@ -15,7 +15,10 @@
     "KMTC DELHI",
     "MCC TAIPEI",
     "TAN COSTAS S",
-    "YONGGANGXIAOTUO7HAO"
+    "YONGGANGXIAOTUO7HAO",
+    "锦龙228",
+    "锦华662",
+    "中国银川"
   ],
   "locations": [
     "舟山岛",
@@ -99,6 +102,28 @@
         "aliases": [
           "YONGGANG XIAOTUO 7 HAO",
           "甬港小拖7号"
+        ]
+      },
+      {
+        "canonical": "锦龙228",
+        "aliases": [
+          "锦龙二二八",
+          "锦龙两两八"
+        ]
+      },
+      {
+        "canonical": "锦华662",
+        "aliases": [
+          "警花662",
+          "警花六六二",
+          "警官六六",
+          "锦华六六二"
+        ]
+      },
+      {
+        "canonical": "中国银川",
+        "aliases": [
+          "中谷银川"
         ]
       }
     ],

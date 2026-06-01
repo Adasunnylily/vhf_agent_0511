@@ -132,6 +132,7 @@ class InspectionTaskSimulator:
         min_speed_kn: float = 0.0,
         max_speed_kn: float = 999.0,
         destination_keyword: str = "",
+        specific_ship_ids: Optional[List[str]] = None,
     ) -> Dict[str, object]:
         matched = self.filter_ships(
             area_name=area_name,
@@ -142,6 +143,7 @@ class InspectionTaskSimulator:
             min_speed_kn=min_speed_kn,
             max_speed_kn=max_speed_kn,
             destination_keyword=destination_keyword,
+            specific_ship_ids=specific_ship_ids,
         )
         notices = []
 
@@ -186,6 +188,7 @@ class InspectionTaskSimulator:
             "min_speed_kn": min_speed_kn,
             "max_speed_kn": max_speed_kn,
             "destination_keyword": destination_keyword,
+            "specific_ship_ids": specific_ship_ids or [],
             "matched_count": len(matched),
             "matched_ships": [ship.to_dict() for ship in matched],
             "notices": notices,
@@ -300,11 +303,15 @@ class InspectionTaskSimulator:
         min_speed_kn: float = 0.0,
         max_speed_kn: float = 999.0,
         destination_keyword: str = "",
+        specific_ship_ids: Optional[List[str]] = None,
     ) -> List[InspectionShip]:
         geometry = self._parse_geometry(area_geometry)
         type_set = {item.strip() for item in (allowed_ship_types or []) if item.strip()}
+        ship_id_set = {item.strip() for item in (specific_ship_ids or []) if item.strip()}
         result: List[InspectionShip] = []
         for ship in self._ships:
+            if ship_id_set and ship.ship_id not in ship_id_set:
+                continue
             if ship.draft_m < min_draft_m:
                 continue
             if ship.tonnage_t < min_tonnage_t:

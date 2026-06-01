@@ -322,8 +322,10 @@ async def filter_inspection_ships(
     min_speed_kn: float = Form(0.0),
     max_speed_kn: float = Form(999.0),
     destination_keyword: str = Form(""),
+    ship_ids: str = Form(""),
 ) -> Dict[str, object]:
     allowed_ship_types = [item.strip() for item in ship_types.split(",") if item.strip()]
+    specific_ship_ids = [item.strip() for item in ship_ids.split(",") if item.strip()]
     matched = inspection_simulator.filter_ships(
         area_name=area_name,
         min_draft_m=min_draft_m,
@@ -333,6 +335,7 @@ async def filter_inspection_ships(
         min_speed_kn=min_speed_kn,
         max_speed_kn=max_speed_kn,
         destination_keyword=destination_keyword,
+        specific_ship_ids=specific_ship_ids,
     )
     return {
         "area_name": area_name,
@@ -342,6 +345,7 @@ async def filter_inspection_ships(
         "min_speed_kn": min_speed_kn,
         "max_speed_kn": max_speed_kn,
         "destination_keyword": destination_keyword,
+        "ship_ids": specific_ship_ids,
         "matched_count": len(matched),
         "items": [ship.to_dict() for ship in matched],
     }
@@ -358,8 +362,10 @@ async def preview_inspection_notices(
     min_speed_kn: float = Form(0.0),
     max_speed_kn: float = Form(999.0),
     destination_keyword: str = Form(""),
+    ship_ids: str = Form(""),
 ) -> Dict[str, object]:
     allowed_ship_types = [item.strip() for item in ship_types.split(",") if item.strip()]
+    specific_ship_ids = [item.strip() for item in ship_ids.split(",") if item.strip()]
     matched = inspection_simulator.filter_ships(
         area_name=area_name,
         min_draft_m=min_draft_m,
@@ -369,6 +375,7 @@ async def preview_inspection_notices(
         min_speed_kn=min_speed_kn,
         max_speed_kn=max_speed_kn,
         destination_keyword=destination_keyword,
+        specific_ship_ids=specific_ship_ids,
     )
     notices = [
         {
@@ -460,9 +467,11 @@ async def run_demo_inspection_task(
     min_speed_kn: float = Form(0.0),
     max_speed_kn: float = Form(999.0),
     destination_keyword: str = Form(""),
+    ship_ids: str = Form(""),
 ) -> Dict[str, str]:
     task = task_manager.create(filename=f"inspection:{area_name}", channel_id=channel_id)
     allowed_ship_types = [item.strip() for item in ship_types.split(",") if item.strip()]
+    specific_ship_ids = [item.strip() for item in ship_ids.split(",") if item.strip()]
 
     def runner() -> None:
         resolved_template = inspection_simulator.resolve_template(
@@ -480,6 +489,7 @@ async def run_demo_inspection_task(
             min_speed_kn=min_speed_kn,
             max_speed_kn=max_speed_kn,
             destination_keyword=destination_keyword,
+            specific_ship_ids=specific_ship_ids,
         )
         task_manager.update(
             task.id,
@@ -535,6 +545,7 @@ async def run_inspection_task(
     min_speed_kn: float = Form(0.0),
     max_speed_kn: float = Form(999.0),
     destination_keyword: str = Form(""),
+    ship_ids: str = Form(""),
 ) -> Dict[str, str]:
     return await run_demo_inspection_task(
         channel_id=channel_id,
@@ -548,6 +559,7 @@ async def run_inspection_task(
         min_speed_kn=min_speed_kn,
         max_speed_kn=max_speed_kn,
         destination_keyword=destination_keyword,
+        ship_ids=ship_ids,
     )
 
 
@@ -564,6 +576,7 @@ async def run_inspection_tts(
     min_speed_kn: float = Form(0.0),
     max_speed_kn: float = Form(999.0),
     destination_keyword: str = Form(""),
+    ship_ids: str = Form(""),
 ) -> Dict[str, str]:
     return await run_demo_inspection_task(
         channel_id=channel_id,
@@ -577,6 +590,7 @@ async def run_inspection_tts(
         min_speed_kn=min_speed_kn,
         max_speed_kn=max_speed_kn,
         destination_keyword=destination_keyword,
+        ship_ids=ship_ids,
     )
 
 

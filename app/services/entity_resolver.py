@@ -176,10 +176,14 @@ class EntityResolver:
                 continue
             if candidate.reason not in {"exact", "normalized_exact"} or candidate.score < 0.96:
                 continue
-            if candidate.canonical == candidate.matched_text:
-                continue
-            if candidate.matched_text in resolved:
+            if candidate.canonical != candidate.matched_text and candidate.matched_text in resolved:
                 resolved = resolved.replace(candidate.matched_text, candidate.canonical)
+            for entity_type, canonical, aliases, _, _ in [*self._dynamic_entries, *self._entries]:
+                if entity_type != candidate.entity_type or canonical != candidate.canonical:
+                    continue
+                for alias in sorted(aliases, key=len, reverse=True):
+                    if alias != canonical and alias in resolved:
+                        resolved = resolved.replace(alias, canonical)
         if fuzzy_hints:
             resolved = f"{resolved}（AIS候选：{'、'.join(sorted(set(fuzzy_hints))[:3])}）"
         return resolved
