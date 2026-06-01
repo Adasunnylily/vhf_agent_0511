@@ -292,6 +292,14 @@
     }
     .ais-detail.show { display: block; }
     .evidence { display: grid; gap: 6px; margin-top: 10px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .review-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .review-grid label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+    .dialogue-box { min-height: 112px; margin-top: 12px; white-space: pre-wrap; }
     .toast {
       position: fixed;
       right: 22px;
@@ -565,13 +573,27 @@
         <section class="panel transcript">
           <div class="panel-head"><h2>语音识别结果</h2><span class="pill" id="asrStatus">ASR</span></div>
           <div class="panel-body">
-            <div class="text-box" id="asrText">等待语音输入</div>
+            <div class="text-box" id="asrText" contenteditable="true">等待语音输入</div>
             <div class="entity-grid">
               <div class="entity"><span>意图</span><b id="intentText">待识别</b></div>
               <div class="entity"><span>船舶</span><b id="shipText">待匹配</b></div>
               <div class="entity" id="aisToggle"><span>AIS关联</span><b id="aisText">待匹配</b></div>
             </div>
+            <div class="review-grid">
+              <label>意图复核
+                <select id="intentEdit">
+                  <option value="routine_report">常规报告</option>
+                  <option value="departure_request">离泊或关键申请</option>
+                  <option value="emergency_risk">高危险情</option>
+                  <option value="other_business">其他业务</option>
+                  <option value="invalid_or_noise">噪声或听不清</option>
+                </select>
+              </label>
+              <label>船名复核<input id="shipEdit" placeholder="人工确认船名" /></label>
+              <label>AIS 关联复核<select id="aisEdit"><option value="">未关联 AIS</option></select></label>
+            </div>
             <div class="ais-detail" id="aisDetail"></div>
+            <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">等待 ASR 后生成对话轮次复核模板</div>
             <div class="flow" id="flow">
               <div class="flow-step active">语音接入</div>
               <div class="flow-step">ASR听写</div>
@@ -596,6 +618,7 @@
             <div class="actions">
               <button class="green" id="speakBtn">发送语音回复</button>
               <button class="red" id="manualBtn">转人工处理</button>
+              <button id="saveFeedbackBtn">保存人工复核</button>
               <button class="secondary" id="copyBtn">复制结果</button>
             </div>
           </div>
@@ -715,7 +738,7 @@
           <div class="panel-body settings-grid">
             <div><label class="subtle">后端 API 地址</label><input id="apiBaseInput" /></div>
             <div><label class="subtle">默认 VHF 频道</label><input id="channelInput" value="vhf_demo_01" /></div>
-            <div><label class="subtle">麦克风分片时长（毫秒）</label><input id="micChunkMs" value="4200" /></div>
+            <div><label class="subtle">麦克风识别窗口（毫秒）</label><input id="micChunkMs" value="3200" /></div>
             <div><label class="subtle">说明</label><div class="subtle">设置仅保存在当前浏览器。语音主流程在 AIS 暂不可用时仍可独立运行。</div></div>
             <div><button id="saveSettingsBtn">保存设置</button></div>
           </div>
@@ -743,6 +766,7 @@
       map: null,
       mapMarkers: [],
       mapOverlay: null,
+      ttsUtterance: null,
     };
     const fallbackShips = [
       { ship_id: "ship_jl008", ship_name: "锦龙008", mmsi: "413245008", ship_type: "集装箱船", draft_m: 10.8, tonnage_t: 16800, sog_kn: 7.2, lng: 121.8842, lat: 29.9138, position_label: "北仑港主航道" },
@@ -794,6 +818,10 @@
       $("asrStatus").textContent = "等待接入";
       $("shipText").textContent = "待匹配";
       $("intentText").textContent = "待识别";
+      $("intentEdit").value = "other_business";
+      $("shipEdit").value = "";
+      $("aisEdit").value = "";
+      $("dialogueEdit").textContent = "等待 ASR 后生成对话轮次复核模板";
       $("aisText").textContent = "未关联";
       $("aisDetail").className = "ais-detail";
       $("riskLabel").textContent = "否";
@@ -842,6 +870,15 @@
     function chooseEvent(events = []) {
       return [...events].sort((a, b) => priority(b) - priority(a))[0] || null;
     }
+    function intentLabel(intent) {
+      return ({
+        routine_report: "常规报告",
+        departure_request: "离泊或关键申请",
+        emergency_risk: "高危险情",
+        other_business: "其他业务",
+        invalid_or_noise: "噪声或听不清",
+      })[intent] || "其他业务";
+    }
     function showAis(context) {
       state.currentAis = context || null;
       if (!context || !Object.keys(context).length) {
@@ -869,8 +906,11 @@
       $("autoReason").textContent = auto ? "常规由动转静报告，可自动回复" : risk ? "高危事件不自动回复" : "等待值班员确认";
       $("manualLabel").textContent = risk ? "立即处理" : auto ? "无需" : "建议处理";
       $("manualReason").textContent = risk ? "值班员优先接管" : auto ? "可一键播报并留档" : "复杂或低置信度业务进入人工复核";
-      $("intentText").textContent = event?.event_type || (auto ? "常规报告" : "一般业务");
+      const intent = event?.business_type || (risk ? "emergency_risk" : auto ? "routine_report" : "other_business");
+      $("intentText").textContent = intentLabel(intent);
+      $("intentEdit").value = intent;
       $("replyText").textContent = event?.broadcast_text || event?.suggestion || "VTS收到，请保持守听，等待值班员进一步指令。";
+      $("dialogueEdit").textContent = event?.dialogue_review_text || $("dialogueEdit").textContent;
       $("evidenceList").innerHTML = (event?.evidence || ["未命中规则，建议人工结合上下文复核"]).map((item) => `<span>· ${item}</span>`).join("");
       setAgent(risk ? "高危优先" : auto ? "自动回复就绪" : "等待人工确认", risk ? "risk" : "green");
       setFlow(3, risk ? "risk" : "normal");
@@ -884,6 +924,8 @@
       const event = chooseEvent(task.events || []);
       showEntities(segments, event);
       applyDecision(event || { event_type: "一般业务", risk_level: "INFO", evidence: ["未命中自动规则，已进入人工复核队列"] });
+      $("shipEdit").value = $("shipText").textContent === "待匹配" ? "" : $("shipText").textContent;
+      if (event?.ais_context?.ship_id) $("aisEdit").value = event.ais_context.ship_id;
       setFlow(4);
     }
     async function pollTask(taskId, handler = applyTask) {
@@ -944,39 +986,44 @@
       if (window.MediaRecorder && MediaRecorder.isTypeSupported("audio/webm")) return "audio/webm";
       return "";
     }
-    async function sendMicBlob(blob) {
+    async function sendMicBlob(blob, cumulative = false) {
       if (!state.mic?.active || blob.size < 2048) return;
       const seq = state.mic.seq++;
       const payload = await request("/api/mic/chunk", {
         method: "POST",
-        body: form({ file: new File([blob], `mic_${seq}.webm`, { type: blob.type }), session_id: state.mic.sessionId, channel_id: channelId(), seq }),
+        body: form({ file: new File([blob], `mic_${seq}.webm`, { type: blob.type }), session_id: state.mic.sessionId, channel_id: channelId(), seq, cumulative }),
       });
       if (payload.status === "skipped") return;
       $("asrText").textContent = payload.cumulative_text || payload.text || $("asrText").textContent;
       $("asrStatus").textContent = "实时听写";
       setFlow(2);
       const event = chooseEvent(payload.events || []);
-      if (event) applyDecision(event);
+      if (event) {
+        applyDecision(event);
+        showEntities([], event);
+        $("shipEdit").value = $("shipText").textContent === "待匹配" ? "" : $("shipText").textContent;
+        if (event?.ais_context?.ship_id) $("aisEdit").value = event.ais_context.ship_id;
+      }
     }
     async function startMic() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       resetVoiceWorkflow("麦克风已接入，等待有效语音...");
       const result = await request("/api/mic/start", { method: "POST", body: form({ channel_id: channelId(), denoise_mode: "off" }) });
       const archiveParts = [];
-      const archiveRecorder = new MediaRecorder(stream);
+      const mimeType = bestMicMime();
+      const archiveRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       archiveRecorder.ondataavailable = (event) => { if (event.data.size) archiveParts.push(event.data); };
       archiveRecorder.onstop = () => { if (archiveParts.length) $("audioPlayer").src = URL.createObjectURL(new Blob(archiveParts, { type: archiveRecorder.mimeType })); };
       archiveRecorder.start(1000);
-      const chunkMs = Number($("micChunkMs").value) || 4200;
-      const liveRecorder = new MediaRecorder(stream, { mimeType: bestMicMime() });
-      state.mic = { active: true, stream, sessionId: result.session_id, seq: 0, archiveRecorder, chunkRecorder: liveRecorder, sendChain: Promise.resolve() };
-      liveRecorder.ondataavailable = (event) => {
-        if (!event.data || !event.data.size || !state.mic?.active) return;
+      const chunkMs = Number($("micChunkMs").value) || 3200;
+      state.mic = { active: true, stream, sessionId: result.session_id, seq: 0, archiveRecorder, archiveParts, sendChain: Promise.resolve(), liveTimer: null };
+      state.mic.liveTimer = setInterval(() => {
+        if (!state.mic?.active || !archiveParts.length) return;
+        const blob = new Blob([...archiveParts], { type: archiveRecorder.mimeType || "audio/webm" });
         state.mic.sendChain = state.mic.sendChain
-          .then(() => sendMicBlob(event.data))
+          .then(() => sendMicBlob(blob, true))
           .catch((error) => toast(`分片识别失败：${error.message}`, true));
-      };
-      liveRecorder.start(chunkMs);
+      }, chunkMs);
       beginAmplitude(stream);
       startTimer();
       $("listenTitle").textContent = "正在监听 VHF 语音...";
@@ -986,7 +1033,7 @@
     async function stopMic() {
       if (!state.mic) return;
       state.mic.active = false;
-      if (state.mic.chunkRecorder?.state !== "inactive") state.mic.chunkRecorder.stop();
+      clearInterval(state.mic.liveTimer);
       if (state.mic.archiveRecorder.state !== "inactive") state.mic.archiveRecorder.stop();
       state.mic.stream.getTracks().forEach((track) => track.stop());
       if (state.mic.audioCtx) state.mic.audioCtx.close();
@@ -1020,11 +1067,12 @@
       const voices = speechSynthesis.getVoices();
       utterance.voice = voices.find((voice) => voice.lang.toLowerCase().startsWith("zh")) || null;
       utterance.onstart = () => { setAgent("播报中"); toast("语音播报已开始"); };
-      utterance.onend = () => { setAgent("播报完成"); if (onEnd) onEnd(); };
+      utterance.onend = () => { state.ttsUtterance = null; setAgent("播报完成"); if (onEnd) onEnd(); };
       utterance.onerror = () => toast("浏览器语音播报失败，请检查系统音量或浏览器权限", true);
       speechSynthesis.cancel();
       speechSynthesis.resume();
-      speechSynthesis.speak(utterance);
+      state.ttsUtterance = utterance;
+      setTimeout(() => speechSynthesis.speak(utterance), 60);
     }
 
     async function setupRuntime() {
@@ -1104,6 +1152,7 @@
         state.ships = fallbackShips.map(normalizedShip);
         toast("AIS接口暂不可用，当前展示演示船位");
       }
+      $("aisEdit").innerHTML = `<option value="">未关联 AIS</option>${state.ships.map((ship) => `<option value="${ship.ship_id}">${ship.ship_name} · ${ship.mmsi || "无MMSI"}</option>`).join("")}`;
       renderShips();
     }
     function shipPosition(ship) {
@@ -1119,12 +1168,18 @@
     function renderShips() {
       const ships = state.ships.length ? state.ships : fallbackShips;
       $("shipList").innerHTML = ships.map((ship) => `
-        <div class="ship-card ${state.selectedShipIds.has(ship.ship_id) ? "selected" : ""}">
+        <div class="ship-card ${state.selectedShipIds.has(ship.ship_id) ? "selected" : ""}" data-ship-id="${ship.ship_id}">
           <b>${ship.ship_name}</b>
           <span>${ship.ship_type || "未知船型"} · MMSI ${ship.mmsi || "-"} · ${ship.position_label || "AIS更新中"}</span>
           <span>吃水 ${ship.draft_m ?? "-"}m · 吨位 ${ship.tonnage_t ?? "-"}t · 航速 ${ship.sog_kn ?? "-"}kn</span>
         </div>`).join("");
       document.querySelectorAll(".ship-dot").forEach((dot) => dot.remove());
+      document.querySelectorAll("#shipList .ship-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          const ship = ships.find((item) => item.ship_id === card.dataset.shipId);
+          if (ship) toggleShip(ship);
+        });
+      });
       const map = $("map");
       ships.forEach((ship) => {
         const [x, y] = shipPosition(ship);
@@ -1348,6 +1403,29 @@
         await loadEvents();
       } catch (error) { toast(`事件状态更新失败：${error.message}`, true); }
     }
+    async function saveFeedback() {
+      if (!state.activeEventId) return toast("请先完成一次语音识别，再保存人工复核", true);
+      try {
+        const payload = await request(`/api/events/${state.activeEventId}/feedback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            corrected_asr_text: $("asrText").textContent.trim(),
+            corrected_intent: $("intentEdit").value,
+            corrected_ship_name: $("shipEdit").value.trim(),
+            corrected_ais_ship_id: $("aisEdit").value,
+            corrected_broadcast_text: $("replyText").textContent.trim(),
+            corrected_dialogue_text: $("dialogueEdit").textContent.trim(),
+          }),
+        });
+        applyDecision(payload.event);
+        $("asrText").textContent = payload.event.resolved_text || $("asrText").textContent;
+        $("shipText").textContent = payload.event.corrected_ship_name || $("shipText").textContent;
+        showAis(payload.event.ais_context || null);
+        await loadEvents();
+        toast("人工复核已保存，可用于后续词典与模型优化");
+      } catch (error) { toast(`人工复核保存失败：${error.message}`, true); }
+    }
     async function loadEvents() {
       try {
         const [eventPayload, summary] = await Promise.all([request("/api/events"), request("/api/analytics/summary")]);
@@ -1377,6 +1455,7 @@
     $("normalDemoBtn").addEventListener("click", () => runScenario("static_report").catch((error) => toast(error.message, true)));
     $("speakBtn").addEventListener("click", () => speakText($("replyText").textContent, async () => { setFlow(5); await updateActiveStatus("broadcasted"); }));
     $("manualBtn").addEventListener("click", async () => { setAgent("人工接管", "risk"); await updateActiveStatus("confirmed"); });
+    $("saveFeedbackBtn").addEventListener("click", saveFeedback);
     $("copyBtn").addEventListener("click", () => navigator.clipboard.writeText($("asrText").textContent));
     $("archiveBtn").addEventListener("click", async () => { await updateActiveStatus("archived"); setAgent("已归档"); setFlow(5); toast("处置结果已存入事件中心"); });
     $("aisToggle").addEventListener("click", () => { if (state.currentAis) $("aisDetail").classList.toggle("show"); });

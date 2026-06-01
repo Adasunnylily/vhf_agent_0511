@@ -10,6 +10,7 @@ SERVER_PORT="${SERVER_PORT:-32375}"
 SERVER_USER="${SERVER_USER:-root}"
 SERVER_REPO_DIR="${SERVER_REPO_DIR:-/root/autodl-tmp/original/autodl-tmp/vhf_agent_0511}"
 SERVER_START_SCRIPT="${SERVER_START_SCRIPT:-scripts/start_autodl.sh}"
+SERVER_UI_START_SCRIPT="${SERVER_UI_START_SCRIPT:-scripts/start_ui_prototype.sh}"
 
 COMMIT_MSG="${1:-chore: sync latest local changes}"
 
@@ -17,7 +18,7 @@ echo "[1/5] Local repo: $REPO_DIR"
 cd "$REPO_DIR"
 
 echo "[2/5] Stage + commit (if needed)"
-git add app/api.py app/main.py app/services/demo_inspection.py app/services/event_repository.py app/services/knowledge_repository.py ui_prototype || true
+git add app/api.py app/main.py app/services/demo_inspection.py app/services/event_repository.py app/services/knowledge_repository.py ui_prototype docs/git_server_sync_workflow.md scripts/sync_to_server.sh tests/test_demo_inspection.py || true
 if ! git diff --cached --quiet; then
   git commit -m "$COMMIT_MSG"
 else
@@ -35,9 +36,16 @@ git fetch --all
 git checkout '$BRANCH'
 git pull --ff-only '$REMOTE' '$BRANCH'
 pkill -f 'uvicorn app.main:app' || true
-nohup bash '$SERVER_START_SCRIPT' > /tmp/vhf_agent_start.log 2>&1 &
-sleep 2
-echo 'Server restart command sent.'
+pkill -f 'ui_prototype/server.py' || true
+mkdir -p logs
+nohup bash '$SERVER_START_SCRIPT' > logs/backend.log 2>&1 &
+nohup bash '$SERVER_UI_START_SCRIPT' > logs/ui.log 2>&1 &
+sleep 4
+curl -fsS http://127.0.0.1:8000/healthz
+echo
+curl -fsS http://127.0.0.1:8766/api/config/public
+echo
+echo 'Server backend and prototype gateway restarted.'
 "
 
 echo "[5/5] Done. Next: run server smoke checks."

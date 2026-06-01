@@ -129,6 +129,9 @@ def _persist_decisions(
         payload["entities"] = segment.entities
         payload["ais_context"] = _best_ais_context_from_entities(segment.entities) or {}
         payload["business_type"] = _decision_business_type(payload)
+        payload["dialogue_review_text"] = _build_dialogue_review_template(
+            str(payload["resolved_text"])
+        )
         decisions.append(payload)
     if not segments:
         for event in events:
@@ -139,6 +142,15 @@ def _persist_decisions(
             decisions.append(payload)
     event_store.extend(decisions)
     return decisions
+
+
+def _build_dialogue_review_template(text: str) -> str:
+    parts = [
+        item.strip(" ，。！？；;")
+        for item in re.split(r"[。！？；;\n]+", text or "")
+        if item.strip(" ，。！？；;")
+    ]
+    return "\n".join(f"待确认说话人：{item}。" for item in parts)
 
 
 @router.get("/demo/scenarios")
@@ -628,6 +640,12 @@ async def upload_audio(
                 [*[event.to_dict() for event in base_run.events], *[event.to_dict() for event in denoise_run.events]],
                 [*base_run.segments, *denoise_run.segments],
             )
+            persisted_events = _persist_decisions(
+                source_type="audio_upload",
+                audio_path=str(saved_path),
+                segments=[*base_run.segments, *denoise_run.segments],
+                events=combined_events,
+            )
             task_manager.update(
                 task.id,
                 status="completed",
@@ -641,7 +659,7 @@ async def upload_audio(
                         "items": [segment.to_dict() for segment in denoise_run.segments],
                     },
                 ],
-                events=combined_events,
+                events=persisted_events,
                 meta={
                     "denoise_mode": "compare",
                     "original_preprocess": base_run.preprocess,
@@ -649,12 +667,6 @@ async def upload_audio(
                     "original_texts": [segment.text for segment in base_run.segments],
                     "denoised_texts": [segment.text for segment in denoise_run.segments],
                 },
-            )
-            _persist_decisions(
-                source_type="audio_upload",
-                audio_path=str(saved_path),
-                segments=[*base_run.segments, *denoise_run.segments],
-                events=combined_events,
             )
             return
 
@@ -666,21 +678,21 @@ async def upload_audio(
             enable_denoise=(mode == "on"),
         )
         event_payloads = _enrich_event_payloads([event.to_dict() for event in run.events], run.segments)
-        task_manager.update(
-            task.id,
-            status="completed",
-            segments=[segment.to_dict() for segment in run.segments],
-            events=event_payloads,
-            meta={
-                "denoise_mode": mode,
-                "preprocess": run.preprocess,
-            },
-        )
-        _persist_decisions(
+        persisted_events = _persist_decisions(
             source_type="audio_upload",
             audio_path=str(saved_path),
             segments=run.segments,
             events=event_payloads,
+        )
+        task_manager.update(
+            task.id,
+            status="completed",
+            segments=[segment.to_dict() for segment in run.segments],
+            events=persisted_events,
+            meta={
+                "denoise_mode": mode,
+                "preprocess": run.preprocess,
+            },
         )
 
     task_manager.run_async(task.id, runner)
@@ -705,18 +717,18 @@ async def upload_stream_simulation(
             enable_denoise=denoise_mode.strip().lower() == "on",
         )
         event_payloads = _enrich_event_payloads([event.to_dict() for event in events], segments)
-        task_manager.update(
-            task.id,
-            status="completed",
-            segments=[segment.to_dict() for segment in segments],
-            events=event_payloads,
-            meta={"denoise_mode": denoise_mode.strip().lower()},
-        )
-        _persist_decisions(
+        persisted_events = _persist_decisions(
             source_type="stream_sim",
             audio_path=str(saved_path),
             segments=segments,
             events=event_payloads,
+        )
+        task_manager.update(
+            task.id,
+            status="completed",
+            segments=[segment.to_dict() for segment in segments],
+            events=persisted_events,
+            meta={"denoise_mode": denoise_mode.strip().lower()},
         )
 
     task_manager.run_async(task.id, runner)
@@ -760,21 +772,21 @@ async def upload_true_streaming(
             if chunk_results and hasattr(chunk_results[0], "to_dict") and hasattr(chunk_results[0], "id")
             else [event.to_dict() for event in events]
         )
-        task_manager.update(
-            task.id,
-            status="completed",
-            segments=[_as_segment_payload(item, index) for index, item in enumerate(chunk_results)],
-            events=event_payloads,
-            meta={"denoise_mode": denoise_mode.strip().lower(), "mode": mode},
-        )
         typed_segments = [
             item for item in chunk_results if isinstance(item, AudioSegment)
         ]
-        _persist_decisions(
+        persisted_events = _persist_decisions(
             source_type="stream_replay",
             audio_path=str(saved_path),
             segments=typed_segments,
             events=event_payloads,
+        )
+        task_manager.update(
+            task.id,
+            status="completed",
+            segments=[_as_segment_payload(item, index) for index, item in enumerate(chunk_results)],
+            events=persisted_events,
+            meta={"denoise_mode": denoise_mode.strip().lower(), "mode": mode},
         )
 
     task_manager.run_async(task.id, runner)
@@ -864,6 +876,7 @@ async def push_mic_chunk(
     session_id: str = Form(...),
     channel_id: str = Form("vhf_demo_01"),
     seq: int = Form(0),
+    cumulative: bool = Form(False),
 ) -> Dict[str, object]:
     with mic_lock:
         session = mic_sessions.get(session_id)
@@ -954,7 +967,9 @@ async def push_mic_chunk(
         session = mic_sessions.get(session_id)
         if session is None:
             raise HTTPException(status_code=404, detail="mic session not found")
-        if text:
+        if cumulative:
+            session["texts"] = [text]
+        elif text:
             session["texts"].append(text)
         session["chunk_count"] = int(session.get("chunk_count", 0)) + 1
         cumulative_text = "\n".join(session["texts"]).strip()
@@ -992,7 +1007,7 @@ async def push_mic_chunk(
 
     events = mic_risk_engine.evaluate(segment)
     event_payloads = _enrich_event_payloads([event.to_dict() for event in events], [segment])
-    _persist_decisions(
+    decision_payloads = _persist_decisions(
         source_type="mic_stream",
         audio_path=str(processed_path),
         segments=[segment],
@@ -1011,9 +1026,9 @@ async def push_mic_chunk(
         )
     with mic_lock:
         session = mic_sessions.get(session_id)
-        if session is not None and events:
+        if session is not None and decision_payloads:
             session_events = session.get("events", [])
-            session_events.extend(event_payloads)
+            session_events.extend(decision_payloads)
             session["events"] = session_events
 
     return {
@@ -1021,7 +1036,7 @@ async def push_mic_chunk(
         "seq": seq,
         "text": text,
         "cumulative_text": cumulative_text,
-        "events": event_payloads,
+        "events": decision_payloads,
     }
 
 
@@ -1129,6 +1144,67 @@ async def get_event(event_id: str) -> Dict[str, object]:
     if event:
         return event
     raise HTTPException(status_code=404, detail="event not found")
+
+
+@router.get("/feedback")
+async def list_feedback(limit: int = 200) -> Dict[str, List[Dict[str, object]]]:
+    return {"items": event_store.list_feedback(limit=max(1, min(limit, 2000)))}
+
+
+@router.post("/events/{event_id}/feedback")
+async def save_event_feedback(
+    event_id: str,
+    payload: Dict[str, Any] = Body(...),
+) -> Dict[str, object]:
+    event = event_store.get(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="event not found")
+
+    corrected_asr_text = str(payload.get("corrected_asr_text") or event.get("resolved_text") or event.get("asr_text") or "").strip()
+    corrected_intent = str(payload.get("corrected_intent") or event.get("business_type") or "other_business").strip()
+    corrected_ship_name = str(payload.get("corrected_ship_name") or "").strip()
+    corrected_ais_ship_id = str(payload.get("corrected_ais_ship_id") or "").strip()
+    corrected_broadcast_text = str(payload.get("corrected_broadcast_text") or event.get("broadcast_text") or "").strip()
+    corrected_dialogue_text = str(payload.get("corrected_dialogue_text") or "").strip()
+
+    ais_context: Dict[str, object] = {}
+    if corrected_ais_ship_id:
+        ais_context = next(
+            (
+                ship
+                for ship in inspection_simulator.list_mock_ships()
+                if str(ship.get("ship_id") or "") == corrected_ais_ship_id
+            ),
+            {},
+        )
+    if not ais_context and isinstance(event.get("ais_context"), dict):
+        ais_context = dict(event["ais_context"])
+
+    feedback = event_store.save_feedback(
+        event_id,
+        {
+            "source_type": event.get("source_type", "unknown"),
+            "original_asr_text": event.get("asr_text", ""),
+            "previous_resolved_text": event.get("resolved_text", ""),
+            "corrected_asr_text": corrected_asr_text,
+            "corrected_intent": corrected_intent,
+            "corrected_ship_name": corrected_ship_name,
+            "corrected_ais_ship_id": corrected_ais_ship_id,
+            "corrected_broadcast_text": corrected_broadcast_text,
+            "corrected_dialogue_text": corrected_dialogue_text,
+            "reviewer_notes": str(payload.get("reviewer_notes") or "").strip(),
+        },
+    )
+
+    event["resolved_text"] = corrected_asr_text
+    event["business_type"] = corrected_intent
+    event["corrected_ship_name"] = corrected_ship_name
+    event["ais_context"] = ais_context
+    event["broadcast_text"] = corrected_broadcast_text
+    event["dialogue_review_text"] = corrected_dialogue_text or _build_dialogue_review_template(corrected_asr_text)
+    event["review_status"] = "confirmed"
+    event_store.append(event)
+    return {"event": event, "feedback": feedback}
 
 
 @router.patch("/events/{event_id}/review-status")

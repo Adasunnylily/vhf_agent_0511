@@ -46,6 +46,19 @@ class SQLiteEventRepository:
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at DESC)"
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS review_feedback (
+                    feedback_id TEXT PRIMARY KEY,
+                    event_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_feedback_event_id ON review_feedback(event_id)"
+            )
 
     def append(self, event: Dict[str, object]) -> None:
         self.extend([event])
@@ -106,6 +119,37 @@ class SQLiteEventRepository:
         event["review_status"] = review_status
         self.append(event)
         return event
+
+    def save_feedback(self, event_id: str, payload: Dict[str, object]) -> Dict[str, object]:
+        feedback = dict(payload)
+        feedback.setdefault("feedback_id", f"feedback_{uuid.uuid4().hex[:12]}")
+        feedback["event_id"] = event_id
+        feedback.setdefault("created_at", utc_now_iso())
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO review_feedback (
+                    feedback_id, event_id, created_at, payload_json
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (
+                    feedback["feedback_id"],
+                    feedback["event_id"],
+                    feedback["created_at"],
+                    json.dumps(feedback, ensure_ascii=False),
+                ),
+            )
+        return feedback
+
+    def list_feedback(self, limit: Optional[int] = None) -> List[Dict[str, object]]:
+        query = "SELECT payload_json FROM review_feedback ORDER BY created_at DESC"
+        params: tuple[object, ...] = ()
+        if limit is not None:
+            query += " LIMIT ?"
+            params = (int(limit),)
+        with self._connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [json.loads(row["payload_json"]) for row in rows]
 
     def __iter__(self) -> Iterator[Dict[str, object]]:
         return iter(self.list())
