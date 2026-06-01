@@ -443,18 +443,18 @@ async def run_demo_scenario(
             scenario_id=scenario_id,
             channel_id=channel_id,
         )
-        task_manager.update(
-            task.id,
-            status="completed",
-            segments=[segment.to_dict() for segment in segments],
-            events=[event.to_dict() for event in events],
-            meta=meta,
-        )
-        _persist_decisions(
+        persisted_events = _persist_decisions(
             source_type="demo_scenario",
             audio_path=f"scenario:{scenario_id}",
             segments=segments,
             events=[event.to_dict() for event in events],
+        )
+        task_manager.update(
+            task.id,
+            status="completed",
+            segments=[segment.to_dict() for segment in segments],
+            events=persisted_events,
+            meta=meta,
         )
 
     task_manager.run_async(task.id, runner)
