@@ -36,6 +36,12 @@ class PrototypeGateway(SimpleHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         self._proxy()
 
+    def end_headers(self) -> None:
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        super().end_headers()
+
     def _proxy(self) -> None:
         if not self.path.startswith("/api/"):
             self.send_error(404)
@@ -87,4 +93,3 @@ if __name__ == "__main__":
     print(f"Serving prototype gateway on http://{HOST}:{PORT}")
     print(f"Proxying /api/* to {BACKEND}")
     ThreadingHTTPServer((HOST, PORT), PrototypeGateway).serve_forever()
-
