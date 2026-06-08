@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Body, File, Form, HTTPException, Response, UploadFile, WebSocket, WebSocketDisconnect
 
 from app.domain.models import AudioSegment
 from app.config import settings
@@ -1151,6 +1151,36 @@ async def list_feedback(limit: int = 200) -> Dict[str, List[Dict[str, object]]]:
     return {"items": event_store.list_feedback(limit=max(1, min(limit, 2000)))}
 
 
+@router.get("/feedback.csv")
+async def export_feedback_csv(limit: int = 2000) -> Response:
+    rows = event_store.list_feedback(limit=max(1, min(limit, 10000)))
+    fieldnames = [
+        "feedback_id",
+        "event_id",
+        "created_at",
+        "source_type",
+        "original_asr_text",
+        "previous_resolved_text",
+        "corrected_asr_text",
+        "corrected_intent",
+        "corrected_ship_name",
+        "corrected_ais_ship_id",
+        "corrected_broadcast_text",
+        "corrected_dialogue_text",
+        "reviewer_notes",
+    ]
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({key: row.get(key, "") for key in fieldnames})
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="vhf_review_feedback.csv"'},
+    )
+
+
 @router.post("/events/{event_id}/feedback")
 async def save_event_feedback(
     event_id: str,
@@ -1205,6 +1235,13 @@ async def save_event_feedback(
     event["review_status"] = "confirmed"
     event_store.append(event)
     return {"event": event, "feedback": feedback}
+
+
+@router.delete("/events/{event_id}")
+async def delete_event(event_id: str) -> Dict[str, object]:
+    if not event_store.delete(event_id):
+        raise HTTPException(status_code=404, detail="event not found")
+    return {"ok": True, "event_id": event_id}
 
 
 @router.patch("/events/{event_id}/review-status")

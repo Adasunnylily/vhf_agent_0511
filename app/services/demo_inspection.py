@@ -324,7 +324,7 @@ class InspectionTaskSimulator:
                 continue
             if geometry is not None and not self._matches_geometry(ship, geometry):
                 continue
-            if geometry is None and not self._matches_area(area_name, ship.position_label):
+            if geometry is None and not ship_id_set and not self._matches_area(area_name, ship.position_label):
                 continue
             result.append(ship)
         return result

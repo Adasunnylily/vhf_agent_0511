@@ -476,6 +476,13 @@
     .ship-card.selected { border-color: rgba(0,184,132,0.32); background: #ecfdf5; }
     .ship-card b, .event-row b { display: block; margin-bottom: 6px; }
     .ship-card span, .event-row span { display: block; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .row-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .mini-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .mini-actions button, button.tiny { width: auto; min-height: 0; padding: 7px 10px; border-radius: 12px; font-size: 12px; }
+    button.danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; }
+    .event-detail { display: grid; gap: 10px; max-height: 420px; overflow: auto; white-space: pre-wrap; }
+    .detail-block { border: 1px solid var(--line); background: rgba(255,255,255,.72); border-radius: 16px; padding: 12px; }
+    .detail-block b { display: block; margin-bottom: 6px; }
 
     .monitor-page {
       grid-template-columns: 1fr 1fr;
@@ -720,6 +727,16 @@
           <div class="panel-head"><h2>事件中心</h2><span class="pill">Archive</span></div>
           <div class="panel-body"><div class="list" id="eventList"></div></div>
         </section>
+        <section class="panel wide">
+          <div class="panel-head">
+            <h2>事件详情与人工复核记录</h2>
+            <div class="mini-actions"><button class="secondary" id="exportFeedbackBtn">导出复核CSV</button></div>
+          </div>
+          <div class="panel-body">
+            <div class="event-detail" id="eventDetail">点击事件列表中的记录查看详情。</div>
+            <div class="list" id="feedbackList" style="margin-top:12px"></div>
+          </div>
+        </section>
       </section>
 
       <section class="page monitor-page" id="knowledgePage">
@@ -766,6 +783,8 @@
       map: null,
       mapMarkers: [],
       mapOverlay: null,
+      mapOverlays: [],
+      feedback: [],
       ttsUtterance: null,
     };
     const fallbackShips = [
@@ -895,6 +914,18 @@
       $("shipText").textContent = ship?.canonical || event?.ais_context?.ship_name || "待匹配";
       showAis(event?.ais_context || ship?.metadata || null);
     }
+    function buildDialogueReview(segments, event) {
+      const source = segments.length
+        ? segments.map((segment) => segment.resolved_text || segment.text || "").join("。")
+        : String(event?.resolved_text || event?.asr_text || "");
+      if (event?.dialogue_review_text) return event.dialogue_review_text;
+      return source
+        .split(/[。！？；;\n]+/)
+        .map((item) => item.trim().replace(/^[，,、\s]+|[，,、\s]+$/g, ""))
+        .filter(Boolean)
+        .map((item) => `待确认说话人：${item}。`)
+        .join("\n") || "等待 ASR 后生成对话轮次复核模板";
+    }
     function applyDecision(event) {
       state.activeEventId = event?.event_id || event?.id || "";
       const level = event?.risk_level || "INFO";
@@ -910,7 +941,7 @@
       $("intentText").textContent = intentLabel(intent);
       $("intentEdit").value = intent;
       $("replyText").textContent = event?.broadcast_text || event?.suggestion || "VTS收到，请保持守听，等待值班员进一步指令。";
-      $("dialogueEdit").textContent = event?.dialogue_review_text || $("dialogueEdit").textContent;
+      $("dialogueEdit").textContent = buildDialogueReview([], event);
       $("evidenceList").innerHTML = (event?.evidence || ["未命中规则，建议人工结合上下文复核"]).map((item) => `<span>· ${item}</span>`).join("");
       setAgent(risk ? "高危优先" : auto ? "自动回复就绪" : "等待人工确认", risk ? "risk" : "green");
       setFlow(3, risk ? "risk" : "normal");
@@ -924,6 +955,7 @@
       const event = chooseEvent(task.events || []);
       showEntities(segments, event);
       applyDecision(event || { event_type: "一般业务", risk_level: "INFO", evidence: ["未命中自动规则，已进入人工复核队列"] });
+      $("dialogueEdit").textContent = buildDialogueReview(segments, event);
       $("shipEdit").value = $("shipText").textContent === "待匹配" ? "" : $("shipText").textContent;
       if (event?.ais_context?.ship_id) $("aisEdit").value = event.ais_context.ship_id;
       setFlow(4);
@@ -1138,7 +1170,9 @@
     }
     function clearMapOverlay() {
       if (state.map && state.mapOverlay) state.map.remove(state.mapOverlay);
+      if (state.map && state.mapOverlays.length) state.map.remove(state.mapOverlays);
       state.mapOverlay = null;
+      state.mapOverlays = [];
     }
 
     function normalizedShip(row) {
@@ -1169,7 +1203,7 @@
       const ships = state.ships.length ? state.ships : fallbackShips;
       $("shipList").innerHTML = ships.map((ship) => `
         <div class="ship-card ${state.selectedShipIds.has(ship.ship_id) ? "selected" : ""}" data-ship-id="${ship.ship_id}">
-          <b>${ship.ship_name}</b>
+          <div class="row-head"><b>${ship.ship_name}</b><button class="tiny danger delete-ship" data-ship-id="${ship.ship_id}">删除</button></div>
           <span>${ship.ship_type || "未知船型"} · MMSI ${ship.mmsi || "-"} · ${ship.position_label || "AIS更新中"}</span>
           <span>吃水 ${ship.draft_m ?? "-"}m · 吨位 ${ship.tonnage_t ?? "-"}t · 航速 ${ship.sog_kn ?? "-"}kn</span>
         </div>`).join("");
@@ -1178,6 +1212,12 @@
         card.addEventListener("click", () => {
           const ship = ships.find((item) => item.ship_id === card.dataset.shipId);
           if (ship) toggleShip(ship);
+        });
+      });
+      document.querySelectorAll(".delete-ship").forEach((button) => {
+        button.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          await deleteShip(button.dataset.shipId);
         });
       });
       const map = $("map");
@@ -1199,6 +1239,15 @@
     function toggleShip(ship) {
       state.selectedShipIds.has(ship.ship_id) ? state.selectedShipIds.delete(ship.ship_id) : state.selectedShipIds.add(ship.ship_id);
       renderShips();
+    }
+    async function deleteShip(shipId) {
+      if (!shipId) return;
+      try {
+        await request("/api/inspection/ships/delete", { method: "POST", body: form({ ship_id: shipId }) });
+        state.selectedShipIds.delete(shipId);
+        await loadShips();
+        toast("船舶已删除");
+      } catch (error) { toast(`删除船舶失败：${error.message}`, true); }
     }
     function areaGeometryText() {
       return state.areaGeometry.length ? JSON.stringify({ type: state.areaMode, points: state.areaGeometry, line_buffer_m: Number($("lineBuffer").value) || 500 }) : "";
@@ -1275,71 +1324,70 @@
     }
     async function filterShips() {
       try {
-        const active = state.activeAreas.length ? state.activeAreas : null;
-        if (!active) {
-          const payload = await request("/api/inspection/filter", { method: "POST", body: inspectionForm() });
-          renderMatched(payload.items || []);
-          toast(`已命中 ${payload.matched_count || 0} 艘船舶`);
-          return;
-        }
-        const merged = new Map();
-        for (const area of active) {
-          const payload = await request("/api/inspection/filter", {
-            method: "POST",
-            body: form({
-              area_name: area.area_name,
-              min_draft_m: $("minDraft").value || 0,
-              min_tonnage_t: $("minTon").value || 0,
-              min_speed_kn: $("minSpeed").value || 0,
-              destination_keyword: $("destinationKeyword").value,
-              ship_types: $("shipType").value === "全部船型" ? "" : $("shipType").value,
-              area_geometry: JSON.stringify({ type: area.geometry_type, points: area.geometry || [], line_buffer_m: area.line_buffer_m || Number($("lineBuffer").value) || 500 }),
-            }),
-          });
-          (payload.items || []).forEach((ship) => merged.set(ship.ship_id, ship));
-        }
-        const items = [...merged.values()];
+        const items = await collectMatchedShips();
         renderMatched(items);
-        toast(`已命中 ${items.length} 艘船舶（多区域汇总）`);
+        toast(`已命中 ${items.length} 艘船舶${state.activeAreas.length ? "（多区域汇总）" : ""}`);
       } catch (error) { toast(`筛选失败：${error.message}`, true); }
+    }
+    async function collectMatchedShips() {
+      const active = state.activeAreas.length ? state.activeAreas : null;
+      if (!active) {
+        const payload = await request("/api/inspection/filter", { method: "POST", body: inspectionForm() });
+        return payload.items || [];
+      }
+      const merged = new Map();
+      for (const area of active) {
+        const payload = await request("/api/inspection/filter", {
+          method: "POST",
+          body: form({
+            area_name: area.area_name,
+            min_draft_m: $("minDraft").value || 0,
+            min_tonnage_t: $("minTon").value || 0,
+            min_speed_kn: $("minSpeed").value || 0,
+            destination_keyword: $("destinationKeyword").value,
+            ship_types: $("shipType").value === "全部船型" ? "" : $("shipType").value,
+            area_geometry: JSON.stringify({ type: area.geometry_type, points: area.geometry || [], line_buffer_m: area.line_buffer_m || Number($("lineBuffer").value) || 500 }),
+          }),
+        });
+        (payload.items || []).forEach((ship) => merged.set(ship.ship_id, ship));
+      }
+      return [...merged.values()];
     }
     async function broadcastInspection() {
       try {
         setAgent("正在生成点验通知");
         const active = state.activeAreas.length ? state.activeAreas : null;
-        const tasks = [];
+        let taskId = "";
         if (!active) {
           const payload = await request("/api/inspection/run", { method: "POST", body: inspectionForm(true) });
-          tasks.push(payload.task_id);
+          taskId = payload.task_id;
         } else {
-          for (const area of active) {
-            const payload = await request("/api/inspection/run", {
-              method: "POST",
-              body: form({
-                area_name: area.area_name,
-                min_draft_m: $("minDraft").value || 0,
-                min_tonnage_t: $("minTon").value || 0,
-                min_speed_kn: $("minSpeed").value || 0,
-                destination_keyword: $("destinationKeyword").value,
-                ship_types: $("shipType").value === "全部船型" ? "" : $("shipType").value,
-                area_geometry: JSON.stringify({ type: area.geometry_type, points: area.geometry || [], line_buffer_m: area.line_buffer_m || Number($("lineBuffer").value) || 500 }),
-                notice_template: $("noticeText").value,
-                channel_id: channelId(),
-                ship_ids: [...state.selectedShipIds].join(","),
-              }),
-            });
-            tasks.push(payload.task_id);
-          }
+          const matched = await collectMatchedShips();
+          renderMatched(matched);
+          if (!matched.length) return toast("多区域未命中船舶，请调整范围或筛选条件", true);
+          const payload = await request("/api/inspection/run", {
+            method: "POST",
+            body: form({
+              area_name: active.map((area) => area.area_name).join("、"),
+              min_draft_m: $("minDraft").value || 0,
+              min_tonnage_t: $("minTon").value || 0,
+              min_speed_kn: $("minSpeed").value || 0,
+              destination_keyword: $("destinationKeyword").value,
+              ship_types: $("shipType").value === "全部船型" ? "" : $("shipType").value,
+              area_geometry: "",
+              notice_template: $("noticeText").value,
+              channel_id: channelId(),
+              ship_ids: matched.map((ship) => ship.ship_id).join(","),
+            }),
+          });
+          taskId = payload.task_id;
         }
-        let noticeTotal = 0;
-        for (const taskId of tasks) {
-          const task = await pollTask(taskId, () => {});
-          const notices = task.meta?.notices || [];
-          noticeTotal += notices.length;
-          if (notices[0]?.notice_text) {
-            speakText(notices[0].notice_text);
-          }
+        const task = await pollTask(taskId, () => {});
+        const notices = task.meta?.notices || [];
+        if (notices[0]?.notice_text) {
+          speakText(notices[0].notice_text);
         }
+        const noticeTotal = notices.length;
         $("noticeCount").textContent = String(Number($("noticeCount").textContent) + noticeTotal);
         setAgent("点验完成");
         await loadEvents();
@@ -1353,10 +1401,23 @@
       return [Number((121.84 + x * .09).toFixed(6)), Number((29.89 + (1 - y) * .07).toFixed(6))];
     }
     function renderArea() {
+      const shapes = [];
+      for (const area of state.activeAreas) {
+        const activePoints = (area.geometry || []).map(([lng, lat]) => `${((lng - 121.84) / .09) * 1000},${(1 - (lat - 29.89) / .07) * 600}`).join(" ");
+        if (activePoints) shapes.push(`<polyline points="${activePoints}" fill="${area.geometry_type === "line" ? "none" : "rgba(0,184,132,.12)"}" stroke="#00b884" stroke-width="4" stroke-dasharray="8 8" />`);
+      }
       const points = state.areaGeometry.map(([lng, lat]) => `${((lng - 121.84) / .09) * 1000},${(1 - (lat - 29.89) / .07) * 600}`).join(" ");
-      $("drawLayer").innerHTML = points ? `<polyline points="${points}" fill="${state.areaMode === "polygon" || (state.areaMode === "rect" && state.areaGeometry.length >= 4) ? "rgba(22,119,255,.14)" : "none"}" stroke="#1677ff" stroke-width="5" stroke-dasharray="9 7" />` : "";
+      if (points) shapes.push(`<polyline points="${points}" fill="${state.areaMode === "polygon" || (state.areaMode === "rect" && state.areaGeometry.length >= 4) ? "rgba(22,119,255,.14)" : "none"}" stroke="#1677ff" stroke-width="5" stroke-dasharray="9 7" />`);
+      $("drawLayer").innerHTML = shapes.join("");
       clearMapOverlay();
-      if (!state.map || !window.AMap || state.areaGeometry.length < 2) return;
+      if (!state.map || !window.AMap) return;
+      state.mapOverlays = state.activeAreas
+        .filter((area) => (area.geometry || []).length >= 2)
+        .map((area) => area.geometry_type === "line"
+          ? new AMap.Polyline({ path: area.geometry, strokeColor: "#00b884", strokeWeight: 4, strokeStyle: "dashed" })
+          : new AMap.Polygon({ path: area.geometry, strokeColor: "#00b884", strokeWeight: 3, strokeStyle: "dashed", fillColor: "#00b884", fillOpacity: .10 }));
+      if (state.mapOverlays.length) state.map.add(state.mapOverlays);
+      if (state.areaGeometry.length < 2) return;
       if (state.areaMode === "line") {
         state.mapOverlay = new AMap.Polyline({ path: state.areaGeometry, strokeColor: "#1677ff", strokeWeight: 5, strokeStyle: "dashed" });
       } else {
@@ -1426,10 +1487,51 @@
         toast("人工复核已保存，可用于后续词典与模型优化");
       } catch (error) { toast(`人工复核保存失败：${error.message}`, true); }
     }
+    function renderFeedback() {
+      $("feedbackList").innerHTML = state.feedback.length ? state.feedback.slice(0, 50).map((item) => `
+        <div class="event-row">
+          <b>${item.corrected_intent || "人工复核"}</b>
+          <span>${item.created_at || ""} · ${item.corrected_ship_name || "未填船名"}</span>
+          <span>${item.corrected_asr_text || ""}</span>
+        </div>
+      `).join("") : '<div class="event-row"><b>暂无人工复核记录</b><span>在语音交互页点击“保存人工复核”后显示</span></div>';
+    }
+    function showEventDetail(event) {
+      state.activeEventId = event.event_id || event.id || "";
+      $("eventDetail").innerHTML = `
+        <div class="detail-block"><b>${event.event_type || event.business_type || "一般业务"}</b>${event.created_at || ""} · ${event.risk_level || "INFO"} · ${event.review_status || "pending"}</div>
+        <div class="detail-block"><b>ASR原文</b>${event.asr_text || ""}</div>
+        <div class="detail-block"><b>纠错/复核文本</b>${event.resolved_text || ""}</div>
+        <div class="detail-block"><b>决策依据</b>${(event.evidence || []).join("\n") || event.summary || ""}</div>
+        <div class="detail-block"><b>播报话术</b>${event.broadcast_text || event.suggestion || ""}</div>
+        <div class="detail-block"><b>AIS关联</b>${event.ais_context?.ship_name || "未关联"} ${event.ais_context?.mmsi || ""}</div>
+        <div class="mini-actions">
+          <button data-status="confirmed">确认</button>
+          <button data-status="broadcasted">已播报</button>
+          <button data-status="archived">归档</button>
+          <button class="danger" id="deleteEventBtn">删除事件</button>
+        </div>
+      `;
+      document.querySelectorAll("#eventDetail [data-status]").forEach((button) => {
+        button.addEventListener("click", () => updateActiveStatus(button.dataset.status));
+      });
+      $("deleteEventBtn").addEventListener("click", deleteActiveEvent);
+    }
+    async function deleteActiveEvent() {
+      if (!state.activeEventId) return toast("请先选择事件", true);
+      try {
+        await request(`/api/events/${state.activeEventId}`, { method: "DELETE" });
+        state.activeEventId = "";
+        $("eventDetail").textContent = "事件已删除。";
+        await loadEvents();
+        toast("事件已删除");
+      } catch (error) { toast(`删除事件失败：${error.message}`, true); }
+    }
     async function loadEvents() {
       try {
-        const [eventPayload, summary] = await Promise.all([request("/api/events"), request("/api/analytics/summary")]);
+        const [eventPayload, summary, feedbackPayload] = await Promise.all([request("/api/events"), request("/api/analytics/summary"), request("/api/feedback")]);
         state.events = eventPayload.items || [];
+        state.feedback = feedbackPayload.items || [];
         $("eventCount").textContent = summary.event_count || 0;
         $("autoRate").textContent = `${Math.round((summary.auto_rate || 0) * 100)}%`;
         $("manualRate").textContent = `${Math.round((summary.manual_rate || 0) * 100)}%`;
@@ -1438,8 +1540,15 @@
         toast("事件中心暂不可用", true);
       }
       $("eventList").innerHTML = state.events.length ? state.events.slice(0, 80).map((event) => `
-        <div class="event-row"><b>${event.event_type || event.business_type || "一般业务"}</b><span>${event.created_at || ""} · ${event.risk_level || "INFO"} · ${event.review_status || "pending"}</span><span>${event.resolved_text || event.asr_text || event.summary || ""}</span></div>
+        <div class="event-row" data-event-id="${event.event_id || event.id || ""}"><b>${event.event_type || event.business_type || "一般业务"}</b><span>${event.created_at || ""} · ${event.risk_level || "INFO"} · ${event.review_status || "pending"}</span><span>${event.resolved_text || event.asr_text || event.summary || ""}</span></div>
       `).join("") : '<div class="event-row"><b>暂无归档事件</b><span>完成语音处置或点验通知后显示</span></div>';
+      document.querySelectorAll("#eventList .event-row[data-event-id]").forEach((row) => {
+        row.addEventListener("click", () => {
+          const event = state.events.find((item) => (item.event_id || item.id || "") === row.dataset.eventId);
+          if (event) showEventDetail(event);
+        });
+      });
+      renderFeedback();
     }
     async function searchKnowledge() {
       try {
@@ -1474,6 +1583,9 @@
     $("sceneType").addEventListener("change", () => { $("noticeText").value = `各船注意，你船已进入${$("areaName").value}，请遵守${$("sceneType").value}相关要求，保持安全航速并守听 VHF。`; });
     $("refreshShips").addEventListener("click", loadShips);
     $("refreshEvents").addEventListener("click", loadEvents);
+    $("exportFeedbackBtn").addEventListener("click", () => {
+      window.open(`${API_BASE}/api/feedback.csv`, "_blank");
+    });
     $("knowledgeSearchBtn").addEventListener("click", searchKnowledge);
     $("refreshAreasBtn").addEventListener("click", loadAreas);
     $("saveSettingsBtn").addEventListener("click", () => {

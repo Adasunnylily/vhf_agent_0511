@@ -55,6 +55,18 @@ class DemoInspectionTests(unittest.TestCase):
 
         self.assertIn("锦华662", [ship.ship_name for ship in matched])
 
+    def test_specific_ship_ids_bypass_area_name_filter(self) -> None:
+        simulator = InspectionTaskSimulator(ws_manager=DummyWSManager(), playback_speed=1000.0)
+
+        matched = simulator.filter_ships(
+            area_name="不存在的区域",
+            min_draft_m=0,
+            min_tonnage_t=0,
+            specific_ship_ids=["ship_jh662"],
+        )
+
+        self.assertEqual(["锦华662"], [ship.ship_name for ship in matched])
+
 
 if __name__ == "__main__":
     unittest.main()
