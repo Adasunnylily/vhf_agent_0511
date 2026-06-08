@@ -175,15 +175,15 @@ def update_static(parts: List[str], states: Dict[str, AISShipState]) -> None:
     if not mmsi:
         return
     state = states.setdefault(mmsi, AISShipState(mmsi=mmsi))
-    if msg_type == 5 and len(parts) >= 19:
-        state.imo = parts[4].strip()
-        state.callsign = parts[5].strip()
+    if msg_type == 5 and len(parts) >= 7:
+        state.imo = parts[4].strip() if len(parts) > 4 else state.imo
+        state.callsign = parts[5].strip() if len(parts) > 5 else state.callsign
         state.ship_name = parts[6].strip() or state.ship_name
-        state.ship_type = parts[7].strip() or state.ship_type
-        state.length_m = parse_float(parts[8]) + parse_float(parts[9])
-        state.width_m = parse_float(parts[10]) + parse_float(parts[11])
-        state.draft_m = parse_float(parts[17])
-        state.destination = parts[18].strip()
+        state.ship_type = parts[7].strip() if len(parts) > 7 else state.ship_type
+        # This raw decoded feed is not a standard 20-field CSV layout. In the observed
+        # sample, destination appears at index 12 and dimensions/draft are not reliable.
+        if len(parts) > 12:
+            state.destination = parts[12].strip() or state.destination
     elif msg_type == 24 and len(parts) >= 5:
         partno = parse_int(parts[3])
         if partno == 0:
@@ -258,6 +258,7 @@ def convert(
     bbox: Optional[Tuple[float, float, float, float]],
     name_map_path: Optional[Path],
     limit: int,
+    missing_name_out: Optional[Path],
 ) -> Dict[str, int]:
     states: Dict[str, AISShipState] = {}
     name_map = read_name_map(name_map_path)
@@ -287,7 +288,33 @@ def convert(
         writer = csv.DictWriter(handle, fieldnames=HEADER)
         writer.writeheader()
         writer.writerows(rows)
-    return {"raw_rows": total, "ships": len(rows), "named_ships": sum(1 for row in rows if not str(row["ship_name"]).startswith("MMSI_"))}
+    missing_rows = [row for row in rows if str(row["ship_name"]).startswith("MMSI_")]
+    if missing_name_out:
+        missing_name_out.parent.mkdir(parents=True, exist_ok=True)
+        with missing_name_out.open("w", encoding="utf-8-sig", newline="") as handle:
+            writer = csv.DictWriter(
+                handle,
+                fieldnames=["mmsi", "lng", "lat", "sog_kn", "cog_deg", "heading_deg", "ais_update_time"],
+            )
+            writer.writeheader()
+            for row in missing_rows:
+                writer.writerow({
+                    "mmsi": row["mmsi"],
+                    "lng": row["lng"],
+                    "lat": row["lat"],
+                    "sog_kn": row["sog_kn"],
+                    "cog_deg": row["cog_deg"],
+                    "heading_deg": row["heading_deg"],
+                    "ais_update_time": row["ais_update_time"],
+                })
+    return {
+        "raw_rows": total,
+        "all_mmsi": len(states),
+        "static_name_mmsi": sum(1 for state in states.values() if state.ship_name.strip()),
+        "position_ships": len(rows),
+        "named_ships": sum(1 for row in rows if not str(row["ship_name"]).startswith("MMSI_")),
+        "missing_name_ships": len(missing_rows),
+    }
 
 
 def parse_bbox(value: str) -> Optional[Tuple[float, float, float, float]]:
@@ -305,10 +332,24 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("data/ais_today_import.csv"))
     parser.add_argument("--bbox", default="", help="Optional min_lng,min_lat,max_lng,max_lat filter, e.g. 121.7,29.7,122.2,30.1")
     parser.add_argument("--ship-name-map", type=Path, default=None, help="Optional CSV with mmsi,ship_name columns")
+    parser.add_argument("--missing-name-out", type=Path, default=Path("data/ais_missing_ship_names.csv"))
     parser.add_argument("--limit", type=int, default=0, help="Read only first N raw rows for quick tests")
     args = parser.parse_args()
-    summary = convert(args.input, args.out, parse_bbox(args.bbox), args.ship_name_map, args.limit)
-    print(f"raw_rows={summary['raw_rows']} ships={summary['ships']} named_ships={summary['named_ships']} out={args.out}")
+    summary = convert(args.input, args.out, parse_bbox(args.bbox), args.ship_name_map, args.limit, args.missing_name_out)
+    print(
+        " ".join(
+            [
+                f"raw_rows={summary['raw_rows']}",
+                f"all_mmsi={summary['all_mmsi']}",
+                f"static_name_mmsi={summary['static_name_mmsi']}",
+                f"position_ships={summary['position_ships']}",
+                f"named_ships={summary['named_ships']}",
+                f"missing_name_ships={summary['missing_name_ships']}",
+                f"out={args.out}",
+                f"missing_name_out={args.missing_name_out}",
+            ]
+        )
+    )
 
 
 if __name__ == "__main__":

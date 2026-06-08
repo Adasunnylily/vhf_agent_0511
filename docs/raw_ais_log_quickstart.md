@@ -24,6 +24,21 @@ python3 scripts/convert_raw_ais_log.py \
   --bbox 121.6,29.6,122.4,30.2
 ```
 
+输出中的关键字段：
+
+- `static_name_mmsi`：原始日志里提取到船名的 MMSI 数量。
+- `position_ships`：bbox 范围内有动态位置的船舶数量。
+- `named_ships`：既有动态位置、又成功合并船名的船舶数量。
+- `missing_name_ships`：有动态位置但缺船名的船舶数量。
+
+如果 `static_name_mmsi > 0` 但 `named_ships = 0`，说明这一小时内“有船名的 MMSI”和“bbox 内有位置的 MMSI”没有重叠，需要扩大时间窗口或补充 `mmsi,ship_name` 映射表。
+
+缺船名清单默认生成在：
+
+```text
+data/ais_missing_ship_names.csv
+```
+
 如果你有 `mmsi,ship_name` 映射表：
 
 ```bash
