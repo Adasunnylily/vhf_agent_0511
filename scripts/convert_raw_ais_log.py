@@ -5,6 +5,7 @@ import argparse
 import csv
 import gzip
 import math
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -33,6 +34,8 @@ HEADER = [
     "ais_update_time",
     "ais_source",
 ]
+
+csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
 
 @dataclass
