@@ -914,16 +914,48 @@
       $("shipText").textContent = ship?.canonical || event?.ais_context?.ship_name || "待匹配";
       showAis(event?.ais_context || ship?.metadata || null);
     }
+    function splitDialogueSentences(source) {
+      return String(source || "")
+        .split(/[。！？；;\n]+/)
+        .map((item) => item.trim().replace(/^[，,、\s]+|[，,、\s]+$/g, ""))
+        .filter(Boolean);
+    }
+    function knownShipNames() {
+      return (state.ships.length ? state.ships : fallbackShips)
+        .map((ship) => ship.ship_name)
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length);
+    }
+    function inferDialogueSpeaker(sentence, memory) {
+      if (/台风|气象|预警|警报|广播|各船注意|请注意避让/.test(sentence)) return "安全广播";
+      if (/交管|VTS|收到|请讲|注意安全|保持守听|等待指令/.test(sentence)) return "宁波交管";
+      const explicit = knownShipNames().find((name) => sentence.includes(name));
+      if (explicit) return explicit;
+      const callMatch = sentence.match(/^([\u4e00-\u9fa5A-Za-z0-9]{2,8})(?:，|,|你|叫|问一下|请讲)/);
+      const candidate = callMatch?.[1] || "";
+      if (candidate && !/哪一个|这里|没有|好的|收到|老师|后面/.test(candidate)) {
+        if (!memory.aliases.has(candidate)) {
+          memory.aliases.set(candidate, `疑似船方${String.fromCharCode(65 + memory.aliases.size)}`);
+        }
+        return memory.aliases.get(candidate);
+      }
+      if (/我|这里|没有|进|去|点车|加车|转向|航速|船位|航向/.test(sentence)) {
+        return memory.lastShip || "疑似船方A";
+      }
+      return "待确认说话人";
+    }
     function buildDialogueReview(segments, event) {
       const source = segments.length
         ? segments.map((segment) => segment.resolved_text || segment.text || "").join("。")
         : String(event?.resolved_text || event?.asr_text || "");
       if (event?.dialogue_review_text) return event.dialogue_review_text;
-      return source
-        .split(/[。！？；;\n]+/)
-        .map((item) => item.trim().replace(/^[，,、\s]+|[，,、\s]+$/g, ""))
-        .filter(Boolean)
-        .map((item) => `待确认说话人：${item}。`)
+      const memory = { aliases: new Map(), lastShip: "" };
+      return splitDialogueSentences(source)
+        .map((item) => {
+          const speaker = inferDialogueSpeaker(item, memory);
+          if (/船方|锦|甬|海|中|港|轮|拖|引|[A-Z]/.test(speaker)) memory.lastShip = speaker;
+          return `${speaker}：${item}。`;
+        })
         .join("\n") || "等待 ASR 后生成对话轮次复核模板";
     }
     function applyDecision(event) {
@@ -1252,6 +1284,9 @@
     function areaGeometryText() {
       return state.areaGeometry.length ? JSON.stringify({ type: state.areaMode, points: state.areaGeometry, line_buffer_m: Number($("lineBuffer").value) || 500 }) : "";
     }
+    function selectedShipType() {
+      return $("shipType").value === "全部船型" ? "" : $("shipType").value;
+    }
     function inspectionForm(includeSelected = false) {
       return form({
         area_name: $("areaName").value,
@@ -1259,7 +1294,7 @@
         min_tonnage_t: $("minTon").value || 0,
         min_speed_kn: $("minSpeed").value || 0,
         destination_keyword: $("destinationKeyword").value,
-        ship_types: $("shipType").value === "全部船型" ? "" : $("shipType").value,
+        ship_types: selectedShipType(),
         area_geometry: areaGeometryText(),
         notice_template: $("noticeText").value,
         channel_id: channelId(),
@@ -1329,11 +1364,64 @@
         toast(`已命中 ${items.length} 艘船舶${state.activeAreas.length ? "（多区域汇总）" : ""}`);
       } catch (error) { toast(`筛选失败：${error.message}`, true); }
     }
+    function localShipCandidates() {
+      const type = selectedShipType();
+      const minDraft = Number($("minDraft").value) || 0;
+      const minTon = Number($("minTon").value) || 0;
+      const minSpeed = Number($("minSpeed").value) || 0;
+      const destination = $("destinationKeyword").value.trim();
+      return (state.ships.length ? state.ships : fallbackShips).filter((ship) => {
+        if (type && ship.ship_type !== type) return false;
+        if ((Number(ship.draft_m) || 0) < minDraft) return false;
+        if ((Number(ship.tonnage_t) || 0) < minTon) return false;
+        if ((Number(ship.sog_kn) || 0) < minSpeed) return false;
+        if (destination && !String(ship.destination || "").includes(destination)) return false;
+        return true;
+      });
+    }
+    function localMatchesGeometry(ship, geometry) {
+      const points = geometry?.points || geometry?.geometry || [];
+      const lng = Number(ship.lng);
+      const lat = Number(ship.lat);
+      if (!Number.isFinite(lng) || !Number.isFinite(lat) || !Array.isArray(points) || points.length < 2) return false;
+      if (geometry.type === "rect") {
+        const xs = points.map((point) => Number(point[0]));
+        const ys = points.map((point) => Number(point[1]));
+        return lng >= Math.min(...xs) && lng <= Math.max(...xs) && lat >= Math.min(...ys) && lat <= Math.max(...ys);
+      }
+      if (geometry.type === "line") {
+        const [a, b] = points;
+        const distance = pointToSegmentDistance(lng, lat, Number(a[0]), Number(a[1]), Number(b[0]), Number(b[1]));
+        return distance <= Math.max(0.0001, (Number(geometry.line_buffer_m) || 500) / 111000);
+      }
+      return pointInPolygon(lng, lat, points);
+    }
+    function pointToSegmentDistance(x, y, x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      if (!dx && !dy) return Math.hypot(x - x1, y - y1);
+      const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)));
+      return Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy));
+    }
+    function pointInPolygon(x, y, points) {
+      let inside = false;
+      for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+        const xi = Number(points[i][0]), yi = Number(points[i][1]);
+        const xj = Number(points[j][0]), yj = Number(points[j][1]);
+        if (((yi > y) !== (yj > y)) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-12) + xi) inside = !inside;
+      }
+      return inside;
+    }
+    function localFilterByGeometry(geometry) {
+      return localShipCandidates().filter((ship) => localMatchesGeometry(ship, geometry));
+    }
     async function collectMatchedShips() {
       const active = state.activeAreas.length ? state.activeAreas : null;
       if (!active) {
         const payload = await request("/api/inspection/filter", { method: "POST", body: inspectionForm() });
-        return payload.items || [];
+        const items = payload.items || [];
+        if (items.length || !state.areaGeometry.length) return items;
+        return localFilterByGeometry({ type: state.areaMode, points: state.areaGeometry, line_buffer_m: Number($("lineBuffer").value) || 500 });
       }
       const merged = new Map();
       for (const area of active) {
@@ -1345,11 +1433,15 @@
             min_tonnage_t: $("minTon").value || 0,
             min_speed_kn: $("minSpeed").value || 0,
             destination_keyword: $("destinationKeyword").value,
-            ship_types: $("shipType").value === "全部船型" ? "" : $("shipType").value,
+            ship_types: selectedShipType(),
             area_geometry: JSON.stringify({ type: area.geometry_type, points: area.geometry || [], line_buffer_m: area.line_buffer_m || Number($("lineBuffer").value) || 500 }),
           }),
         });
         (payload.items || []).forEach((ship) => merged.set(ship.ship_id, ship));
+        if (!(payload.items || []).length) {
+          localFilterByGeometry({ type: area.geometry_type, points: area.geometry || [], line_buffer_m: area.line_buffer_m || Number($("lineBuffer").value) || 500 })
+            .forEach((ship) => merged.set(ship.ship_id, ship));
+        }
       }
       return [...merged.values()];
     }
@@ -1373,7 +1465,7 @@
               min_tonnage_t: $("minTon").value || 0,
               min_speed_kn: $("minSpeed").value || 0,
               destination_keyword: $("destinationKeyword").value,
-              ship_types: $("shipType").value === "全部船型" ? "" : $("shipType").value,
+              ship_types: selectedShipType(),
               area_geometry: "",
               notice_template: $("noticeText").value,
               channel_id: channelId(),
