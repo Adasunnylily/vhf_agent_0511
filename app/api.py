@@ -29,11 +29,13 @@ from app.main import (
     ws_manager,
 )
 from app.services.asr_compare import list_asr_compare_options
+from app.services.ais_risk_analyzer import AISRiskAnalyzer
 from app.services.demo_inspection import InspectionShip
 from app.services.risk_engine import KeywordRiskEngine
 
 router = APIRouter(prefix="/api")
 mic_risk_engine = KeywordRiskEngine()
+ais_risk_analyzer = AISRiskAnalyzer()
 mic_sessions: Dict[str, Dict[str, Any]] = {}
 mic_lock = threading.Lock()
 
@@ -76,7 +78,8 @@ def _enrich_event_payloads(
             payload["asr_text"] = segment.text
             payload["resolved_text"] = segment.resolved_text or segment.text
             payload["entities"] = segment.entities
-            payload["ais_context"] = _best_ais_context_from_entities(segment.entities)
+            payload["ais_context"] = _best_ais_context_from_entities(segment.entities) or {}
+            payload = ais_risk_analyzer.enrich_event(payload)
         enriched.append(payload)
     return enriched
 
@@ -128,6 +131,7 @@ def _persist_decisions(
         payload["resolved_text"] = segment.resolved_text or segment.text
         payload["entities"] = segment.entities
         payload["ais_context"] = _best_ais_context_from_entities(segment.entities) or {}
+        payload = ais_risk_analyzer.enrich_event(payload)
         payload["business_type"] = _decision_business_type(payload)
         payload["dialogue_review_text"] = _build_dialogue_review_template(
             str(payload["resolved_text"])
@@ -138,6 +142,7 @@ def _persist_decisions(
             payload = dict(event)
             payload["source_type"] = source_type
             payload["audio_path"] = audio_path
+            payload = ais_risk_analyzer.enrich_event(payload)
             payload["business_type"] = _decision_business_type(payload)
             decisions.append(payload)
     event_store.extend(decisions)
@@ -171,6 +176,23 @@ async def list_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
 @router.get("/ais/ships")
 async def list_ais_ships() -> Dict[str, List[Dict[str, object]]]:
     return {"items": inspection_simulator.list_mock_ships()}
+
+
+@router.post("/ais/analyze")
+async def analyze_text_with_ais(
+    text: str = Body(..., embed=True),
+) -> Dict[str, object]:
+    resolution = entity_resolver.resolve(text)
+    entities = [candidate.to_dict() for candidate in resolution.candidates]
+    ais_context = _best_ais_context_from_entities(entities) or {}
+    analysis = ais_risk_analyzer.analyze(resolution.resolved_text, ais_context)
+    return {
+        "original_text": text,
+        "resolved_text": resolution.resolved_text,
+        "entities": entities,
+        "ais_context": ais_context,
+        "analysis": analysis,
+    }
 
 
 @router.post("/ais/ships/import")
