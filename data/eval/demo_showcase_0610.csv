@@ -1,0 +1,6 @@
+scene,sample_id,recommended_audio,source_file,expected_branch,why_good_for_demo,risk_note,asr_or_transcript
+动到静自动回复候选,000024,/root/autodl-tmp/0515-vhf-agent/data/20260508_beilunshan_vhf/000024.wav,prelabel_for_review.csv,自动回复候选,"船叫交管，内容包含接码头通知、不抛锚、直接进去，能展示常规业务自动记录和回复。","音频里后半段混入船船沟通，适合展示多业务拆分和人工修正能力。","宁波交管，锦龙008。锦龙008接码头通知，今早晨不抛锚了，直接进去。"
+静到动人工审核,002750,/root/autodl-tmp/0515-vhf-agent/data/20260508_beilunshan_vhf/002750.wav,prelabel_for_review.csv,人工审核,"船舶申请离泊，符合由静到动需要值班员确认的业务逻辑。","这是明天展示人工审核分流最稳的样本。","宁波舟山交管，宁远煤三申请在北仑二区通达七号泊位作业完毕，申请离泊。"
+高危航行风险,000906,/root/autodl-tmp/0515-vhf-agent/data/20260508_beilunshan_vhf/000906.wav,high_risk_candidates.csv,高危优先介入,"内容包含注意避让、保持安全横距，适合展示航行风险提示和人工介入。","这是疑似高危候选，不是已人工确认事故。汇报时建议称为航行风险预警。","新航海388，注意避让你左前方的靠泊船华证集运，保持安全横距。"
+静到动人工审核备选,004939,/root/autodl-tmp/0515-vhf-agent/data/20260508_beilunshan_vhf/004939.wav,prelabel_for_review.csv,人工审核,"包含申请解缆离泊、出下水门、引航员信息，业务字段更完整。","可作为 002750 失败时的备选。","东方查尔斯顿275号泊位拖轮待拖，申请解缆离泊出下水门，引航员139向你报告。"
+高危候选不建议主讲,162517,/root/autodl-tmp/0515-vhf-agent/data/20260508_beilunshan_vhf/162517.wav,high_risk_candidates.csv,人工复核,"规则命中进水，但文本可能是进水产西口，容易误报。","适合展示为什么高危要优先复核，不建议作为主高危演示。","海通358，10min后进水产西口，向你报告。"

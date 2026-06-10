@@ -19,19 +19,22 @@
 cd /root/autodl-tmp/original/autodl-tmp/vhf_agent_0511
 
 python3 scripts/convert_raw_ais_log.py \
-  /root/autodl-tmp/original/autodl-tmp/try0505/vhf-agent/ais_data.2026-05-08_00.log.gz \
+  /root/autodl-tmp/original/autodl-tmp/try0505/vhf-agent/ais_data.2026-05-08_*.log.gz \
   --out data/ais_today_import.csv \
   --bbox 121.6,29.6,122.4,30.2
 ```
 
+如果只转换单个小时文件，可能出现 `static_name_mmsi > 0` 但 `named_ships = 0`。这通常不是没有船名，而是这个小时内“有船名的 MMSI”和“bbox 内有位置的 MMSI”没有重叠。优先使用全天多个小时文件一起转换。
+
 输出中的关键字段：
 
+- `input_files`：本次参与合并的 AIS 原始文件数量。
 - `static_name_mmsi`：原始日志里提取到船名的 MMSI 数量。
 - `position_ships`：bbox 范围内有动态位置的船舶数量。
 - `named_ships`：既有动态位置、又成功合并船名的船舶数量。
 - `missing_name_ships`：有动态位置但缺船名的船舶数量。
 
-如果 `static_name_mmsi > 0` 但 `named_ships = 0`，说明这一小时内“有船名的 MMSI”和“bbox 内有位置的 MMSI”没有重叠，需要扩大时间窗口或补充 `mmsi,ship_name` 映射表。
+如果转换全天后 `static_name_mmsi > 0` 但 `named_ships = 0`，说明“bbox 内动态船舶”在原始静态消息中仍缺船名，需要换更宽的时间范围、扩大 bbox，或接入外部船舶资料源补足船名。
 
 缺船名清单默认生成在：
 
@@ -43,7 +46,7 @@ data/ais_missing_ship_names.csv
 
 ```bash
 python3 scripts/convert_raw_ais_log.py \
-  /root/autodl-tmp/original/autodl-tmp/try0505/vhf-agent/ais_data.2026-05-08_00.log.gz \
+  /root/autodl-tmp/original/autodl-tmp/try0505/vhf-agent/ais_data.2026-05-08_*.log.gz \
   --out data/ais_today_import.csv \
   --bbox 121.6,29.6,122.4,30.2 \
   --ship-name-map data/bootstrap/ship_name_map.csv

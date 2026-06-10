@@ -8,7 +8,7 @@ import math
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 HEADER = [
@@ -253,7 +253,7 @@ def read_name_map(path: Optional[Path]) -> Dict[str, str]:
 
 
 def convert(
-    input_path: Path,
+    input_paths: List[Path],
     output_path: Path,
     bbox: Optional[Tuple[float, float, float, float]],
     name_map_path: Optional[Path],
@@ -263,19 +263,22 @@ def convert(
     states: Dict[str, AISShipState] = {}
     name_map = read_name_map(name_map_path)
     total = 0
-    with open_text(input_path) as handle:
-        reader = csv.reader(handle)
-        for parts in reader:
-            if not parts:
-                continue
-            total += 1
-            msg_type = parse_int(parts[0], -1)
-            if msg_type in {5, 24}:
-                update_static(parts, states)
-            elif msg_type in {1, 2, 3, 18, 19, 27}:
-                update_position(parts, states, bbox)
-            if limit and total >= limit:
-                break
+    for input_path in input_paths:
+        with open_text(input_path) as handle:
+            reader = csv.reader(handle)
+            for parts in reader:
+                if not parts:
+                    continue
+                total += 1
+                msg_type = parse_int(parts[0], -1)
+                if msg_type in {5, 24}:
+                    update_static(parts, states)
+                elif msg_type in {1, 2, 3, 18, 19, 27}:
+                    update_position(parts, states, bbox)
+                if limit and total >= limit:
+                    break
+        if limit and total >= limit:
+            break
 
     for mmsi, ship_name in name_map.items():
         if mmsi in states:
@@ -308,6 +311,7 @@ def convert(
                     "ais_update_time": row["ais_update_time"],
                 })
     return {
+        "input_files": len(input_paths),
         "raw_rows": total,
         "all_mmsi": len(states),
         "static_name_mmsi": sum(1 for state in states.values() if state.ship_name.strip()),
@@ -328,7 +332,7 @@ def parse_bbox(value: str) -> Optional[Tuple[float, float, float, float]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Convert raw decoded AIS CSV log(.gz) to VHF agent AIS import CSV.")
-    parser.add_argument("input", type=Path)
+    parser.add_argument("input", type=Path, nargs="+")
     parser.add_argument("--out", type=Path, default=Path("data/ais_today_import.csv"))
     parser.add_argument("--bbox", default="", help="Optional min_lng,min_lat,max_lng,max_lat filter, e.g. 121.7,29.7,122.2,30.1")
     parser.add_argument("--ship-name-map", type=Path, default=None, help="Optional CSV with mmsi,ship_name columns")
@@ -339,6 +343,7 @@ def main() -> None:
     print(
         " ".join(
             [
+                f"input_files={summary['input_files']}",
                 f"raw_rows={summary['raw_rows']}",
                 f"all_mmsi={summary['all_mmsi']}",
                 f"static_name_mmsi={summary['static_name_mmsi']}",
