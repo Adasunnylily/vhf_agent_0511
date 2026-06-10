@@ -370,6 +370,7 @@ class InspectionTaskSimulator:
             spoken = self._spoken_number_alias(ship.ship_name)
             if spoken != ship.ship_name:
                 aliases.append(spoken)
+            aliases.extend(self._vhf_number_aliases(ship.ship_name))
             ships.append(
                 {
                     "canonical": ship.ship_name,
@@ -633,6 +634,30 @@ class InspectionTaskSimulator:
     def _spoken_number_alias(self, value: str) -> str:
         table = str.maketrans("0123456789", "零一二三四五六七八九")
         return value.translate(table)
+
+    def _vhf_number_aliases(self, value: str) -> List[str]:
+        digit_words = {
+            "0": ["零", "洞"],
+            "1": ["一", "幺"],
+            "2": ["二", "两"],
+            "3": ["三"],
+            "4": ["四"],
+            "5": ["五"],
+            "6": ["六"],
+            "7": ["七", "拐"],
+            "8": ["八"],
+            "9": ["九"],
+        }
+        aliases = [""]
+        has_digit = False
+        for char in value:
+            options = digit_words.get(char)
+            if not options:
+                aliases = [prefix + char for prefix in aliases]
+                continue
+            has_digit = True
+            aliases = [prefix + option for prefix in aliases for option in options]
+        return aliases[:16] if has_digit else []
 
     def _safe_float(self, value: object, default: float) -> float:
         try:

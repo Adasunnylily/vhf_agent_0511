@@ -69,9 +69,12 @@ def main() -> None:
     parser.add_argument("xlsx", type=Path)
     parser.add_argument("--sheet", default="船舶数据表")
     parser.add_argument("--out", type=Path, default=Path("data/bootstrap/beilun_simulated_ais_import.csv"))
+    parser.add_argument("--limit", type=int, default=15, help="Max ships to export for a concise demo map; use 0 for all.")
     args = parser.parse_args()
 
     source = pd.read_excel(args.xlsx, sheet_name=args.sheet)
+    if args.limit > 0:
+        source = source.head(args.limit)
     rows = []
     for _, item in source.iterrows():
         raw_type = clean(item.get("船舶类型"))

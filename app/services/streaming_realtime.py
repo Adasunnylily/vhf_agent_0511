@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 from app.domain.models import RiskEvent
 from app.services.asr import ASRResult, BaseStreamingASRAdapter
 from app.services.entity_resolver import EntityResolver, EntityResolution
+from app.services.maritime_keywords import extract_maritime_keywords
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
 from app.services.ws_manager import ChannelWebSocketManager
@@ -175,26 +176,4 @@ class RealtimeStreamingProcessor:
         return self.entity_resolver.resolve(text)
 
     def _extract_keywords(self, text: str) -> List[str]:
-        lowered = text.lower()
-        known_keywords = [
-            "mayday",
-            "求救",
-            "进水",
-            "起火",
-            "失火",
-            "人员落水",
-            "碰撞",
-            "搁浅",
-            "失控",
-            "失去动力",
-            "让清航道",
-            "避让",
-            "未响应",
-            "占频",
-            "逆行",
-            "禁止通行",
-            "闯入",
-            "超速",
-            "未报告",
-        ]
-        return [keyword for keyword in known_keywords if keyword.lower() in lowered]
+        return extract_maritime_keywords(text)
