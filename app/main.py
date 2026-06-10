@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Response
@@ -863,10 +864,14 @@ async def healthz() -> dict:
     return {
         "status": "ok",
         "service": settings.project_name,
+        "asr_provider": settings.asr_provider,
         "asr_model": settings.asr_model,
         "asr_device": settings.asr_device,
         "asr_hub": settings.asr_hub,
         "asr_punc_model": settings.asr_punc_model,
+        "qwen_api_key_env": settings.qwen_asr_api_key_env,
+        "qwen_api_key_present": bool(os.getenv(settings.qwen_asr_api_key_env)),
+        "qwen_base_url": settings.qwen_asr_base_url,
         "stream_simulation_speed": settings.stream_simulation_speed,
         "streaming_model": settings.streaming_model,
         "streaming_chunk_size": settings.streaming_chunk_size,
