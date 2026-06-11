@@ -13,6 +13,7 @@ from app.services.maritime_keywords import extract_maritime_keywords
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
 from app.services.storage import LocalStorage
+from app.services.vhf_dialogue import postprocess_vhf_dialogue
 from app.services.vad import DetectedSegment, WavEnergyVAD
 
 
@@ -66,7 +67,7 @@ class AudioPipeline:
                 transcript_override=transcript_override,
             )
             resolution = self._resolve_entities(full_result.text)
-            text_for_rules = resolution.resolved_text
+            text_for_rules = postprocess_vhf_dialogue(resolution.resolved_text).resolved_text
             shared_keywords = self._extract_keywords(text_for_rules)
             item = detected[0]
             segment = AudioSegment(
@@ -108,7 +109,7 @@ class AudioPipeline:
                 transcript_override=transcript_override if index == 0 else None,
             )
             resolution = self._resolve_entities(segment_result.text)
-            text_for_rules = resolution.resolved_text
+            text_for_rules = postprocess_vhf_dialogue(resolution.resolved_text).resolved_text
             keywords = self._extract_keywords(text_for_rules)
             segment = AudioSegment(
                 id=f"seg_{uuid.uuid4().hex[:12]}",

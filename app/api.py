@@ -33,6 +33,7 @@ from app.services.ais_risk_analyzer import AISRiskAnalyzer
 from app.services.demo_inspection import InspectionShip
 from app.services.maritime_keywords import extract_maritime_keywords
 from app.services.risk_engine import KeywordRiskEngine
+from app.services.vhf_dialogue import build_vhf_dialogue_review, postprocess_vhf_dialogue
 
 router = APIRouter(prefix="/api")
 mic_risk_engine = KeywordRiskEngine()
@@ -151,12 +152,7 @@ def _persist_decisions(
 
 
 def _build_dialogue_review_template(text: str) -> str:
-    parts = [
-        item.strip(" ，。！？；;")
-        for item in re.split(r"[。！？；;\n]+", text or "")
-        if item.strip(" ，。！？；;")
-    ]
-    return "\n".join(f"待确认说话人：{item}。" for item in parts)
+    return build_vhf_dialogue_review(text)
 
 
 @router.get("/demo/scenarios")
@@ -962,7 +958,8 @@ async def push_mic_chunk(
             "text": text,
         }
     resolution = entity_resolver.resolve(text)
-    text_for_rules = resolution.resolved_text
+    dialogue_result = postprocess_vhf_dialogue(resolution.resolved_text)
+    text_for_rules = dialogue_result.resolved_text
 
     with mic_lock:
         session = mic_sessions.get(session_id)
@@ -999,6 +996,7 @@ async def push_mic_chunk(
             "index": seq,
             "text": text,
             "resolved_text": text_for_rules,
+            "dialogue_review_text": dialogue_result.dialogue_review_text,
             "entities": [candidate.to_dict() for candidate in resolution.candidates],
             "cumulative_text": cumulative_text,
             "confidence": result.confidence,
@@ -1036,7 +1034,9 @@ async def push_mic_chunk(
         "session_id": session_id,
         "seq": seq,
         "text": text,
+        "resolved_text": text_for_rules,
         "cumulative_text": cumulative_text,
+        "dialogue_review_text": dialogue_result.dialogue_review_text,
         "events": decision_payloads,
     }
 

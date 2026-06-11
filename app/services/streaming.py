@@ -13,6 +13,7 @@ from app.services.maritime_keywords import extract_maritime_keywords
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
 from app.services.storage import LocalStorage
+from app.services.vhf_dialogue import postprocess_vhf_dialogue
 from app.services.vad import DetectedSegment, WavEnergyVAD
 from app.services.ws_manager import ChannelWebSocketManager
 
@@ -104,7 +105,7 @@ class StreamingAudioProcessor:
                 transcript_override=transcript_override if index == 0 else None,
             )
             resolution = self._resolve_entities(result.text)
-            text_for_rules = resolution.resolved_text
+            text_for_rules = postprocess_vhf_dialogue(resolution.resolved_text).resolved_text
             segment = AudioSegment(
                 id=f"seg_{uuid.uuid4().hex[:12]}",
                 channel_id=channel_id,

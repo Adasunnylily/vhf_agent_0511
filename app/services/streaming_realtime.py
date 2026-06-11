@@ -10,6 +10,7 @@ from app.services.entity_resolver import EntityResolver, EntityResolution
 from app.services.maritime_keywords import extract_maritime_keywords
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
+from app.services.vhf_dialogue import postprocess_vhf_dialogue
 from app.services.ws_manager import ChannelWebSocketManager
 
 
@@ -95,6 +96,7 @@ class RealtimeStreamingProcessor:
             from app.domain.models import AudioSegment
 
             resolution = self._resolve_entities(cumulative_text)
+            dialogue_result = postprocess_vhf_dialogue(resolution.resolved_text)
             segment = AudioSegment(
                 id="streaming_final",
                 channel_id=channel_id,
@@ -105,9 +107,9 @@ class RealtimeStreamingProcessor:
                 duration_ms=int(len(audio) * 1000 / sample_rate),
                 text=cumulative_text,
                 confidence=incremental_results[-1].confidence if incremental_results else 0.85,
-                keywords=self._extract_keywords(resolution.resolved_text),
+                keywords=self._extract_keywords(dialogue_result.resolved_text),
                 engine=incremental_results[-1].engine if incremental_results else "funasr:streaming",
-                resolved_text=resolution.resolved_text,
+                resolved_text=dialogue_result.resolved_text,
                 entities=[candidate.to_dict() for candidate in resolution.candidates],
             )
             self.ws_manager.publish(

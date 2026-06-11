@@ -1058,7 +1058,8 @@
         body: form({ file: new File([blob], `mic_${seq}.webm`, { type: blob.type }), session_id: state.mic.sessionId, channel_id: channelId(), seq, cumulative }),
       });
       if (payload.status === "skipped") return;
-      $("asrText").textContent = payload.cumulative_text || payload.text || $("asrText").textContent;
+      $("asrText").textContent = payload.resolved_text || payload.cumulative_text || payload.text || $("asrText").textContent;
+      if (payload.dialogue_review_text) $("dialogueEdit").textContent = payload.dialogue_review_text;
       $("asrStatus").textContent = "实时听写";
       setFlow(2);
       const event = chooseEvent(payload.events || []);
