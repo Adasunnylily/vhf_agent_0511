@@ -53,15 +53,43 @@ from app.services.vhf_dialogue import postprocess_vhf_dialogue  # noqa: E402
 
 
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg", ".webm"}
-DEFAULT_MODELS = [
-    "paraformer-realtime-v2",
-    "sensevoice-realtime-v1",
-    "paraformer-v2",
+UPLOAD_RECORDING_MODELS = [
+    "volc-bigasr-auc-turbo",
     "qwen-asr-flash",
-    "qwen-asr-pro",
-    "doubao-seed-asr",
-    "local-funasr",
 ]
+STREAMING_MODELS = [
+    "volc-sauc-duration",
+    "s2s-omni",
+    "qwen-asr-flash",
+    "local-funasr",
+    "paraformer-realtime-8k-v2",
+]
+DEFAULT_MODELS = UPLOAD_RECORDING_MODELS
+MODEL_ALIASES = {
+    "volc.bigasr.auc_turbo": "volc-bigasr-auc-turbo",
+    "volc.seedasr.auc": "volc-bigasr-auc-turbo",
+    "doubao-seed-asr": "volc-bigasr-auc-turbo",
+    "doubao_seed_asr_flash": "volc-bigasr-auc-turbo",
+    "volc.seedasr.sauc.duration": "volc-sauc-duration",
+    "fun-asr": "local-funasr",
+    "funasr": "local-funasr",
+    "paraformer-realtime-v2": "paraformer-realtime-8k-v2",
+}
+MODEL_ENDPOINTS = {
+    "volc-bigasr-auc-turbo": "https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit",
+    "volc-sauc-duration": "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel",
+    "s2s-omni": "streaming/s2s-omni",
+    "qwen-asr-flash": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "qwen-asr-pro": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "local-funasr": "local",
+    "paraformer-v2": "dashscope Recognition",
+    "paraformer-realtime-8k-v2": "dashscope realtime/file replay",
+    "sensevoice-realtime-v1": "dashscope realtime/file replay",
+}
+MODEL_RESOURCES = {
+    "volc-bigasr-auc-turbo": "volc.seedasr.auc",
+    "volc-sauc-duration": "volc.seedasr.sauc.duration",
+}
 
 
 def iter_audio_files(audio_dir: Path, limit: int) -> List[Path]:
@@ -70,16 +98,59 @@ def iter_audio_files(audio_dir: Path, limit: int) -> List[Path]:
         for path in audio_dir.rglob("*")
         if path.is_file() and path.suffix.lower() in AUDIO_EXTENSIONS
     )
+    if limit == 0:
+        return []
     return files[:limit] if limit > 0 else files
 
 
-def parse_models(raw: str) -> List[str]:
+def normalize_model_name(model_name: str) -> str:
+    key = model_name.strip()
+    return MODEL_ALIASES.get(key, key)
+
+
+def default_models_for_task(task: str) -> List[str]:
+    if task == "upload":
+        return UPLOAD_RECORDING_MODELS
+    if task == "streaming":
+        return STREAMING_MODELS
+    return list(dict.fromkeys([*UPLOAD_RECORDING_MODELS, *STREAMING_MODELS]))
+
+
+def parse_models(raw: str, task: str) -> List[str]:
+    if not raw.strip():
+        return default_models_for_task(task)
     models = [item.strip() for item in raw.split(",") if item.strip()]
-    return models or DEFAULT_MODELS
+    return [normalize_model_name(model) for model in models] or default_models_for_task(task)
+
+
+def model_task(model_name: str, requested_task: str) -> str:
+    if requested_task in {"upload", "streaming"}:
+        return requested_task
+    if model_name in STREAMING_MODELS and model_name not in UPLOAD_RECORDING_MODELS:
+        return "streaming"
+    return "upload"
+
+
+def model_endpoint(model_name: str) -> str:
+    if model_name == "volc-bigasr-auc-turbo":
+        return os.getenv("VOLCENGINE_FILE_ASR_ENDPOINT", MODEL_ENDPOINTS[model_name])
+    return MODEL_ENDPOINTS.get(model_name, "")
+
+
+def model_resource_id(model_name: str) -> str:
+    if model_name == "volc-bigasr-auc-turbo":
+        return os.getenv("VOLCENGINE_FILE_ASR_RESOURCE_ID", MODEL_RESOURCES[model_name])
+    if model_name == "volc-sauc-duration":
+        return os.getenv("VOLCENGINE_STREAM_ASR_RESOURCE_ID", MODEL_RESOURCES[model_name])
+    return MODEL_RESOURCES.get(model_name, "")
 
 
 def make_adapter(model_name: str) -> Any:
-    if model_name in {"paraformer-v2", "paraformer-realtime-v2", "sensevoice-realtime-v1"}:
+    if model_name in {
+        "paraformer-v2",
+        "paraformer-realtime-8k-v2",
+        "sensevoice-realtime-v1",
+    }:
         hotwords_path = Path("data/hotwords/nbzh_hotwords.txt")
         return DashScopeParaformerASRAdapter(
             model=model_name,
@@ -118,22 +189,21 @@ def make_adapter(model_name: str) -> Any:
             use_itn=settings.asr_use_itn,
             vad_max_single_segment_time=settings.asr_vad_max_single_segment_time,
         )
-    if model_name == "doubao-seed-asr":
-        return "doubao-seed-asr"
+    if model_name == "volc-bigasr-auc-turbo":
+        return "volc-file-asr"
+    if model_name in {"volc-sauc-duration", "s2s-omni"}:
+        return "streaming-ws-candidate"
     raise ValueError(f"未知模型: {model_name}")
 
 
-def run_doubao_seed_asr(audio_path: Path) -> ASRResult:
+def run_volc_file_asr(audio_path: Path, model_name: str) -> ASRResult:
     try:
         import requests
     except ImportError as exc:
         raise RuntimeError("缺少 requests，请先安装: pip install requests") from exc
 
-    endpoint = os.getenv(
-        "VOLCENGINE_ASR_ENDPOINT",
-        "https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash",
-    )
-    resource_id = os.getenv("VOLCENGINE_ASR_RESOURCE_ID", "volc.bigasr.auc_turbo")
+    endpoint = model_endpoint(model_name)
+    resource_id = model_resource_id(model_name)
     app_key = os.getenv("VOLCENGINE_ASR_APP_KEY", "")
     access_key = os.getenv("VOLCENGINE_ASR_ACCESS_KEY", "")
     api_key = os.getenv("VOLCENGINE_ASR_API_KEY", "")
@@ -171,7 +241,13 @@ def run_doubao_seed_asr(audio_path: Path) -> ASRResult:
     if not text:
         status_code = response.headers.get("X-Api-Status-Code", "")
         message = response.headers.get("X-Api-Message", "")
-        raise RuntimeError(f"豆包ASR未返回文本 status={status_code} message={message} body={str(data)[:300]}")
+        task_id = extract_volc_task_id(data)
+        if task_id:
+            raise RuntimeError(
+                "火山录音文件已提交但未直接返回文本；"
+                f"task_id={task_id}。如控制台为异步submit接口，需要补充查询接口或改用同步recognize接口。"
+            )
+        raise RuntimeError(f"火山ASR未返回文本 status={status_code} message={message} body={str(data)[:300]}")
     return ASRResult(text=sanitize_asr_text(text), confidence=0.0, engine=f"doubao_seed_asr:{resource_id}")
 
 
@@ -186,6 +262,32 @@ def extract_doubao_text(data: Dict[str, Any]) -> str:
     if data.get("text"):
         return str(data["text"])
     return ""
+
+
+def extract_volc_task_id(data: Dict[str, Any]) -> str:
+    for key in ("task_id", "id"):
+        if data.get(key):
+            return str(data[key])
+    result = data.get("result")
+    if isinstance(result, dict):
+        for key in ("task_id", "id"):
+            if result.get(key):
+                return str(result[key])
+    return ""
+
+
+def streaming_candidate_error(model_name: str) -> RuntimeError:
+    endpoint = model_endpoint(model_name)
+    if model_name == "volc-sauc-duration":
+        return RuntimeError(
+            "TRUE_STREAMING_WS_NOT_IMPLEMENTED: "
+            f"{model_name} 需要 WebSocket 实时音频帧评测，接口 {endpoint}。"
+            "当前脚本只负责生成可标注对比表；请用后续 ws runner 测 TTFT/最终时延。"
+        )
+    return RuntimeError(
+        "TRUE_STREAMING_NOT_IMPLEMENTED: "
+        f"{model_name} 需要单独的实时双向会话评测；当前离线CSV脚本不模拟该协议。"
+    )
 
 
 def classify_business(text: str, risk_level: str, action_type: str) -> str:
@@ -213,6 +315,7 @@ def analyze_text(
     *,
     audio_id: str,
     model_name: str,
+    evaluation_task: str,
     audio_path: Path,
     result: ASRResult,
     resolver: EntityResolver,
@@ -245,7 +348,10 @@ def analyze_text(
     return {
         "audio_id": audio_id,
         "audio_path": str(audio_path),
+        "评测类型": "上传录音" if evaluation_task == "upload" else "流式识别",
         "模型": model_name,
+        "接口地址": model_endpoint(model_name),
+        "资源ID": model_resource_id(model_name),
         "语音": result.text,
         "修正后文本": dialogue.resolved_text,
         "对话轮次": dialogue.dialogue_review_text,
@@ -257,15 +363,27 @@ def analyze_text(
         "处置类型": action_type,
         "是否可用": "",
         "错误类型": "",
-        "备注": "",
+        "备注": "流式候选的准确率可用该结果初筛；真实流式还需单独测TTFT/最终时延。"
+        if evaluation_task == "streaming" and model_name not in {"volc-sauc-duration", "s2s-omni"}
+        else "",
     }
 
 
-def error_row(audio_id: str, audio_path: Path, model_name: str, error: Exception, elapsed_s: float) -> Dict[str, object]:
+def error_row(
+    audio_id: str,
+    audio_path: Path,
+    model_name: str,
+    evaluation_task: str,
+    error: Exception,
+    elapsed_s: float,
+) -> Dict[str, object]:
     return {
         "audio_id": audio_id,
         "audio_path": str(audio_path),
+        "评测类型": "上传录音" if evaluation_task == "upload" else "流式识别",
         "模型": model_name,
+        "接口地址": model_endpoint(model_name),
+        "资源ID": model_resource_id(model_name),
         "语音": "",
         "修正后文本": "",
         "对话轮次": "",
@@ -286,7 +404,10 @@ def write_csv(path: Path, rows: List[Dict[str, object]]) -> None:
     fieldnames = [
         "audio_id",
         "audio_path",
+        "评测类型",
         "模型",
+        "接口地址",
+        "资源ID",
         "语音",
         "修正后文本",
         "对话轮次",
@@ -310,13 +431,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run ASR models and create a review CSV with business/entity fields.")
     parser.add_argument("--audio-dir", required=True, type=Path)
     parser.add_argument("--out", default="data/eval/asr_comparison_results_for_review.csv", type=Path)
-    parser.add_argument("--limit", default=20, type=int)
-    parser.add_argument("--models", default=",".join(DEFAULT_MODELS))
+    parser.add_argument("--limit", default=20, type=int, help="0 means dry-run/no audio; -1 means all files.")
+    parser.add_argument("--task", choices=["upload", "streaming", "all"], default="upload")
+    parser.add_argument("--models", default="", help="Comma-separated models. Empty means defaults for --task.")
     parser.add_argument("--continue-on-error", action="store_true", default=True)
     args = parser.parse_args()
 
     audio_files = iter_audio_files(args.audio_dir.expanduser().resolve(), args.limit)
-    models = parse_models(args.models)
+    models = parse_models(args.models, args.task)
     storage = LocalStorage(settings)
     preprocessor = AudioPreprocessor(storage)
     resolver = EntityResolver(settings.entity_lexicon_path, enabled=settings.entity_resolver_enabled)
@@ -333,8 +455,11 @@ def main() -> None:
                 if normalized_path is None:
                     normalized_path = Path(preprocessor.prepare(audio_path, enable_denoise=False).processed_path)
                 adapter = adapters[model_name]
-                if adapter == "doubao-seed-asr":
-                    result = run_doubao_seed_asr(normalized_path)
+                evaluation_task = model_task(model_name, args.task)
+                if adapter == "volc-file-asr":
+                    result = run_volc_file_asr(normalized_path, model_name)
+                elif adapter == "streaming-ws-candidate":
+                    raise streaming_candidate_error(model_name)
                 else:
                     result = adapter.transcribe(normalized_path)
                 elapsed = time.perf_counter() - started
@@ -342,6 +467,7 @@ def main() -> None:
                     analyze_text(
                         audio_id=audio_id,
                         model_name=model_name,
+                        evaluation_task=evaluation_task,
                         audio_path=audio_path,
                         result=result,
                         resolver=resolver,
@@ -352,7 +478,7 @@ def main() -> None:
                 print(f"[{audio_index}/{len(audio_files)}] {model_name} {audio_path.name} OK {elapsed:.2f}s", flush=True)
             except Exception as exc:
                 elapsed = time.perf_counter() - started
-                rows.append(error_row(audio_id, audio_path, model_name, exc, elapsed))
+                rows.append(error_row(audio_id, audio_path, model_name, model_task(model_name, args.task), exc, elapsed))
                 print(f"[{audio_index}/{len(audio_files)}] {model_name} {audio_path.name} ERROR {exc}", flush=True)
                 if not args.continue_on_error:
                     raise
