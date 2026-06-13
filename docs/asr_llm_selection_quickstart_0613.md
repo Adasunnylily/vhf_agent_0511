@@ -36,6 +36,8 @@ X-Api-Resource-Id: volc.seedasr.auc
 - `s2s-omni`：实时双向语音理解候选
 - `qwen-asr-flash`：可作为准实时分片回放基线
 - `local-funasr`：本地 FunASR 基线
+- `paraformer-realtime-v2`：Paraformer 实时识别候选
+- `sensevoice-realtime-v1`：高噪声 VHF 候选
 - `paraformer-realtime-8k-v2`：Paraformer 实时识别候选
 
 命令：
@@ -81,4 +83,3 @@ X-Api-Resource-Id: volc.seedasr.sauc.duration
 - `船名`
 - `地名`
 - `备注`
-

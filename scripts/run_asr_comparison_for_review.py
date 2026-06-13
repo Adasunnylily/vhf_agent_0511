@@ -62,6 +62,8 @@ STREAMING_MODELS = [
     "s2s-omni",
     "qwen-asr-flash",
     "local-funasr",
+    "paraformer-realtime-v2",
+    "sensevoice-realtime-v1",
     "paraformer-realtime-8k-v2",
 ]
 DEFAULT_MODELS = UPLOAD_RECORDING_MODELS
@@ -73,7 +75,6 @@ MODEL_ALIASES = {
     "volc.seedasr.sauc.duration": "volc-sauc-duration",
     "fun-asr": "local-funasr",
     "funasr": "local-funasr",
-    "paraformer-realtime-v2": "paraformer-realtime-8k-v2",
 }
 MODEL_ENDPOINTS = {
     "volc-bigasr-auc-turbo": "https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit",
@@ -83,6 +84,7 @@ MODEL_ENDPOINTS = {
     "qwen-asr-pro": "https://dashscope.aliyuncs.com/compatible-mode/v1",
     "local-funasr": "local",
     "paraformer-v2": "dashscope Recognition",
+    "paraformer-realtime-v2": "dashscope realtime/file replay",
     "paraformer-realtime-8k-v2": "dashscope realtime/file replay",
     "sensevoice-realtime-v1": "dashscope realtime/file replay",
 }
@@ -148,6 +150,7 @@ def model_resource_id(model_name: str) -> str:
 def make_adapter(model_name: str) -> Any:
     if model_name in {
         "paraformer-v2",
+        "paraformer-realtime-v2",
         "paraformer-realtime-8k-v2",
         "sensevoice-realtime-v1",
     }:
