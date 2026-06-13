@@ -1,6 +1,6 @@
 import unittest
 
-from app.services.demo_inspection import InspectionTaskSimulator
+from app.services.demo_inspection import InspectionShip, InspectionTaskSimulator
 
 
 class DummyWSManager:
@@ -66,6 +66,40 @@ class DemoInspectionTests(unittest.TestCase):
         )
 
         self.assertEqual(["锦华662"], [ship.ship_name for ship in matched])
+
+    def test_list_mock_ships_limits_to_named_ships(self) -> None:
+        simulator = InspectionTaskSimulator(ws_manager=DummyWSManager(), playback_speed=1000.0)
+        simulator._ships = [
+            InspectionShip(
+                ship_id=f"ship_{index}",
+                ship_name=f"示例船{index}",
+                tonnage_t=1000 + index,
+                draft_m=3.0,
+                ship_type="杂货船",
+                destination="北仑",
+                position_label="北仑港",
+                lng=121.8 + index * 0.001,
+                lat=29.9 + index * 0.001,
+            )
+            for index in range(20)
+        ] + [
+            InspectionShip(
+                ship_id="ship_mmsi_1",
+                ship_name="MMSI_123456789",
+                tonnage_t=999,
+                draft_m=2.0,
+                ship_type="其他",
+                destination="北仑",
+                position_label="北仑港",
+                lng=121.7,
+                lat=29.8,
+            )
+        ]
+
+        items = simulator.list_mock_ships()
+
+        self.assertEqual(15, len(items))
+        self.assertTrue(all(not str(item["ship_name"]).startswith("MMSI_") for item in items))
 
 
 if __name__ == "__main__":

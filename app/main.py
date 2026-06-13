@@ -49,6 +49,7 @@ if settings.asr_provider == "qwen_api":
         api_key_env=settings.qwen_asr_api_key_env,
         base_url=settings.qwen_asr_base_url,
         timeout_s=settings.qwen_asr_timeout_s,
+        prompt=settings.qwen_asr_prompt,
     )
 else:
     shared_asr = FunASRAdapter(

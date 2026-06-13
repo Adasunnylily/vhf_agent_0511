@@ -102,6 +102,8 @@ DEFAULT_AREAS: List[InspectionArea] = [
     ),
 ]
 
+DEFAULT_DISPLAY_SHIP_LIMIT = 15
+
 
 class InspectionTaskSimulator:
     def __init__(
@@ -204,8 +206,14 @@ class InspectionTaskSimulator:
         )
         return meta
 
-    def list_mock_ships(self) -> List[Dict[str, object]]:
-        return [ship.to_dict() for ship in self._ships]
+    def list_mock_ships(self, limit: int = DEFAULT_DISPLAY_SHIP_LIMIT) -> List[Dict[str, object]]:
+        ships = [ship for ship in self._ships if self._has_display_name(ship)]
+        if limit > 0:
+            ships = ships[:limit]
+        return [ship.to_dict() for ship in ships]
+
+    def named_ship_count(self) -> int:
+        return sum(1 for ship in self._ships if self._has_display_name(ship))
 
     def add_ship(self, ship: InspectionShip) -> Dict[str, object]:
         if not ship.ship_id:
@@ -617,6 +625,10 @@ class InspectionTaskSimulator:
         if ship.callsign:
             return f"callsign:{ship.callsign}"
         return f"name:{ship.ship_name}"
+
+    def _has_display_name(self, ship: InspectionShip) -> bool:
+        name = ship.ship_name.strip()
+        return bool(name) and not name.startswith("MMSI_")
 
     def _merge_seed_ships(self, ships: List[InspectionShip]) -> List[InspectionShip]:
         existing_keys = {self._ship_key(ship) for ship in ships}

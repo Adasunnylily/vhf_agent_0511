@@ -990,7 +990,7 @@ def render_dashboard(settings: Settings) -> str:
             <div class="ops-tile"><b>21</b><span>广播成功 · 91%</span></div>
             <div class="ops-tile"><b>19</b><span>影响船舶 · +12%</span></div>
           </div>
-          <div class="work-card"><h3>AIS 点验目标</h3><div id="shipList" class="list"></div></div>
+          <div class="work-card"><h3>AIS 点验目标 <span style="font-size:12px;color:#88a;">仅展示15艘有名字船舶</span></h3><div id="shipList" class="list"></div></div>
           <div class="work-card"><h3>实时事件</h3><div id="noticeList" class="list"></div></div>
           <div class="work-card">
             <h3>新增规则与船舶</h3>

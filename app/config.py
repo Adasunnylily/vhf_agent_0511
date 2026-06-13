@@ -35,6 +35,11 @@ class Settings:
         "https://dashscope.aliyuncs.com/compatible-mode/v1",
     )
     qwen_asr_timeout_s: int = int(os.getenv("VHF_QWEN_ASR_TIMEOUT_S", "120"))
+    qwen_asr_prompt: str = os.getenv(
+        "VHF_QWEN_ASR_PROMPT",
+        "你是海事VHF通话听写助手。请优先按宁波舟山港VTS场景识别船名、地名、泊位、"
+        "离泊/靠妥/抛锚/申请/报告等业务词。只输出转写文本，不要解释。",
+    )
     asr_vad_max_single_segment_time: int = int(
         os.getenv("VHF_ASR_VAD_MAX_SINGLE_SEGMENT_TIME", "30000")
     )

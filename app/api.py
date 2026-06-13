@@ -162,17 +162,32 @@ async def list_demo_scenarios() -> Dict[str, List[Dict[str, object]]]:
 
 @router.get("/demo/inspection/ships")
 async def list_demo_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
-    return {"items": inspection_simulator.list_mock_ships()}
+    items = inspection_simulator.list_mock_ships()
+    return {
+        "items": items,
+        "visible_count": len(items),
+        "total_count": inspection_simulator.named_ship_count(),
+    }
 
 
 @router.get("/inspection/ships")
 async def list_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
-    return {"items": inspection_simulator.list_mock_ships()}
+    items = inspection_simulator.list_mock_ships()
+    return {
+        "items": items,
+        "visible_count": len(items),
+        "total_count": inspection_simulator.named_ship_count(),
+    }
 
 
 @router.get("/ais/ships")
 async def list_ais_ships() -> Dict[str, List[Dict[str, object]]]:
-    return {"items": inspection_simulator.list_mock_ships()}
+    items = inspection_simulator.list_mock_ships()
+    return {
+        "items": items,
+        "visible_count": len(items),
+        "total_count": inspection_simulator.named_ship_count(),
+    }
 
 
 @router.post("/ais/analyze")

@@ -8,6 +8,8 @@ import re
 import threading
 from typing import Any, Dict, List, Optional
 
+from app.services.maritime_keywords import MARITIME_HOTWORDS
+
 
 @dataclass
 class ASRResult:
@@ -335,11 +337,13 @@ class QwenASRAdapter(BaseASRAdapter):
         api_key_env: str = "DASHSCOPE_API_KEY",
         base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
         timeout_s: int = 120,
+        prompt: str = "",
     ) -> None:
         self.model = model
         self.api_key_env = api_key_env
         self.base_url = base_url
         self.timeout_s = timeout_s
+        self.prompt = prompt
         self._client: Any = None
         self._lock = threading.Lock()
 
@@ -357,19 +361,26 @@ class QwenASRAdapter(BaseASRAdapter):
         client = self._ensure_client()
         try:
             data_url = self._audio_to_data_url(file_path)
+            messages: List[Dict[str, object]] = []
+            prompt = self._build_prompt()
+            if prompt:
+                messages.append(
+                    {"role": "system", "content": [{"type": "text", "text": prompt}]}
+                )
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_audio",
+                            "input_audio": {"data": data_url},
+                        }
+                    ],
+                }
+            )
             response = client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "input_audio",
-                                "input_audio": {"data": data_url},
-                            }
-                        ],
-                    }
-                ],
+                messages=messages,  # type: ignore[arg-type]
                 stream=False,
                 extra_body={
                     "asr_options": {
@@ -388,6 +399,13 @@ class QwenASRAdapter(BaseASRAdapter):
             )
         except Exception as exc:
             raise RuntimeError(f"Qwen ASR 调用失败: {exc}") from exc
+
+    def _build_prompt(self) -> str:
+        hotwords = "、".join(MARITIME_HOTWORDS[:80])
+        parts = [self.prompt.strip()]
+        if hotwords:
+            parts.append(f"常见热词：{hotwords}")
+        return "\n".join(part for part in parts if part)
 
     def _ensure_client(self) -> Any:
         if self._client is not None:

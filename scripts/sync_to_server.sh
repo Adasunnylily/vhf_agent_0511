@@ -18,7 +18,7 @@ echo "[1/5] Local repo: $REPO_DIR"
 cd "$REPO_DIR"
 
 echo "[2/5] Stage + commit (if needed)"
-git add app/api.py app/main.py app/services/demo_inspection.py app/services/event_repository.py app/services/knowledge_repository.py ui_prototype docs/git_server_sync_workflow.md scripts/start_autodl.sh scripts/start_ui_prototype.sh scripts/sync_to_server.sh tests/test_demo_inspection.py || true
+git add -A
 if ! git diff --cached --quiet; then
   git commit -m "$COMMIT_MSG"
 else
