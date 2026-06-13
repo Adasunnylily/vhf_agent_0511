@@ -54,6 +54,8 @@ from app.services.vhf_dialogue import postprocess_vhf_dialogue  # noqa: E402
 
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg", ".webm"}
 DEFAULT_MODELS = [
+    "paraformer-realtime-v2",
+    "sensevoice-realtime-v1",
     "paraformer-v2",
     "qwen-asr-flash",
     "qwen-asr-pro",
@@ -77,10 +79,10 @@ def parse_models(raw: str) -> List[str]:
 
 
 def make_adapter(model_name: str) -> Any:
-    if model_name == "paraformer-v2":
+    if model_name in {"paraformer-v2", "paraformer-realtime-v2", "sensevoice-realtime-v1"}:
         hotwords_path = Path("data/hotwords/nbzh_hotwords.txt")
         return DashScopeParaformerASRAdapter(
-            model="paraformer-v2",
+            model=model_name,
             api_key_env=settings.dashscope_asr_api_key_env,
             diarization_enabled=True,
             speaker_count=2,
