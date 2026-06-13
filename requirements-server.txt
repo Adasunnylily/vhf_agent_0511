@@ -6,3 +6,4 @@ modelscope
 huggingface_hub
 soundfile
 openai>=1.0.0
+dashscope>=1.20.0

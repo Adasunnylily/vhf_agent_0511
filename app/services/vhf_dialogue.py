@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 
 SHIP_NAME_PATTERN = re.compile(r"([\u4e00-\u9fa5]{2,8}(?:\d{1,4}|幺五|一五|1五))")
@@ -16,12 +16,16 @@ class VHFDialogueResult:
     dialogue_review_text: str
 
 
-def postprocess_vhf_dialogue(text: str) -> VHFDialogueResult:
+def postprocess_vhf_dialogue(
+    text: str,
+    asr_sentences: Optional[List[dict]] = None,
+) -> VHFDialogueResult:
     resolved = repair_vhf_text(text)
+    dialogue_review_text = build_vhf_dialogue_review(resolved, asr_sentences=asr_sentences)
     return VHFDialogueResult(
         original_text=text,
         resolved_text=resolved,
-        dialogue_review_text=build_vhf_dialogue_review(resolved),
+        dialogue_review_text=dialogue_review_text,
     )
 
 
@@ -51,7 +55,22 @@ def repair_vhf_text(text: str) -> str:
     return resolved.strip()
 
 
-def build_vhf_dialogue_review(text: str) -> str:
+def build_vhf_dialogue_review(
+    text: str,
+    asr_sentences: Optional[List[dict]] = None,
+) -> str:
+    if asr_sentences:
+        rows: List[str] = []
+        for sentence in asr_sentences:
+            content = str(sentence.get("text") or "").strip()
+            if not content:
+                continue
+            speaker = sentence.get("speaker_id", sentence.get("speaker"))
+            label = f"说话人{speaker}" if speaker not in (None, "") else "待确认说话人"
+            rows.append(f"{label}：{content}。")
+        if rows:
+            return "\n".join(rows)
+
     sentences = _split_sentences(text)
     if not sentences:
         return "等待 ASR 后生成对话轮次复核模板"

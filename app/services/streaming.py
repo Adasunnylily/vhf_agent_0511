@@ -105,7 +105,10 @@ class StreamingAudioProcessor:
                 transcript_override=transcript_override if index == 0 else None,
             )
             resolution = self._resolve_entities(result.text)
-            text_for_rules = postprocess_vhf_dialogue(resolution.resolved_text).resolved_text
+            text_for_rules = postprocess_vhf_dialogue(
+                resolution.resolved_text,
+                asr_sentences=result.sentences,
+            ).resolved_text
             segment = AudioSegment(
                 id=f"seg_{uuid.uuid4().hex[:12]}",
                 channel_id=channel_id,
@@ -120,6 +123,7 @@ class StreamingAudioProcessor:
                 engine=result.engine,
                 resolved_text=text_for_rules,
                 entities=[candidate.to_dict() for candidate in resolution.candidates],
+                asr_sentences=result.sentences,
             )
             segments.append(segment)
             self.ws_manager.publish(

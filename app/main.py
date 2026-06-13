@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 
 from app.config import settings
 from app.frontend import render_dashboard
-from app.services.asr import FunASRAdapter, FunASRStreamingAdapter, QwenASRAdapter
+from app.services.asr import FunASRStreamingAdapter, create_asr_adapter
 from app.services.demo_inspection import InspectionTaskSimulator
 from app.services.demo_scenarios import ScenarioSimulator
 from app.services.entity_resolver import EntityResolver
@@ -43,27 +43,7 @@ streaming_chunk_size = [
     for part in settings.streaming_chunk_size.split(",")
     if part.strip()
 ]
-if settings.asr_provider == "qwen_api":
-    shared_asr = QwenASRAdapter(
-        model=settings.asr_model or "qwen3-asr-flash",
-        api_key_env=settings.qwen_asr_api_key_env,
-        base_url=settings.qwen_asr_base_url,
-        timeout_s=settings.qwen_asr_timeout_s,
-        prompt=settings.qwen_asr_prompt,
-    )
-else:
-    shared_asr = FunASRAdapter(
-        model=settings.asr_model,
-        vad_model=settings.asr_vad_model,
-        punc_model=settings.asr_punc_model,
-        device=settings.asr_device,
-        hub=settings.asr_hub,
-        batch_size_s=settings.asr_batch_size_s,
-        model_revision=settings.asr_model_revision,
-        language=settings.asr_language,
-        use_itn=settings.asr_use_itn,
-        vad_max_single_segment_time=settings.asr_vad_max_single_segment_time,
-    )
+shared_asr = create_asr_adapter(settings)
 shared_streaming_asr = FunASRStreamingAdapter(
     model=settings.streaming_model,
     device=settings.asr_device,
@@ -867,6 +847,10 @@ async def healthz() -> dict:
         "service": settings.project_name,
         "asr_provider": settings.asr_provider,
         "asr_model": settings.asr_model,
+        "asr_diarization_enabled": settings.asr_diarization_enabled,
+        "asr_speaker_count": settings.asr_speaker_count,
+        "dashscope_api_key_env": settings.dashscope_asr_api_key_env,
+        "dashscope_api_key_present": bool(os.getenv(settings.dashscope_asr_api_key_env)),
         "asr_device": settings.asr_device,
         "asr_hub": settings.asr_hub,
         "asr_punc_model": settings.asr_punc_model,

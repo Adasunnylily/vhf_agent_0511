@@ -25,6 +25,7 @@ class AudioSegment:
     status: str = "processed"
     resolved_text: Optional[str] = None
     entities: List[Dict[str, Any]] = field(default_factory=list)
+    asr_sentences: List[Dict[str, Any]] = field(default_factory=list)
     created_at: str = field(default_factory=utc_now_iso)
 
     def to_dict(self) -> Dict[str, Any]:

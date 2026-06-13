@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Body, File, Form, HTTPException, Response, UploadFile, WebSocket, WebSocketDisconnect
 
 from app.domain.models import AudioSegment
-from app.config import settings
+from app.config import settings, uses_cloud_clip_asr, uses_dashscope_recognition
 from app.main import (
     event_store,
     entity_resolver,
@@ -784,16 +784,22 @@ async def upload_true_streaming(
     saved_path = storage.save_upload(file.file, file.filename or "upload.bin")
 
     def runner() -> None:
-        if settings.asr_provider == "qwen_api":
-            # Qwen ASR is an API-style file recognizer. For the demo "quasi realtime" path,
-            # replay VAD chunks through the same API chain instead of downloading local
-            # paraformer streaming weights at request time.
-            chunk_results, events = stream_processor.process_file_stream(
-                file_path=saved_path,
-                channel_id=channel_id,
-                enable_denoise=denoise_mode.strip().lower() == "on",
-            )
-            mode = "qwen_api_chunk_replay"
+        if uses_cloud_clip_asr(settings.asr_provider):
+            # Cloud clip ASR: Qwen accepts compressed audio; DashScope Recognition needs 16k wav.
+            if uses_dashscope_recognition(settings.asr_provider):
+                chunk_results, events = stream_processor.process_file_stream(
+                    file_path=saved_path,
+                    channel_id=channel_id,
+                    enable_denoise=denoise_mode.strip().lower() == "on",
+                )
+                mode = "dashscope_paraformer_chunk_replay"
+            else:
+                chunk_results, events = stream_processor.process_file_stream(
+                    file_path=saved_path,
+                    channel_id=channel_id,
+                    enable_denoise=denoise_mode.strip().lower() == "on",
+                )
+                mode = "qwen_api_chunk_replay"
         else:
             chunk_results, events = realtime_stream_processor.process_file_stream(
                 file_path=saved_path,
@@ -828,7 +834,13 @@ async def upload_true_streaming(
         "task_id": task.id,
         "status": "queued",
         "channel_id": channel_id,
-        "mode": "qwen_api_chunk_replay" if settings.asr_provider == "qwen_api" else "paraformer_streaming",
+        "mode": (
+            "dashscope_paraformer_chunk_replay"
+            if uses_dashscope_recognition(settings.asr_provider)
+            else "qwen_api_chunk_replay"
+            if settings.asr_provider == "qwen_api"
+            else "paraformer_streaming"
+        ),
     }
 
 
@@ -973,7 +985,10 @@ async def push_mic_chunk(
             "text": text,
         }
     resolution = entity_resolver.resolve(text)
-    dialogue_result = postprocess_vhf_dialogue(resolution.resolved_text)
+    dialogue_result = postprocess_vhf_dialogue(
+        resolution.resolved_text,
+        asr_sentences=result.sentences,
+    )
     text_for_rules = dialogue_result.resolved_text
 
     with mic_lock:
@@ -1001,6 +1016,7 @@ async def push_mic_chunk(
         engine=result.engine,
         resolved_text=text_for_rules,
         entities=[candidate.to_dict() for candidate in resolution.candidates],
+        asr_sentences=result.sentences,
     )
     ws_manager.publish(
         channel_id,

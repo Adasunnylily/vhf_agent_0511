@@ -19,8 +19,16 @@ class Settings:
     vad_min_speech_ms: int = int(os.getenv("VHF_VAD_MIN_SPEECH_MS", "600"))
     vad_max_segment_ms: int = int(os.getenv("VHF_VAD_MAX_SEGMENT_MS", "8000"))
     default_channel_id: str = os.getenv("VHF_DEFAULT_CHANNEL_ID", "vhf_demo_01")
-    asr_model: str = os.getenv("VHF_ASR_MODEL", "iic/SenseVoiceSmall")
-    asr_provider: str = os.getenv("VHF_ASR_PROVIDER", "qwen_api")
+    asr_model: str = os.getenv("VHF_ASR_MODEL", "paraformer-v2")
+    asr_provider: str = os.getenv("VHF_ASR_PROVIDER", "dashscope_paraformer")
+    dashscope_asr_api_key_env: str = os.getenv("VHF_DASHSCOPE_API_KEY_ENV", "DASHSCOPE_API_KEY")
+    asr_diarization_enabled: bool = os.getenv("VHF_ASR_DIARIZATION_ENABLED", "1") == "1"
+    asr_speaker_count: int = int(os.getenv("VHF_ASR_SPEAKER_COUNT", "2"))
+    asr_phrase_id: str = os.getenv("VHF_ASR_PHRASE_ID", "")
+    asr_vocabulary_id: str = os.getenv("VHF_ASR_VOCABULARY_ID", "")
+    asr_hotwords_path: Path = Path(
+        os.getenv("VHF_ASR_HOTWORDS_PATH", str(data_dir / "hotwords" / "nbzh_hotwords.txt"))
+    )
     asr_vad_model: str = os.getenv("VHF_ASR_VAD_MODEL", "fsmn-vad")
     asr_punc_model: str = os.getenv("VHF_ASR_PUNC_MODEL", "")
     asr_device: str = os.getenv("VHF_ASR_DEVICE", "cuda:0")
@@ -73,3 +81,12 @@ class Settings:
 
 
 settings = Settings()
+
+
+def uses_cloud_clip_asr(provider: str) -> bool:
+    """Cloud APIs that transcribe uploaded clips (Qwen chat-audio or DashScope Recognition)."""
+    return (provider or "").strip().lower() in {"qwen_api", "dashscope_paraformer", "paraformer_v2"}
+
+
+def uses_dashscope_recognition(provider: str) -> bool:
+    return (provider or "").strip().lower() in {"dashscope_paraformer", "paraformer_v2"}

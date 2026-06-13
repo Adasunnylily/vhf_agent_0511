@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import base64
 import re
 import threading
 from typing import Any, Dict, List, Optional
+from http import HTTPStatus
 
 from app.services.maritime_keywords import MARITIME_HOTWORDS
 
@@ -16,6 +17,7 @@ class ASRResult:
     text: str
     confidence: float
     engine: str
+    sentences: List[Dict[str, Any]] = field(default_factory=list)
 
 
 def sanitize_asr_text(text: str) -> str:
@@ -442,3 +444,197 @@ class QwenASRAdapter(BaseASRAdapter):
         }.get(suffix, "audio/wav")
         encoded = base64.b64encode(file_path.read_bytes()).decode("utf-8")
         return f"data:{mime};base64,{encoded}"
+
+
+def load_hotword_lines(path: Path, limit: int = 80) -> List[str]:
+    if not path.exists():
+        return []
+    words: List[str] = []
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        item = line.strip()
+        if item and not item.startswith("#"):
+            words.append(item)
+        if len(words) >= limit:
+            break
+    return words
+
+
+def format_diarized_text(sentences: List[Dict[str, Any]]) -> str:
+    parts: List[str] = []
+    for sentence in sentences:
+        text = str(sentence.get("text") or "").strip()
+        if not text:
+            continue
+        speaker = sentence.get("speaker_id", sentence.get("speaker"))
+        if speaker is None or speaker == "":
+            parts.append(text)
+        else:
+            parts.append(f"说话人{speaker}：{text}")
+    return "，".join(parts)
+
+
+class DashScopeParaformerASRAdapter(BaseASRAdapter):
+    """DashScope Recognition API with optional speaker diarization (paraformer-v2)."""
+
+    def __init__(
+        self,
+        model: str = "paraformer-v2",
+        api_key_env: str = "DASHSCOPE_API_KEY",
+        sample_rate: int = 16000,
+        diarization_enabled: bool = True,
+        speaker_count: int = 2,
+        phrase_id: str = "",
+        vocabulary_id: str = "",
+        hotwords_path: Optional[Path] = None,
+    ) -> None:
+        self.model = model
+        self.api_key_env = api_key_env
+        self.sample_rate = sample_rate
+        self.diarization_enabled = diarization_enabled
+        self.speaker_count = speaker_count
+        self.phrase_id = phrase_id.strip()
+        self.vocabulary_id = vocabulary_id.strip()
+        self.hotwords_path = hotwords_path
+        self._lock = threading.Lock()
+
+    def transcribe(
+        self,
+        file_path: Path,
+        transcript_override: Optional[str] = None,
+    ) -> ASRResult:
+        if transcript_override:
+            return ASRResult(
+                text=transcript_override.strip(),
+                confidence=0.99,
+                engine="manual_override",
+            )
+
+        api_key = os.getenv(self.api_key_env)
+        if not api_key:
+            raise RuntimeError(f"缺少环境变量 {self.api_key_env}")
+
+        suffix = file_path.suffix.lower()
+        if suffix != ".wav":
+            raise RuntimeError(
+                f"DashScope Recognition 需要 16k mono wav，请先预处理。当前文件: {file_path.name}"
+            )
+
+        try:
+            import dashscope
+            from dashscope.audio.asr import Recognition, RecognitionCallback
+        except ImportError as exc:
+            raise RuntimeError("缺少 dashscope SDK，请安装: pip install dashscope") from exc
+
+        dashscope.api_key = api_key
+
+        call_kwargs: Dict[str, Any] = {
+            "diarization_enabled": self.diarization_enabled,
+        }
+        if self.speaker_count > 0:
+            call_kwargs["speaker_count"] = self.speaker_count
+        if self.vocabulary_id:
+            call_kwargs["vocabulary_id"] = self.vocabulary_id
+        hotwords = load_hotword_lines(self.hotwords_path) if self.hotwords_path else []
+        if hotwords and not self.vocabulary_id and not self.phrase_id:
+            # Inline vocabulary hint for models that accept it in recognition kwargs.
+            call_kwargs["vocabulary"] = [{"text": word} for word in hotwords[:50]]
+
+        recognition = Recognition(
+            model=self.model,
+            callback=RecognitionCallback(),
+            format="wav",
+            sample_rate=self.sample_rate,
+            **call_kwargs,
+        )
+
+        with self._lock:
+            result = recognition.call(
+                file=str(file_path),
+                phrase_id=self.phrase_id or None,
+            )
+
+        if result.status_code != HTTPStatus.OK:
+            raise RuntimeError(
+                f"DashScope ASR 失败: {getattr(result, 'code', '')} {getattr(result, 'message', result)}"
+            )
+
+        sentences = self._normalize_sentences(result.get_sentence())
+        text = format_diarized_text(sentences)
+        if not text:
+            text = self._fallback_text(result)
+        text = sanitize_asr_text(text)
+        return ASRResult(
+            text=text,
+            confidence=0.85 if text else 0.0,
+            engine=f"dashscope:{self.model}",
+            sentences=sentences,
+        )
+
+    def _normalize_sentences(self, payload: Any) -> List[Dict[str, Any]]:
+        if payload is None:
+            return []
+        rows = payload if isinstance(payload, list) else [payload]
+        normalized: List[Dict[str, Any]] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            text = str(row.get("text") or "").strip()
+            if not text:
+                continue
+            normalized.append(
+                {
+                    "text": text,
+                    "speaker_id": row.get("speaker_id", row.get("speaker")),
+                    "begin_time": row.get("begin_time", row.get("start_time")),
+                    "end_time": row.get("end_time"),
+                }
+            )
+        return normalized
+
+    def _fallback_text(self, result: Any) -> str:
+        output = getattr(result, "output", None) or {}
+        if isinstance(output, dict):
+            sentence = output.get("sentence")
+            if isinstance(sentence, dict):
+                return str(sentence.get("text") or "").strip()
+            if isinstance(sentence, list):
+                return "，".join(
+                    str(item.get("text") or "").strip()
+                    for item in sentence
+                    if isinstance(item, dict) and str(item.get("text") or "").strip()
+                )
+        return ""
+
+
+def create_asr_adapter(settings: Any) -> BaseASRAdapter:
+    provider = str(getattr(settings, "asr_provider", "qwen_api") or "qwen_api").strip().lower()
+    if provider == "qwen_api":
+        return QwenASRAdapter(
+            model=settings.asr_model or "qwen3-asr-flash",
+            api_key_env=settings.qwen_asr_api_key_env,
+            base_url=settings.qwen_asr_base_url,
+            timeout_s=settings.qwen_asr_timeout_s,
+            prompt=settings.qwen_asr_prompt,
+        )
+    if provider in {"dashscope_paraformer", "paraformer_v2"}:
+        return DashScopeParaformerASRAdapter(
+            model=settings.asr_model or "paraformer-v2",
+            api_key_env=settings.dashscope_asr_api_key_env,
+            diarization_enabled=settings.asr_diarization_enabled,
+            speaker_count=settings.asr_speaker_count,
+            phrase_id=settings.asr_phrase_id,
+            vocabulary_id=settings.asr_vocabulary_id,
+            hotwords_path=settings.asr_hotwords_path,
+        )
+    return FunASRAdapter(
+        model=settings.asr_model,
+        vad_model=settings.asr_vad_model,
+        punc_model=settings.asr_punc_model,
+        device=settings.asr_device,
+        hub=settings.asr_hub,
+        batch_size_s=settings.asr_batch_size_s,
+        model_revision=settings.asr_model_revision,
+        language=settings.asr_language,
+        use_itn=settings.asr_use_itn,
+        vad_max_single_segment_time=settings.asr_vad_max_single_segment_time,
+    )
