@@ -72,13 +72,34 @@ X-Api-Resource-Id: volc.seedasr.sauc.duration
 
 ## 3. LLM 分析选型
 
-当前系统的“智能分析/风险研判”不是 LLM，主要是：
+当前系统已支持 LLM 优先判断，关键词规则兜底：
 
-- `app/services/risk_engine.py`：规则与关键词风险判断
+- `app/services/llm_decision.py`：OpenAI 兼容 LLM 分类，输出 JSON 决策
+- `app/services/risk_engine.py`：先调用 LLM，失败或关闭时回退到关键词规则
 - `app/services/vhf_dialogue.py`：VHF 对话轮次与纠错后处理
 - `app/services/entity_resolver.py`：船名、地名、AIS/词典候选纠错
 
-后续 LLM 选型建议固定同一份 ASR 输出，再比较：
+调用链路：
+
+```text
+ASR/流式ASR
+  -> 船名地名实体纠错
+  -> 说话人/对话轮次重建
+  -> LLM智能分类与处置判断
+  -> 关键词规则兜底
+  -> 事件归档/前端展示/TTS播报
+```
+
+环境变量：
+
+```bash
+VHF_DECISION_MODE=llm
+VHF_DECISION_MODEL=qwen-max
+VHF_DECISION_API_KEY_ENV=DASHSCOPE_API_KEY
+VHF_DECISION_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+```
+
+LLM 选型建议固定同一份 ASR 输出，再比较：
 
 - `qwen3.7-max`
 - `deepseek-v4-flash`
@@ -93,3 +114,22 @@ X-Api-Resource-Id: volc.seedasr.sauc.duration
 - `船名`
 - `地名`
 - `备注`
+
+## 4. Paraformer 实时模型选择
+
+建议先这样区分：
+
+- `paraformer-realtime-v2`：优先作为 16k VHF 音频/通用实时识别候选。
+- `paraformer-realtime-8k-v2`：优先作为 8k 窄带语音、电话/VHF窄带采样候选。
+
+如果你的输入已经被预处理成 16k mono wav，先测 `paraformer-realtime-v2`。
+如果现场链路实际是 8k 窄带 PCM 或低带宽 VHF 采样，再测 `paraformer-realtime-8k-v2`。
+
+最终选择不看模型名，按同一批流式样本比较：
+
+- 首字时延 TTFT
+- 最终时延 Final latency
+- 船名/地名命中率
+- 高危召回
+- 离泊/开航申请召回
+- 空文本率和失败率

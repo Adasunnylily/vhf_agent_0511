@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import uuid
+import os
 from typing import Dict, List, Optional, Tuple
 
 from app.domain.models import AudioSegment, RiskEvent
 from app.services.funasr_emotion import format_funasr_emotion_evidence
+from app.services.llm_decision import LLMDecisionClassifier
 
 
 KEYWORD_GROUPS: Dict[str, Dict[str, object]] = {
@@ -120,10 +122,30 @@ KEYWORD_GROUPS: Dict[str, Dict[str, object]] = {
 
 
 class KeywordRiskEngine:
+    def __init__(
+        self,
+        decision_classifier: Optional[LLMDecisionClassifier] = None,
+        decision_mode: Optional[str] = None,
+    ) -> None:
+        self.decision_classifier = decision_classifier or LLMDecisionClassifier(mode=decision_mode)
+        self.decision_fail_fast = os.getenv("VHF_DECISION_FAIL_FAST", "0") == "1"
+
     def evaluate(self, segment: AudioSegment) -> List[RiskEvent]:
         text = (segment.resolved_text or segment.text).strip()
         if not text:
             return []
+
+        try:
+            llm_event = self.decision_classifier.evaluate(segment)
+            if llm_event is not None:
+                return [llm_event]
+        except Exception as exc:
+            if self.decision_fail_fast:
+                raise
+            # LLM 分类失败时降级到关键词规则，避免实时守听链路中断。
+            fallback_note = f"LLM_DECISION_FALLBACK: {type(exc).__name__}: {exc}"
+        else:
+            fallback_note = ""
 
         lowered = text.lower()
         matched = self._match_group(lowered)
@@ -142,6 +164,8 @@ class KeywordRiskEngine:
         ) = matched
         summary = f"识别到疑似{matched_event_type}，命中关键词：{', '.join(matched_keywords)}。"
         evidence = [f"命中关键词: {keyword}" for keyword in matched_keywords]
+        if fallback_note:
+            evidence.append(fallback_note)
         evidence.extend(
             format_funasr_emotion_evidence(
                 list(getattr(segment, "asr_emotion_tags", []) or []),
