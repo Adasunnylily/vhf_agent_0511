@@ -62,6 +62,25 @@ def attach_stream_timing(result: ASRResult, timing: StreamTiming) -> ASRResult:
     )
 
 
+def _ensure_valid_omp_threads() -> None:
+    value = os.getenv("OMP_NUM_THREADS", "").strip()
+    if not value:
+        os.environ["OMP_NUM_THREADS"] = "1"
+        return
+    try:
+        if int(value) <= 0:
+            os.environ["OMP_NUM_THREADS"] = "1"
+    except ValueError:
+        os.environ["OMP_NUM_THREADS"] = "1"
+
+
+def _funasr_chunk_stride_samples(chunk_size: List[int], sample_rate: int = DEFAULT_SAMPLE_RATE) -> int:
+    # FunASR streaming: chunk_size[1] * 960 samples @16kHz (~600ms when chunk_size=[0,10,5]).
+    if len(chunk_size) >= 2 and chunk_size[1] > 0:
+        return max(1, int(chunk_size[1] * 960))
+    return max(1, int(sample_rate * int(os.getenv("FUNASR_STREAM_CHUNK_MS", "600")) / 1000))
+
+
 def read_pcm_chunks(
     wav_path: Path,
     *,
@@ -311,25 +330,36 @@ def run_funasr_streaming_file(
     adapter: FunASRStreamingAdapter,
 ) -> ASRResult:
     try:
+        import numpy as np
         import soundfile as sf
     except ImportError as exc:
-        raise RuntimeError("缺少 soundfile，请安装 requirements-server.txt 中的依赖。") from exc
+        raise RuntimeError("缺少 soundfile/numpy，请安装 requirements-server.txt 中的依赖。") from exc
 
+    _ensure_valid_omp_threads()
     audio, sample_rate = sf.read(str(audio_path), dtype="float32")
     if getattr(audio, "ndim", 1) > 1:
         audio = audio.mean(axis=1)
-    audio_list = audio.tolist()
-    chunk_ms = int(os.getenv("FUNASR_STREAM_CHUNK_MS", "600"))
-    chunk_samples = max(1, int(sample_rate * chunk_ms / 1000))
-    chunks: List[List[float]] = []
-    for index in range(max(1, math.ceil(len(audio_list) / chunk_samples))):
-        start = index * chunk_samples
-        end = min(len(audio_list), start + chunk_samples)
-        piece = audio_list[start:end]
-        if piece:
-            chunks.append(piece)
+    if sample_rate != DEFAULT_SAMPLE_RATE:
+        try:
+            import librosa
+        except ImportError as exc:
+            raise RuntimeError(
+                f"FunASR 流式识别需要 {DEFAULT_SAMPLE_RATE}Hz 音频，"
+                f"当前 {sample_rate}Hz，请安装 librosa 或先走预处理。"
+            ) from exc
+        audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=DEFAULT_SAMPLE_RATE)
+        sample_rate = DEFAULT_SAMPLE_RATE
+
+    chunk_stride_samples = _funasr_chunk_stride_samples(adapter.chunk_size, sample_rate)
+    chunks: List[np.ndarray] = []
+    for index in range(max(1, math.ceil(len(audio) / chunk_stride_samples))):
+        start = index * chunk_stride_samples
+        end = min(len(audio), start + chunk_stride_samples)
+        piece = audio[start:end]
+        if len(piece):
+            chunks.append(np.ascontiguousarray(piece, dtype=np.float32))
     if not chunks:
-        chunks = [audio_list]
+        chunks = [np.ascontiguousarray(audio, dtype=np.float32)]
 
     started = time.perf_counter()
     first_text_ts: Optional[float] = None
@@ -345,7 +375,7 @@ def run_funasr_streaming_file(
     if not text:
         raise RuntimeError("FunASR 流式 ASR 未返回文本")
 
-    audio_duration_ms = int(len(audio_list) / max(1, sample_rate) * 1000)
+    audio_duration_ms = int(len(audio) / max(1, sample_rate) * 1000)
     timing = StreamTiming(
         stream_mode="funasr_incremental",
         chunk_count=len(chunks),

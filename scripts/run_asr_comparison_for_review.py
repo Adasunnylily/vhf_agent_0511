@@ -35,6 +35,15 @@ def load_env(path: Path) -> None:
 load_env(REPO_ROOT / ".env")
 if os.getenv("VHF_DATA_DIR", "").startswith("/root/") and not Path("/root").exists():
     os.environ["VHF_DATA_DIR"] = str(REPO_ROOT / "data")
+_omp = os.getenv("OMP_NUM_THREADS", "").strip()
+if not _omp:
+    os.environ["OMP_NUM_THREADS"] = "1"
+else:
+    try:
+        if int(_omp) <= 0:
+            os.environ["OMP_NUM_THREADS"] = "1"
+    except ValueError:
+        os.environ["OMP_NUM_THREADS"] = "1"
 
 from app.config import settings  # noqa: E402
 from app.domain.models import AudioSegment  # noqa: E402
