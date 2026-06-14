@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
+
+from app.services.llm_dialogue import LLMDialogueRefiner
 
 
 SHIP_NAME_PATTERN = re.compile(r"([\u4e00-\u9fa5]{2,8}(?:\d{1,4}|幺五|一五|1五))")
@@ -22,6 +24,8 @@ def postprocess_vhf_dialogue(
     *,
     sentence_resolver: Optional[Callable[[str], str]] = None,
     map_speaker_roles: bool = False,
+    entity_candidates: Optional[List[Dict[str, object]]] = None,
+    dialogue_refiner: Optional[LLMDialogueRefiner] = None,
 ) -> VHFDialogueResult:
     resolved = repair_vhf_text(text)
     dialogue_sentences = asr_sentences
@@ -32,6 +36,17 @@ def postprocess_vhf_dialogue(
         asr_sentences=dialogue_sentences,
         map_speaker_roles=map_speaker_roles,
     )
+    refiner = dialogue_refiner or LLMDialogueRefiner()
+    refinement = refiner.refine(
+        original_text=text,
+        rule_resolved_text=resolved,
+        rule_dialogue_review_text=dialogue_review_text,
+        entity_candidates=entity_candidates,
+        asr_sentences=dialogue_sentences,
+    )
+    if refinement is not None:
+        resolved = refinement.corrected_text
+        dialogue_review_text = refinement.dialogue_review_text
     return VHFDialogueResult(
         original_text=text,
         resolved_text=resolved,

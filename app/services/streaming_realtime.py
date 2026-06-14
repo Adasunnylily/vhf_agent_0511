@@ -96,7 +96,10 @@ class RealtimeStreamingProcessor:
             from app.domain.models import AudioSegment
 
             resolution = self._resolve_entities(cumulative_text)
-            dialogue_result = postprocess_vhf_dialogue(resolution.resolved_text)
+            dialogue_result = postprocess_vhf_dialogue(
+                resolution.resolved_text,
+                entity_candidates=[candidate.to_dict() for candidate in resolution.candidates],
+            )
             last_result = incremental_results[-1] if incremental_results else None
             merged_emotion_tags = list(
                 dict.fromkeys(

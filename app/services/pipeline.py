@@ -70,6 +70,7 @@ class AudioPipeline:
             text_for_rules = postprocess_vhf_dialogue(
                 resolution.resolved_text,
                 asr_sentences=full_result.sentences,
+                entity_candidates=[candidate.to_dict() for candidate in resolution.candidates],
             ).resolved_text
             shared_keywords = self._extract_keywords(text_for_rules)
             item = detected[0]
@@ -118,6 +119,7 @@ class AudioPipeline:
             text_for_rules = postprocess_vhf_dialogue(
                 resolution.resolved_text,
                 asr_sentences=segment_result.sentences,
+                entity_candidates=[candidate.to_dict() for candidate in resolution.candidates],
             ).resolved_text
             keywords = self._extract_keywords(text_for_rules)
             segment = AudioSegment(

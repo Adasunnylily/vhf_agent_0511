@@ -108,6 +108,7 @@ class StreamingAudioProcessor:
             text_for_rules = postprocess_vhf_dialogue(
                 resolution.resolved_text,
                 asr_sentences=result.sentences,
+                entity_candidates=[candidate.to_dict() for candidate in resolution.candidates],
             ).resolved_text
             segment = AudioSegment(
                 id=f"seg_{uuid.uuid4().hex[:12]}",

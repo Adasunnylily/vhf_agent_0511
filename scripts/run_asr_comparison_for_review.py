@@ -500,14 +500,15 @@ def analyze_text(
     manifest_meta: Optional[Dict[str, str]] = None,
 ) -> Dict[str, object]:
     resolution = resolver.resolve(result.text)
+    candidates = [item.to_dict() for item in resolution.candidates]
     use_diarization = should_use_paraformer_diarization(model_name, result)
     dialogue = postprocess_vhf_dialogue(
         resolution.resolved_text,
         asr_sentences=result.sentences if use_diarization else None,
         sentence_resolver=(lambda text: resolver.resolve(text).resolved_text) if use_diarization else None,
         map_speaker_roles=use_diarization,
+        entity_candidates=candidates,
     )
-    candidates = [item.to_dict() for item in resolution.candidates]
     segment = AudioSegment(
         id=f"{audio_id}_{model_name}",
         channel_id="asr_compare",

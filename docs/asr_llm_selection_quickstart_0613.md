@@ -99,6 +99,27 @@ VHF_DECISION_API_KEY_ENV=DASHSCOPE_API_KEY
 VHF_DECISION_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ```
 
+实体纠错和对话轮次也可交给 LLM：
+
+```bash
+VHF_DIALOGUE_MODE=llm
+# 默认复用 VHF_DECISION_MODEL / VHF_DECISION_API_KEY_ENV / VHF_DECISION_BASE_URL
+# 如需单独模型，可设置：
+# VHF_DIALOGUE_MODEL=qwen-max
+# VHF_DIALOGUE_API_KEY_ENV=DASHSCOPE_API_KEY
+# VHF_DIALOGUE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+```
+
+调用链路会先做规则初修和实体候选生成，再把候选交给 LLM：
+
+```text
+ASR原文
+  -> 规则初修文本
+  -> 船名/地名/AIS候选
+  -> LLM corrected_text + turns
+  -> 失败时回退规则对话轮次
+```
+
 LLM 选型建议固定同一份 ASR 输出，再比较：
 
 - `qwen3.7-max`
@@ -124,6 +145,17 @@ LLM 选型建议固定同一份 ASR 输出，再比较：
 
 如果你的输入已经被预处理成 16k mono wav，先测 `paraformer-realtime-v2`。
 如果现场链路实际是 8k 窄带 PCM 或低带宽 VHF 采样，再测 `paraformer-realtime-8k-v2`。
+
+当前北仑山 VHF 样例 `025104.wav` 与 `000300.wav` 均为：
+
+```text
+codec_name=pcm_alaw
+sample_rate=8000
+channels=1
+bit_rate=64000
+```
+
+因此原始数据应按 8k 窄带 VHF 处理，建议把 `paraformer-realtime-8k-v2` 列为重点流式候选。
 
 最终选择不看模型名，按同一批流式样本比较：
 

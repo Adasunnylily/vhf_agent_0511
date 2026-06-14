@@ -1,5 +1,6 @@
 import unittest
 
+from app.services.llm_dialogue import LLMDialogueRefinement
 from app.services.vhf_dialogue import postprocess_vhf_dialogue
 
 
@@ -50,6 +51,24 @@ class VHFDialogueTests(unittest.TestCase):
 
         self.assertIn("锦龙008：宁波交管，锦龙008。", result.dialogue_review_text)
         self.assertIn("宁波交管：请讲。", result.dialogue_review_text)
+
+    def test_llm_dialogue_refiner_can_override_rule_dialogue(self) -> None:
+        class FakeRefiner:
+            def refine(self, **kwargs):  # type: ignore[no-untyped-def]
+                return LLMDialogueRefinement(
+                    corrected_text="宁波交管，湘远15叫。请讲。",
+                    dialogue_review_text="湘远15：宁波交管，湘远15叫。\n宁波交管：请讲。",
+                    payload={"confidence": 0.95},
+                )
+
+        result = postprocess_vhf_dialogue(
+            "宁波交管现在159，请讲。",
+            entity_candidates=[{"entity_type": "ship", "canonical": "湘远15"}],
+            dialogue_refiner=FakeRefiner(),  # type: ignore[arg-type]
+        )
+
+        self.assertEqual(result.resolved_text, "宁波交管，湘远15叫。请讲。")
+        self.assertIn("湘远15：宁波交管，湘远15叫。", result.dialogue_review_text)
 
     def test_paraformer_diarization_uses_role_mapping_rules(self) -> None:
         result = postprocess_vhf_dialogue(
