@@ -48,7 +48,7 @@ class AudioPreprocessor:
         ffmpeg = shutil.which("ffmpeg")
         if not ffmpeg:
             raise RuntimeError(
-                "未找到 ffmpeg。当前服务需要 ffmpeg 将输入统一转换为 16k mono PCM wav。"
+                f"未找到 ffmpeg。当前服务需要 ffmpeg 将输入统一转换为 {settings.asr_sample_rate}Hz mono PCM wav。"
             )
 
         target = self.storage.allocate_normalized_path(".wav")
@@ -60,7 +60,7 @@ class AudioPreprocessor:
             "-ac",
             "1",
             "-ar",
-            "16000",
+            str(settings.asr_sample_rate),
             "-acodec",
             "pcm_s16le",
             str(target),
@@ -95,7 +95,7 @@ class AudioPreprocessor:
             "-ac",
             "1",
             "-ar",
-            "16000",
+            str(settings.asr_sample_rate),
             "-acodec",
             "pcm_s16le",
             str(target),
@@ -119,7 +119,7 @@ class AudioPreprocessor:
         try:
             with contextlib.closing(wave.open(str(file_path), "rb")) as wav_file:
                 return (
-                    wav_file.getframerate() == 16000
+                    wav_file.getframerate() == settings.asr_sample_rate
                     and wav_file.getnchannels() == 1
                     and wav_file.getsampwidth() == 2
                 )

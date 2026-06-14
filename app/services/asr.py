@@ -707,6 +707,7 @@ def create_asr_adapter(settings: Any) -> BaseASRAdapter:
         return DashScopeParaformerASRAdapter(
             model=model_name,
             api_key_env=settings.dashscope_asr_api_key_env,
+            sample_rate=getattr(settings, "asr_sample_rate", 16000),
             diarization_enabled=settings.asr_diarization_enabled,
             speaker_count=settings.asr_speaker_count,
             phrase_id=settings.asr_phrase_id,

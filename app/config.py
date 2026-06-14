@@ -25,6 +25,12 @@ class Settings:
     vad_max_segment_ms: int = int(os.getenv("VHF_VAD_MAX_SEGMENT_MS", "8000"))
     default_channel_id: str = os.getenv("VHF_DEFAULT_CHANNEL_ID", "vhf_demo_01")
     asr_model: str = os.getenv("VHF_ASR_MODEL", "paraformer-v2")
+    asr_sample_rate: int = int(
+        os.getenv(
+            "VHF_ASR_SAMPLE_RATE",
+            "8000" if "8k" in os.getenv("VHF_ASR_MODEL", "").lower() else "16000",
+        )
+    )
     asr_provider: str = os.getenv("VHF_ASR_PROVIDER", "dashscope_paraformer")
     dashscope_asr_api_key_env: str = os.getenv("VHF_DASHSCOPE_API_KEY_ENV", "DASHSCOPE_API_KEY")
     asr_diarization_enabled: bool = os.getenv("VHF_ASR_DIARIZATION_ENABLED", "1") == "1"
