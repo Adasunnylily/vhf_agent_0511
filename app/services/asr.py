@@ -636,6 +636,57 @@ class DashScopeParaformerASRAdapter(BaseASRAdapter):
         return ""
 
 
+class ASRRefiner:
+    """Optional second-pass ASR for improving short VHF clips after realtime decoding."""
+
+    def __init__(
+        self,
+        adapter: Optional[BaseASRAdapter] = None,
+        *,
+        enabled: bool = False,
+        min_duration_ms: int = 1000,
+    ) -> None:
+        self.adapter = adapter
+        self.enabled = enabled and adapter is not None
+        self.min_duration_ms = max(0, min_duration_ms)
+
+    def refine(
+        self,
+        file_path: Path,
+        base_result: ASRResult,
+        *,
+        duration_ms: Optional[int] = None,
+    ) -> ASRResult:
+        if not self.enabled or self.adapter is None:
+            return base_result
+        if duration_ms is not None and duration_ms < self.min_duration_ms:
+            return base_result
+        if not file_path.exists() or file_path.stat().st_size <= 0:
+            return base_result
+        if "qwen_asr:" in base_result.engine:
+            return base_result
+        try:
+            refined = self.adapter.transcribe(file_path=file_path)
+        except Exception:
+            return base_result
+        refined_text = sanitize_asr_text(refined.text)
+        if not refined_text:
+            return base_result
+        return ASRResult(
+            text=refined_text,
+            confidence=refined.confidence if refined.confidence else base_result.confidence,
+            engine=f"{base_result.engine}+refine:{refined.engine}",
+            sentences=base_result.sentences or refined.sentences,
+            emotion_tags=list(base_result.emotion_tags or refined.emotion_tags or []),
+            event_tags=list(base_result.event_tags or refined.event_tags or []),
+            stream_mode=base_result.stream_mode or refined.stream_mode,
+            ttft_ms=base_result.ttft_ms,
+            final_latency_ms=base_result.final_latency_ms,
+            chunk_count=base_result.chunk_count,
+            audio_duration_ms=base_result.audio_duration_ms,
+        )
+
+
 def create_asr_adapter(settings: Any) -> BaseASRAdapter:
     provider = str(getattr(settings, "asr_provider", "qwen_api") or "qwen_api").strip().lower()
     if provider == "qwen_api":
@@ -673,4 +724,26 @@ def create_asr_adapter(settings: Any) -> BaseASRAdapter:
         language=settings.asr_language,
         use_itn=settings.asr_use_itn,
         vad_max_single_segment_time=settings.asr_vad_max_single_segment_time,
+    )
+
+
+def create_asr_refiner(settings: Any) -> ASRRefiner:
+    if not getattr(settings, "asr_refine_enabled", False):
+        return ASRRefiner(enabled=False)
+    adapter = QwenASRAdapter(
+        model=getattr(settings, "asr_refine_model", "qwen3-asr-flash"),
+        api_key_env=getattr(settings, "asr_refine_api_key_env", "DASHSCOPE_API_KEY"),
+        base_url=getattr(
+            settings,
+            "asr_refine_base_url",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        ),
+        timeout_s=getattr(settings, "asr_refine_timeout_s", 120),
+        prompt=getattr(settings, "qwen_asr_prompt", ""),
+        hotwords_path=getattr(settings, "asr_hotwords_path", None),
+    )
+    return ASRRefiner(
+        adapter=adapter,
+        enabled=True,
+        min_duration_ms=getattr(settings, "asr_refine_min_duration_ms", 1000),
     )

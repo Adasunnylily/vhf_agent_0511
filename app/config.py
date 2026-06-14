@@ -50,6 +50,18 @@ class Settings:
     qwen_asr_timeout_s: int = int(os.getenv("VHF_QWEN_ASR_TIMEOUT_S", "120"))
     asr_eval_prompt: str = _ASR_EVAL_PROMPT
     qwen_asr_prompt: str = os.getenv("VHF_QWEN_ASR_PROMPT", _ASR_EVAL_PROMPT)
+    asr_refine_enabled: bool = os.getenv("VHF_ASR_REFINE_ENABLED", "1") == "1"
+    asr_refine_model: str = os.getenv("VHF_ASR_REFINE_MODEL", "qwen3-asr-flash")
+    asr_refine_api_key_env: str = os.getenv(
+        "VHF_ASR_REFINE_API_KEY_ENV",
+        os.getenv("VHF_QWEN_ASR_API_KEY_ENV", "DASHSCOPE_API_KEY"),
+    )
+    asr_refine_base_url: str = os.getenv(
+        "VHF_ASR_REFINE_BASE_URL",
+        os.getenv("VHF_QWEN_ASR_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+    )
+    asr_refine_timeout_s: int = int(os.getenv("VHF_ASR_REFINE_TIMEOUT_S", "120"))
+    asr_refine_min_duration_ms: int = int(os.getenv("VHF_ASR_REFINE_MIN_DURATION_MS", "1000"))
     asr_vad_max_single_segment_time: int = int(
         os.getenv("VHF_ASR_VAD_MAX_SINGLE_SEGMENT_TIME", "30000")
     )

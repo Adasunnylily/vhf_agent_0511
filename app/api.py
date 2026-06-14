@@ -23,6 +23,7 @@ from app.main import (
     realtime_stream_processor,
     scenario_simulator,
     shared_asr,
+    shared_asr_refiner,
     storage,
     stream_processor,
     task_manager,
@@ -934,6 +935,11 @@ async def push_mic_chunk(
         processed_path = Path(prepared.processed_path) if prepared.processed_path else saved_path
     try:
         result = shared_asr.transcribe(file_path=processed_path)
+        result = shared_asr_refiner.refine(
+            processed_path,
+            result,
+            duration_ms=1200,
+        )
     except RuntimeError as exc:
         message = str(exc)
         if "audio is empty" in message or "InvalidParameter" in message:

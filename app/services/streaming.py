@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from app.domain.models import AudioSegment, RiskEvent
-from app.services.asr import BaseASRAdapter
+from app.services.asr import ASRRefiner, BaseASRAdapter
 from app.services.audio_utils import slice_wav_segment
 from app.services.entity_resolver import EntityResolver, EntityResolution
 from app.services.maritime_keywords import extract_maritime_keywords
@@ -29,6 +29,7 @@ class StreamingAudioProcessor:
         ws_manager: ChannelWebSocketManager,
         simulation_speed: float = 8.0,
         entity_resolver: Optional[EntityResolver] = None,
+        asr_refiner: Optional[ASRRefiner] = None,
     ) -> None:
         self.preprocessor = preprocessor
         self.vad = vad
@@ -38,6 +39,7 @@ class StreamingAudioProcessor:
         self.ws_manager = ws_manager
         self.simulation_speed = simulation_speed
         self.entity_resolver = entity_resolver
+        self.asr_refiner = asr_refiner or ASRRefiner(enabled=False)
 
     def process_file_stream(
         self,
@@ -103,6 +105,11 @@ class StreamingAudioProcessor:
             result = self.asr.transcribe(
                 file_path=clip_path,
                 transcript_override=transcript_override if index == 0 else None,
+            )
+            result = self.asr_refiner.refine(
+                clip_path,
+                result,
+                duration_ms=max(0, item.end_ms - item.start_ms),
             )
             resolution = self._resolve_entities(result.text)
             text_for_rules = postprocess_vhf_dialogue(

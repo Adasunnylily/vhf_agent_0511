@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from app.domain.models import RiskEvent
-from app.services.asr import ASRResult, BaseStreamingASRAdapter
+from app.services.asr import ASRRefiner, ASRResult, BaseStreamingASRAdapter
 from app.services.entity_resolver import EntityResolver, EntityResolution
 from app.services.maritime_keywords import extract_maritime_keywords
 from app.services.preprocess import AudioPreprocessor
@@ -23,6 +23,7 @@ class RealtimeStreamingProcessor:
         ws_manager: ChannelWebSocketManager,
         chunk_size: List[int],
         entity_resolver: Optional[EntityResolver] = None,
+        asr_refiner: Optional[ASRRefiner] = None,
     ) -> None:
         self.preprocessor = preprocessor
         self.asr = asr
@@ -30,6 +31,7 @@ class RealtimeStreamingProcessor:
         self.ws_manager = ws_manager
         self.chunk_size = chunk_size
         self.entity_resolver = entity_resolver
+        self.asr_refiner = asr_refiner or ASRRefiner(enabled=False)
 
     def process_file_stream(
         self,
@@ -95,25 +97,38 @@ class RealtimeStreamingProcessor:
         if cumulative_text:
             from app.domain.models import AudioSegment
 
+            last_result = incremental_results[-1] if incremental_results else None
+            duration_ms = int(len(audio) * 1000 / sample_rate)
+            final_asr_result = ASRResult(
+                text=cumulative_text,
+                confidence=last_result.confidence if last_result else 0.85,
+                engine=last_result.engine if last_result else "funasr:streaming",
+                sentences=last_result.sentences if last_result else [],
+                emotion_tags=list(
+                    dict.fromkeys(
+                        tag
+                        for item in incremental_results
+                        for tag in (item.emotion_tags or [])
+                    )
+                ),
+                event_tags=list(
+                    dict.fromkeys(
+                        tag
+                        for item in incremental_results
+                        for tag in (item.event_tags or [])
+                    )
+                ),
+            )
+            final_asr_result = self.asr_refiner.refine(
+                normalized_path,
+                final_asr_result,
+                duration_ms=duration_ms,
+            )
+            cumulative_text = final_asr_result.text
             resolution = self._resolve_entities(cumulative_text)
             dialogue_result = postprocess_vhf_dialogue(
                 resolution.resolved_text,
                 entity_candidates=[candidate.to_dict() for candidate in resolution.candidates],
-            )
-            last_result = incremental_results[-1] if incremental_results else None
-            merged_emotion_tags = list(
-                dict.fromkeys(
-                    tag
-                    for item in incremental_results
-                    for tag in (item.emotion_tags or [])
-                )
-            )
-            merged_event_tags = list(
-                dict.fromkeys(
-                    tag
-                    for item in incremental_results
-                    for tag in (item.event_tags or [])
-                )
             )
             segment = AudioSegment(
                 id="streaming_final",
@@ -121,16 +136,17 @@ class RealtimeStreamingProcessor:
                 file_path=str(normalized_path),
                 clip_path=str(normalized_path),
                 start_ms=0,
-                end_ms=int(len(audio) * 1000 / sample_rate),
-                duration_ms=int(len(audio) * 1000 / sample_rate),
+                end_ms=duration_ms,
+                duration_ms=duration_ms,
                 text=cumulative_text,
-                confidence=last_result.confidence if last_result else 0.85,
+                confidence=final_asr_result.confidence,
                 keywords=self._extract_keywords(dialogue_result.resolved_text),
-                engine=last_result.engine if last_result else "funasr:streaming",
+                engine=final_asr_result.engine,
                 resolved_text=dialogue_result.resolved_text,
                 entities=[candidate.to_dict() for candidate in resolution.candidates],
-                asr_emotion_tags=merged_emotion_tags,
-                asr_event_tags=merged_event_tags,
+                asr_sentences=final_asr_result.sentences,
+                asr_emotion_tags=list(final_asr_result.emotion_tags or []),
+                asr_event_tags=list(final_asr_result.event_tags or []),
             )
             self.ws_manager.publish(
                 channel_id,

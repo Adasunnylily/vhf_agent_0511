@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 from app.domain.models import AudioSegment, RiskEvent
 from app.services.audio_utils import slice_wav_segment
 from app.services.entity_resolver import EntityResolver
-from app.services.asr import BaseASRAdapter
+from app.services.asr import ASRRefiner, BaseASRAdapter
 from app.services.maritime_keywords import extract_maritime_keywords
 from app.services.preprocess import AudioPreprocessor
 from app.services.risk_engine import KeywordRiskEngine
@@ -33,6 +33,7 @@ class AudioPipeline:
         risk_engine: KeywordRiskEngine,
         storage: LocalStorage,
         entity_resolver: Optional[EntityResolver] = None,
+        asr_refiner: Optional[ASRRefiner] = None,
     ) -> None:
         self.preprocessor = preprocessor
         self.vad = vad
@@ -40,6 +41,7 @@ class AudioPipeline:
         self.risk_engine = risk_engine
         self.storage = storage
         self.entity_resolver = entity_resolver
+        self.asr_refiner = asr_refiner or ASRRefiner(enabled=False)
 
     def process(
         self,
@@ -65,6 +67,10 @@ class AudioPipeline:
             full_result = self.asr.transcribe(
                 file_path=processed_path,
                 transcript_override=transcript_override,
+            )
+            full_result = self.asr_refiner.refine(
+                processed_path,
+                full_result,
             )
             resolution = self._resolve_entities(full_result.text)
             text_for_rules = postprocess_vhf_dialogue(
@@ -114,6 +120,11 @@ class AudioPipeline:
             segment_result = self.asr.transcribe(
                 file_path=clip_path,
                 transcript_override=transcript_override if index == 0 else None,
+            )
+            segment_result = self.asr_refiner.refine(
+                clip_path,
+                segment_result,
+                duration_ms=duration_ms,
             )
             resolution = self._resolve_entities(segment_result.text)
             text_for_rules = postprocess_vhf_dialogue(

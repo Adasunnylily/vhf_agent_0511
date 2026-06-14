@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 
 from app.config import settings
 from app.frontend import render_dashboard
-from app.services.asr import FunASRStreamingAdapter, create_asr_adapter
+from app.services.asr import FunASRStreamingAdapter, create_asr_adapter, create_asr_refiner
 from app.services.demo_inspection import InspectionTaskSimulator
 from app.services.demo_scenarios import ScenarioSimulator
 from app.services.entity_resolver import EntityResolver
@@ -44,6 +44,7 @@ streaming_chunk_size = [
     if part.strip()
 ]
 shared_asr = create_asr_adapter(settings)
+shared_asr_refiner = create_asr_refiner(settings)
 shared_streaming_asr = FunASRStreamingAdapter(
     model=settings.streaming_model,
     device=settings.asr_device,
@@ -65,6 +66,7 @@ pipeline = AudioPipeline(
     risk_engine=KeywordRiskEngine(),
     storage=storage,
     entity_resolver=entity_resolver,
+    asr_refiner=shared_asr_refiner,
 )
 stream_processor = StreamingAudioProcessor(
     preprocessor=preprocessor,
@@ -80,6 +82,7 @@ stream_processor = StreamingAudioProcessor(
     ws_manager=ws_manager,
     simulation_speed=settings.stream_simulation_speed,
     entity_resolver=entity_resolver,
+    asr_refiner=shared_asr_refiner,
 )
 realtime_stream_processor = RealtimeStreamingProcessor(
     preprocessor=preprocessor,
@@ -88,6 +91,7 @@ realtime_stream_processor = RealtimeStreamingProcessor(
     ws_manager=ws_manager,
     chunk_size=streaming_chunk_size,
     entity_resolver=entity_resolver,
+    asr_refiner=shared_asr_refiner,
 )
 scenario_simulator = ScenarioSimulator(
     risk_engine=KeywordRiskEngine(),
