@@ -75,16 +75,25 @@ def build_vhf_dialogue_review(
     if not sentences:
         return "等待 ASR 后生成对话轮次复核模板"
 
-    last_ship = _extract_ship_name(text)
+    last_ship = ""
+    last_speaker = ""
+    pending_reply_speaker = ""
     rows: List[str] = []
     for sentence in sentences:
-        speaker = _infer_speaker(sentence, last_ship)
+        speaker = _infer_speaker(sentence, last_ship, last_speaker, pending_reply_speaker)
         ship = _extract_ship_name(sentence)
         if ship:
             last_ship = ship
             if speaker.startswith("疑似船方"):
                 speaker = ship
         rows.append(f"{speaker}：{sentence}。")
+        relay_target = _extract_relay_target(sentence)
+        if relay_target:
+            pending_reply_speaker = relay_target
+        elif pending_reply_speaker and speaker == pending_reply_speaker:
+            pending_reply_speaker = ""
+        if speaker != "待确认说话人":
+            last_speaker = speaker
     return "\n".join(rows)
 
 
@@ -105,16 +114,106 @@ def _extract_ship_name(text: str) -> str:
     return ""
 
 
-def _infer_speaker(sentence: str, last_ship: str) -> str:
-    if re.search(r"(谢谢交管|谢谢|哎，好的|好的)", sentence) and last_ship:
-        return last_ship
-    if re.fullmatch(r"(请讲|收到|收到，再会|注意安全|好的，注意安全|再会)", sentence):
+def _infer_speaker(
+    sentence: str,
+    last_ship: str,
+    last_speaker: str = "",
+    pending_reply_speaker: str = "",
+) -> str:
+    normalized = sentence.strip(" ，,。")
+    if _is_vts_control_sentence(normalized):
         return "宁波交管"
-    if re.search(r"^(收到|请讲|注意安全|好，下一个)", sentence):
-        return "宁波交管"
-    ship = _extract_ship_name(sentence)
-    if ship and re.search(r"(叫|报告|申请|靠妥|靠泊|离泊|抛锚|起锚|开航)", sentence):
+
+    if pending_reply_speaker and _is_short_radio_reply(normalized):
+        return pending_reply_speaker
+
+    relay_caller = _extract_relay_caller(normalized)
+    if relay_caller:
+        return relay_caller
+
+    if _is_ship_ack_to_vts(normalized):
+        return last_ship or _last_ship_speaker(last_speaker) or "疑似船方A"
+
+    ship = _extract_ship_name(normalized)
+    if ship and re.search(r"(宁波交管|舟山交管|交管)", normalized):
         return ship
-    if re.search(r"(交管|向您报告|向你报告|申请|靠妥|靠泊|离泊|谢谢交管)", sentence):
-        return last_ship or "疑似船方A"
+    if ship and _looks_like_ship_self_statement(normalized):
+        return ship
+
+    if _looks_like_ship_business_statement(normalized):
+        return ship or last_ship or _last_ship_speaker(last_speaker) or "疑似船方A"
+
+    if _looks_like_vts_instruction(normalized):
+        return "宁波交管"
+
+    if re.search(r"(我加车了|我减速了|我转向了|我避让|我知道了|明白)", normalized):
+        return last_ship or _last_ship_speaker(last_speaker) or "疑似船方A"
+
     return "待确认说话人"
+
+
+def _is_vts_control_sentence(sentence: str) -> bool:
+    return bool(
+        re.fullmatch(
+            r"(请讲|收到|收到[,，]?再会|注意安全|好[,，]?注意安全|好的[,，]?注意安全|再会|好[,，]?下一个.*|下一个.*)",
+            sentence,
+        )
+    )
+
+
+def _looks_like_vts_instruction(sentence: str) -> bool:
+    return bool(
+        re.search(
+            r"^(请讲|收到[,，]?再会|注意安全|好[,，]?注意安全|好[,，]?下一个|下一个|保持联系|加强联系)",
+            sentence,
+        )
+    )
+
+
+def _is_ship_ack_to_vts(sentence: str) -> bool:
+    return bool(
+        re.search(
+            r"(谢谢交管|谢谢老师|谢谢[,，]?交管|好的好的[,，]?谢谢|哎[,，]?好的|好的[,，]?收到|明白[,，]?谢谢)",
+            sentence,
+        )
+    )
+
+
+def _is_short_radio_reply(sentence: str) -> bool:
+    return bool(re.fullmatch(r"(哎[,，]?讲|讲|请讲|收到|好的|好|明白)", sentence))
+
+
+def _looks_like_ship_self_statement(sentence: str) -> bool:
+    return bool(re.search(r"(叫|报告|向您报告|向你报告|申请|靠妥|靠泊|离泊|抛锚|起锚|开航|解缆|备车)", sentence))
+
+
+def _looks_like_ship_business_statement(sentence: str) -> bool:
+    return bool(
+        re.search(
+            r"(交管.*(报告|申请|靠妥|靠泊|离泊|抛锚|起锚|开航|解缆|备车)|向您报告|向你报告|申请|靠妥|靠泊|离泊|抛锚|起锚|开航|解缆|备车)",
+            sentence,
+        )
+    )
+
+
+def _extract_relay_caller(sentence: str) -> str:
+    match = re.search(r"你后面的([\u4e00-\u9fa5A-Za-z0-9]{2,12})叫", sentence)
+    if not match:
+        return ""
+    caller = match.group(1).strip(" ，,。")
+    if caller in {"后面", "前面"}:
+        return ""
+    return caller
+
+
+def _extract_relay_target(sentence: str) -> str:
+    if "你后面的" not in sentence:
+        return ""
+    prefix = sentence.split("你后面的", 1)[0]
+    return _extract_ship_name(prefix)
+
+
+def _last_ship_speaker(last_speaker: str) -> str:
+    if last_speaker and last_speaker not in {"宁波交管", "待确认说话人"} and not last_speaker.startswith("说话人"):
+        return last_speaker
+    return ""
