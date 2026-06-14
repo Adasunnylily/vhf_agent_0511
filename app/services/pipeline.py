@@ -88,6 +88,8 @@ class AudioPipeline:
                 resolved_text=text_for_rules,
                 entities=[candidate.to_dict() for candidate in resolution.candidates],
                 asr_sentences=full_result.sentences,
+                asr_emotion_tags=list(full_result.emotion_tags or []),
+                asr_event_tags=list(full_result.event_tags or []),
             )
             segments.append(segment)
             for event in self.risk_engine.evaluate(segment):
@@ -133,6 +135,8 @@ class AudioPipeline:
                 resolved_text=text_for_rules,
                 entities=[candidate.to_dict() for candidate in resolution.candidates],
                 asr_sentences=segment_result.sentences,
+                asr_emotion_tags=list(segment_result.emotion_tags or []),
+                asr_event_tags=list(segment_result.event_tags or []),
             )
             segments.append(segment)
             for event in self.risk_engine.evaluate(segment):

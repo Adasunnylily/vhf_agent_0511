@@ -51,6 +51,28 @@ class VHFDialogueTests(unittest.TestCase):
         self.assertIn("锦龙008：宁波交管，锦龙008。", result.dialogue_review_text)
         self.assertIn("宁波交管：请讲。", result.dialogue_review_text)
 
+    def test_paraformer_diarization_uses_role_mapping_rules(self) -> None:
+        result = postprocess_vhf_dialogue(
+            "fallback",
+            asr_sentences=[
+                {"speaker_id": 0, "text": "宁波交管，锦龙008叫"},
+                {"speaker_id": 1, "text": "请讲"},
+                {"speaker_id": 0, "text": "锦龙008接码头通知，今早晨不抛锚了，直接进去"},
+                {"speaker_id": 1, "text": "好，注意安全"},
+                {"speaker_id": 0, "text": "好的好的，谢谢老师"},
+                {"speaker_id": 0, "text": "锦华662，你后面的中国银川叫"},
+                {"speaker_id": 1, "text": "哎，讲"},
+            ],
+            map_speaker_roles=True,
+        )
+
+        self.assertIn("锦龙008：宁波交管，锦龙008叫。", result.dialogue_review_text)
+        self.assertIn("宁波交管：请讲。", result.dialogue_review_text)
+        self.assertIn("宁波交管：好，注意安全。", result.dialogue_review_text)
+        self.assertIn("锦龙008：好的好的，谢谢老师。", result.dialogue_review_text)
+        self.assertIn("中国银川：锦华662，你后面的中国银川叫。", result.dialogue_review_text)
+        self.assertIn("锦华662：哎，讲。", result.dialogue_review_text)
+
 
 if __name__ == "__main__":
     unittest.main()

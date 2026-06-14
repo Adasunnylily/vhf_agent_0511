@@ -26,6 +26,24 @@ class DashScopeASRAdapterTests(unittest.TestCase):
         self.assertIn("说话人0：交管收到。", review)
         self.assertIn("说话人1：申请离泊。", review)
 
+    def test_postprocess_applies_sentence_resolver_for_diarization(self) -> None:
+        from app.services.entity_resolver import EntityResolver
+        from app.services.vhf_dialogue import postprocess_vhf_dialogue
+
+        class FakeResolver:
+            def resolve(self, text: str):
+                class Result:
+                    resolved_text = text.replace("警花662", "锦华662")
+
+                return Result()
+
+        result = postprocess_vhf_dialogue(
+            "fallback",
+            asr_sentences=[{"speaker_id": 1, "text": "警花662报告"}],
+            sentence_resolver=lambda text: FakeResolver().resolve(text).resolved_text,
+        )
+        self.assertIn("说话人1：锦华662报告。", result.dialogue_review_text)
+
     def test_load_hotword_lines(self) -> None:
         from pathlib import Path
 

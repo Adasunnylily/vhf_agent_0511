@@ -9,11 +9,10 @@ from typing import Iterable, List
 
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg", ".webm"}
 DEFAULT_MODELS = [
+    "volc-bigasr-auc-turbo",
     "paraformer-v2",
     "qwen-asr-flash",
-    "qwen-asr-pro",
     "doubao-seed-asr",
-    "local-funasr",
 ]
 
 

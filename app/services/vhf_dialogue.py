@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 
 SHIP_NAME_PATTERN = re.compile(r"([\u4e00-\u9fa5]{2,8}(?:\d{1,4}|幺五|一五|1五))")
@@ -19,14 +19,40 @@ class VHFDialogueResult:
 def postprocess_vhf_dialogue(
     text: str,
     asr_sentences: Optional[List[dict]] = None,
+    *,
+    sentence_resolver: Optional[Callable[[str], str]] = None,
+    map_speaker_roles: bool = False,
 ) -> VHFDialogueResult:
     resolved = repair_vhf_text(text)
-    dialogue_review_text = build_vhf_dialogue_review(resolved, asr_sentences=asr_sentences)
+    dialogue_sentences = asr_sentences
+    if asr_sentences:
+        dialogue_sentences = _prepare_diarization_sentences(asr_sentences, sentence_resolver)
+    dialogue_review_text = build_vhf_dialogue_review(
+        resolved,
+        asr_sentences=dialogue_sentences,
+        map_speaker_roles=map_speaker_roles,
+    )
     return VHFDialogueResult(
         original_text=text,
         resolved_text=resolved,
         dialogue_review_text=dialogue_review_text,
     )
+
+
+def _prepare_diarization_sentences(
+    asr_sentences: List[dict],
+    sentence_resolver: Optional[Callable[[str], str]] = None,
+) -> List[dict]:
+    prepared: List[dict] = []
+    for sentence in asr_sentences:
+        content = str(sentence.get("text") or "").strip()
+        if not content:
+            continue
+        content = repair_vhf_text(content)
+        if sentence_resolver is not None:
+            content = sentence_resolver(content)
+        prepared.append({**sentence, "text": content})
+    return prepared
 
 
 def repair_vhf_text(text: str) -> str:
@@ -58,43 +84,62 @@ def repair_vhf_text(text: str) -> str:
 def build_vhf_dialogue_review(
     text: str,
     asr_sentences: Optional[List[dict]] = None,
+    *,
+    map_speaker_roles: bool = False,
 ) -> str:
     if asr_sentences:
+        if map_speaker_roles:
+            return _build_role_mapped_dialogue_review(asr_sentences)
         rows: List[str] = []
         for sentence in asr_sentences:
             content = str(sentence.get("text") or "").strip()
             if not content:
                 continue
             speaker = sentence.get("speaker_id", sentence.get("speaker"))
-            label = f"说话人{speaker}" if speaker not in (None, "") else "待确认说话人"
+            label = format_diarization_speaker_label(speaker)
             rows.append(f"{label}：{content}。")
         if rows:
             return "\n".join(rows)
 
-    sentences = _split_sentences(text)
-    if not sentences:
-        return "等待 ASR 后生成对话轮次复核模板"
+    return _build_role_mapped_dialogue_review(_sentences_from_text(text))
 
+
+def _sentences_from_text(text: str) -> List[dict]:
+    return [{"text": sentence} for sentence in _split_sentences(text)]
+
+
+def _build_role_mapped_dialogue_review(asr_sentences: List[dict]) -> str:
     last_ship = ""
     last_speaker = ""
     pending_reply_speaker = ""
     rows: List[str] = []
-    for sentence in sentences:
-        speaker = _infer_speaker(sentence, last_ship, last_speaker, pending_reply_speaker)
-        ship = _extract_ship_name(sentence)
+    for sentence in asr_sentences:
+        content = str(sentence.get("text") or "").strip()
+        if not content:
+            continue
+        speaker = _infer_speaker(content, last_ship, last_speaker, pending_reply_speaker)
+        ship = _extract_ship_name(content)
         if ship:
             last_ship = ship
             if speaker.startswith("疑似船方"):
                 speaker = ship
-        rows.append(f"{speaker}：{sentence}。")
-        relay_target = _extract_relay_target(sentence)
+        rows.append(f"{speaker}：{content}。")
+        relay_target = _extract_relay_target(content)
         if relay_target:
             pending_reply_speaker = relay_target
         elif pending_reply_speaker and speaker == pending_reply_speaker:
             pending_reply_speaker = ""
         if speaker != "待确认说话人":
             last_speaker = speaker
+    if not rows:
+        return "等待 ASR 后生成对话轮次复核模板"
     return "\n".join(rows)
+
+
+def format_diarization_speaker_label(speaker: object) -> str:
+    if speaker in (None, ""):
+        return "待确认说话人"
+    return f"说话人{speaker}"
 
 
 def _split_sentences(text: str) -> List[str]:

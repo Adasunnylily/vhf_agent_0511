@@ -987,7 +987,13 @@ async def push_mic_chunk(
     resolution = entity_resolver.resolve(text)
     dialogue_result = postprocess_vhf_dialogue(
         resolution.resolved_text,
-        asr_sentences=result.sentences,
+        asr_sentences=result.sentences if result.sentences else None,
+        sentence_resolver=(
+            lambda sentence: entity_resolver.resolve(sentence).resolved_text
+            if result.sentences
+            else None
+        ),
+        map_speaker_roles=bool(result.sentences),
     )
     text_for_rules = dialogue_result.resolved_text
 
@@ -1017,6 +1023,8 @@ async def push_mic_chunk(
         resolved_text=text_for_rules,
         entities=[candidate.to_dict() for candidate in resolution.candidates],
         asr_sentences=result.sentences,
+        asr_emotion_tags=list(result.emotion_tags or []),
+        asr_event_tags=list(result.event_tags or []),
     )
     ws_manager.publish(
         channel_id,

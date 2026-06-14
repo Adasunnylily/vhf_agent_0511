@@ -16,6 +16,16 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from app.services.asr import ASRResult, FunASRAdapter, detect_unexpected_language_marks, sanitize_asr_text  # noqa: E402
+from app.services.asr_prompts import (  # noqa: E402
+    DEFAULT_ASR_EVAL_PROMPT,
+    build_qwen_eval_prompt,
+    build_volc_request_options,
+    default_hotwords_path,
+)
+
+
+def resolve_eval_prompt() -> str:
+    return os.getenv("VHF_ASR_EVAL_PROMPT", DEFAULT_ASR_EVAL_PROMPT).strip() or DEFAULT_ASR_EVAL_PROMPT
 
 
 def read_csv(path: Path) -> List[Dict[str, str]]:
@@ -143,7 +153,8 @@ def run_qwen_asr_model(
     base_url = str(spec.get("base_url") or os.getenv("DASHSCOPE_BASE_URL") or "https://dashscope.aliyuncs.com/compatible-mode/v1")
     client = OpenAI(api_key=api_key, base_url=base_url)
     model_name = str(spec["name"])
-    prompt = str(spec.get("prompt", ""))
+    hotwords_path = default_hotwords_path()
+    prompt = build_qwen_eval_prompt(hotwords_path=hotwords_path if hotwords_path.exists() else None)
     max_file_mb = float(spec.get("max_file_mb", 10))
     outputs: List[Dict[str, object]] = []
     for index, row in enumerate(rows, start=1):
@@ -216,8 +227,8 @@ def run_openai_audio_model(
     outputs: List[Dict[str, object]] = []
     for index, row in enumerate(rows, start=1):
         try:
-            params: Dict[str, Any] = {"model": str(spec["model"])}
-            for key in ["language", "prompt", "response_format", "temperature", "chunking_strategy"]:
+            params: Dict[str, Any] = {"model": str(spec["model"]), "prompt": resolve_eval_prompt()}
+            for key in ["language", "response_format", "temperature", "chunking_strategy"]:
                 if spec.get(key) not in (None, ""):
                     params[key] = spec[key]
             with Path(row["clip_path"]).open("rb") as audio_file:
@@ -256,12 +267,7 @@ def run_gemini_audio_model(
         raise RuntimeError(f"缺少环境变量 {api_key_env} 或 GOOGLE_API_KEY。")
 
     client = genai.Client(api_key=api_key)
-    prompt = str(
-        spec.get(
-            "prompt",
-            "请将这段VHF海事通信音频准确转写为中文文本。只输出转写文本，不要解释。",
-        )
-    )
+    prompt = resolve_eval_prompt()
     model_name = str(spec["name"])
     outputs: List[Dict[str, object]] = []
     for index, row in enumerate(rows, start=1):
@@ -322,7 +328,7 @@ def run_doubao_seed_asr_model(
             payload = {
                 "user": {"uid": uid},
                 "audio": {"data": base64.b64encode(clip_path.read_bytes()).decode("utf-8")},
-                "request": {"model_name": str(spec.get("model_name", "bigmodel"))},
+                "request": build_volc_request_options(streaming=False),
             }
             response = requests.post(endpoint, headers=headers, json=payload, timeout=timeout_sec)
             response.raise_for_status()

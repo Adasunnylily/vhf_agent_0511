@@ -4,6 +4,7 @@ import uuid
 from typing import Dict, List, Optional, Tuple
 
 from app.domain.models import AudioSegment, RiskEvent
+from app.services.funasr_emotion import format_funasr_emotion_evidence
 
 
 KEYWORD_GROUPS: Dict[str, Dict[str, object]] = {
@@ -141,6 +142,12 @@ class KeywordRiskEngine:
         ) = matched
         summary = f"识别到疑似{matched_event_type}，命中关键词：{', '.join(matched_keywords)}。"
         evidence = [f"命中关键词: {keyword}" for keyword in matched_keywords]
+        evidence.extend(
+            format_funasr_emotion_evidence(
+                list(getattr(segment, "asr_emotion_tags", []) or []),
+                list(getattr(segment, "asr_event_tags", []) or []),
+            )
+        )
         if segment.confidence < 0.8:
             evidence.append(f"识别置信度低于自动化阈值: {segment.confidence:.2f}")
             requires_human_review = True

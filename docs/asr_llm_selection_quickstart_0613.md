@@ -22,8 +22,15 @@ python3 scripts/run_asr_comparison_for_review.py \
 火山上传录音默认接口：
 
 ```text
-https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit
-X-Api-Resource-Id: volc.seedasr.auc
+https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash
+X-Api-Resource-Id: volc.bigasr.auc_turbo
+```
+
+如需异步批量识别，可设置环境变量：
+
+```text
+VOLCENGINE_FILE_ASR_ENDPOINT=https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit
+VOLCENGINE_FILE_ASR_QUERY_ENDPOINT=https://openspeech.bytedance.com/api/v3/auc/bigmodel/query
 ```
 
 ## 2. 流式识别
@@ -32,13 +39,16 @@ X-Api-Resource-Id: volc.seedasr.auc
 
 默认候选：
 
-- `volc-sauc-duration`：火山流式，资源 `volc.seedasr.sauc.duration`
-- `s2s-omni`：实时双向语音理解候选
+- `volc-sauc-duration`：火山流式 WebSocket 文件回放，资源 `volc.bigasr.sauc.duration`
 - `qwen-asr-flash`：可作为准实时分片回放基线
-- `local-funasr`：本地 FunASR 基线
 - `paraformer-realtime-v2`：Paraformer 实时识别候选
 - `sensevoice-realtime-v1`：高噪声 VHF 候选
-- `paraformer-realtime-8k-v2`：Paraformer 实时识别候选
+- `paraformer-realtime-8k-v2`：Paraformer 8k 实时候选
+
+可选（默认不跑，避免 OOM 或未实现协议）：
+
+- `local-funasr`：设置 `VHF_STREAMING_INCLUDE_LOCAL=1`
+- `s2s-omni`：设置 `VHF_STREAMING_INCLUDE_S2S=1`
 
 命令：
 

@@ -97,6 +97,21 @@ class RealtimeStreamingProcessor:
 
             resolution = self._resolve_entities(cumulative_text)
             dialogue_result = postprocess_vhf_dialogue(resolution.resolved_text)
+            last_result = incremental_results[-1] if incremental_results else None
+            merged_emotion_tags = list(
+                dict.fromkeys(
+                    tag
+                    for item in incremental_results
+                    for tag in (item.emotion_tags or [])
+                )
+            )
+            merged_event_tags = list(
+                dict.fromkeys(
+                    tag
+                    for item in incremental_results
+                    for tag in (item.event_tags or [])
+                )
+            )
             segment = AudioSegment(
                 id="streaming_final",
                 channel_id=channel_id,
@@ -106,11 +121,13 @@ class RealtimeStreamingProcessor:
                 end_ms=int(len(audio) * 1000 / sample_rate),
                 duration_ms=int(len(audio) * 1000 / sample_rate),
                 text=cumulative_text,
-                confidence=incremental_results[-1].confidence if incremental_results else 0.85,
+                confidence=last_result.confidence if last_result else 0.85,
                 keywords=self._extract_keywords(dialogue_result.resolved_text),
-                engine=incremental_results[-1].engine if incremental_results else "funasr:streaming",
+                engine=last_result.engine if last_result else "funasr:streaming",
                 resolved_text=dialogue_result.resolved_text,
                 entities=[candidate.to_dict() for candidate in resolution.candidates],
+                asr_emotion_tags=merged_emotion_tags,
+                asr_event_tags=merged_event_tags,
             )
             self.ws_manager.publish(
                 channel_id,

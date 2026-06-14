@@ -124,6 +124,8 @@ class StreamingAudioProcessor:
                 resolved_text=text_for_rules,
                 entities=[candidate.to_dict() for candidate in resolution.candidates],
                 asr_sentences=result.sentences,
+                asr_emotion_tags=list(result.emotion_tags or []),
+                asr_event_tags=list(result.event_tags or []),
             )
             segments.append(segment)
             self.ws_manager.publish(

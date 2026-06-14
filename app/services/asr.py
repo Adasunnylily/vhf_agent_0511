@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from http import HTTPStatus
 
 from app.services.maritime_keywords import MARITIME_HOTWORDS
+from app.services.funasr_emotion import extract_funasr_emotion_tags, extract_funasr_event_tags
 
 
 @dataclass
@@ -18,6 +19,13 @@ class ASRResult:
     confidence: float
     engine: str
     sentences: List[Dict[str, Any]] = field(default_factory=list)
+    emotion_tags: List[str] = field(default_factory=list)
+    event_tags: List[str] = field(default_factory=list)
+    stream_mode: str = ""
+    ttft_ms: Optional[float] = None
+    final_latency_ms: Optional[float] = None
+    chunk_count: int = 0
+    audio_duration_ms: Optional[float] = None
 
 
 def sanitize_asr_text(text: str) -> str:
@@ -146,12 +154,16 @@ class FunASRAdapter(BaseASRAdapter):
                 use_itn=self.use_itn,
             )
         text = self._extract_text(results)
+        emotion_tags = extract_funasr_emotion_tags(text)
+        event_tags = extract_funasr_event_tags(text)
         text = self._post_process_text(text)
         confidence = self._extract_confidence(results)
         return ASRResult(
             text=sanitize_asr_text(text),
             confidence=confidence,
             engine=f"funasr:{self.model_name}",
+            emotion_tags=emotion_tags,
+            event_tags=event_tags,
         )
 
     def _ensure_model(self) -> Any:
@@ -340,12 +352,16 @@ class QwenASRAdapter(BaseASRAdapter):
         base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
         timeout_s: int = 120,
         prompt: str = "",
+        append_hotwords: bool = True,
+        hotwords_path: Optional[Path] = None,
     ) -> None:
         self.model = model
         self.api_key_env = api_key_env
         self.base_url = base_url
         self.timeout_s = timeout_s
         self.prompt = prompt
+        self.append_hotwords = append_hotwords
+        self.hotwords_path = hotwords_path
         self._client: Any = None
         self._lock = threading.Lock()
 
@@ -403,10 +419,14 @@ class QwenASRAdapter(BaseASRAdapter):
             raise RuntimeError(f"Qwen ASR 调用失败: {exc}") from exc
 
     def _build_prompt(self) -> str:
-        hotwords = "、".join(MARITIME_HOTWORDS[:80])
         parts = [self.prompt.strip()]
+        hotwords: List[str] = []
+        if self.hotwords_path:
+            hotwords = load_hotword_lines(self.hotwords_path, limit=50)
+        elif self.append_hotwords:
+            hotwords = MARITIME_HOTWORDS[:80]
         if hotwords:
-            parts.append(f"常见热词：{hotwords}")
+            parts.append("热词：" + "、".join(hotwords))
         return "\n".join(part for part in parts if part)
 
     def _ensure_client(self) -> Any:
@@ -526,6 +546,7 @@ class DashScopeParaformerASRAdapter(BaseASRAdapter):
             raise RuntimeError("缺少 dashscope SDK，请安装: pip install dashscope") from exc
 
         dashscope.api_key = api_key
+        model_name = self._resolve_model_name()
 
         call_kwargs: Dict[str, Any] = {
             "diarization_enabled": self.diarization_enabled,
@@ -535,12 +556,16 @@ class DashScopeParaformerASRAdapter(BaseASRAdapter):
         if self.vocabulary_id:
             call_kwargs["vocabulary_id"] = self.vocabulary_id
         hotwords = load_hotword_lines(self.hotwords_path) if self.hotwords_path else []
-        if hotwords and not self.vocabulary_id and not self.phrase_id:
-            # Inline vocabulary hint for models that accept it in recognition kwargs.
+        if (
+            hotwords
+            and not self.vocabulary_id
+            and not self.phrase_id
+            and "realtime" not in model_name
+        ):
             call_kwargs["vocabulary"] = [{"text": word} for word in hotwords[:50]]
 
         recognition = Recognition(
-            model=self.model,
+            model=model_name,
             callback=RecognitionCallback(),
             format="wav",
             sample_rate=self.sample_rate,
@@ -566,9 +591,14 @@ class DashScopeParaformerASRAdapter(BaseASRAdapter):
         return ASRResult(
             text=text,
             confidence=0.85 if text else 0.0,
-            engine=f"dashscope:{self.model}",
+            engine=f"dashscope:{model_name}",
             sentences=sentences,
         )
+
+    def _resolve_model_name(self) -> str:
+        from app.services.asr_prompts import resolve_paraformer_model
+
+        return resolve_paraformer_model(self.model)
 
     def _normalize_sentences(self, payload: Any) -> List[Dict[str, Any]]:
         if payload is None:
@@ -617,13 +647,19 @@ def create_asr_adapter(settings: Any) -> BaseASRAdapter:
             prompt=settings.qwen_asr_prompt,
         )
     if provider in {"dashscope_paraformer", "paraformer_v2"}:
+        from app.services.asr_prompts import resolve_dashscope_vocabulary_id, resolve_paraformer_model
+
+        model_name = resolve_paraformer_model(settings.asr_model or "paraformer-v2")
+        vocabulary_id = settings.asr_vocabulary_id or resolve_dashscope_vocabulary_id(
+            target_model=model_name
+        )
         return DashScopeParaformerASRAdapter(
-            model=settings.asr_model or "paraformer-v2",
+            model=model_name,
             api_key_env=settings.dashscope_asr_api_key_env,
             diarization_enabled=settings.asr_diarization_enabled,
             speaker_count=settings.asr_speaker_count,
             phrase_id=settings.asr_phrase_id,
-            vocabulary_id=settings.asr_vocabulary_id,
+            vocabulary_id=vocabulary_id,
             hotwords_path=settings.asr_hotwords_path,
         )
     return FunASRAdapter(
