@@ -162,7 +162,7 @@ async def list_demo_scenarios() -> Dict[str, List[Dict[str, object]]]:
 
 
 @router.get("/demo/inspection/ships")
-async def list_demo_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
+async def list_demo_inspection_ships() -> Dict[str, object]:
     items = inspection_simulator.list_mock_ships()
     return {
         "items": items,
@@ -172,7 +172,7 @@ async def list_demo_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
 
 
 @router.get("/inspection/ships")
-async def list_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
+async def list_inspection_ships() -> Dict[str, object]:
     items = inspection_simulator.list_mock_ships()
     return {
         "items": items,
@@ -182,7 +182,7 @@ async def list_inspection_ships() -> Dict[str, List[Dict[str, object]]]:
 
 
 @router.get("/ais/ships")
-async def list_ais_ships() -> Dict[str, List[Dict[str, object]]]:
+async def list_ais_ships() -> Dict[str, object]:
     items = inspection_simulator.list_mock_ships()
     return {
         "items": items,
