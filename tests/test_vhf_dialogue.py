@@ -52,6 +52,15 @@ class VHFDialogueTests(unittest.TestCase):
         self.assertIn("锦龙008：宁波交管，锦龙008。", result.dialogue_review_text)
         self.assertIn("宁波交管：请讲。", result.dialogue_review_text)
 
+    def test_soft_prefixed_please_speak_is_vts_side(self) -> None:
+        raw = "宁波交管，锦龙008叫。嗯，请讲。锦龙008申请离泊。"
+
+        result = postprocess_vhf_dialogue(raw)
+
+        self.assertIn("锦龙008：宁波交管，锦龙008叫。", result.dialogue_review_text)
+        self.assertIn("宁波交管：嗯，请讲。", result.dialogue_review_text)
+        self.assertIn("锦龙008：锦龙008申请离泊。", result.dialogue_review_text)
+
     def test_llm_dialogue_refiner_can_override_rule_dialogue(self) -> None:
         class FakeRefiner:
             def refine(self, **kwargs):  # type: ignore[no-untyped-def]

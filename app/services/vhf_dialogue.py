@@ -215,7 +215,7 @@ def _infer_speaker(
 def _is_vts_control_sentence(sentence: str) -> bool:
     return bool(
         re.fullmatch(
-            r"(请讲|收到|收到[,，]?再会|注意安全|好[,，]?注意安全|好的[,，]?注意安全|再会|好[,，]?下一个.*|下一个.*)",
+            r"((嗯|啊|好)?[,，]?(请讲)|收到|收到[,，]?再会|注意安全|好[,，]?注意安全|好的[,，]?注意安全|再会|好[,，]?下一个.*|下一个.*)",
             sentence,
         )
     )
@@ -224,7 +224,7 @@ def _is_vts_control_sentence(sentence: str) -> bool:
 def _looks_like_vts_instruction(sentence: str) -> bool:
     return bool(
         re.search(
-            r"^(请讲|收到[,，]?再会|注意安全|好[,，]?注意安全|好[,，]?下一个|下一个|保持联系|加强联系)",
+            r"^((嗯|啊|好)?[,，]?请讲|收到[,，]?再会|注意安全|好[,，]?注意安全|好[,，]?下一个|下一个|保持联系|加强联系)",
             sentence,
         )
     )
