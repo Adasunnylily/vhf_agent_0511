@@ -1152,6 +1152,7 @@
       if (query.trim()) return query.trim().replace(/\/+$/, "");
       const stored = localStorage.getItem("vhf_api_base") || "";
       if (stored.trim()) return stored.trim().replace(/\/+$/, "");
+      if (location.protocol === "file:") return "http://127.0.0.1:8766";
       return location.origin;
     }
     const defaultApiBase = computeDefaultApiBase();
@@ -1595,6 +1596,9 @@
       }
     }
     async function startMic() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("当前页面无法调用麦克风，请用 http://localhost:8766/maritime_ai_agent.html 打开页面，并允许浏览器麦克风权限。");
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       resetVoiceWorkflow("麦克风已接入，等待有效语音...");
       const result = await request("/api/mic/start", { method: "POST", body: form({ channel_id: channelId(), denoise_mode: "off" }) });
@@ -1672,6 +1676,9 @@
     }
 
     async function setupRuntime() {
+      if (location.protocol === "file:") {
+        toast("当前是本地文件打开，已尝试连接本地原型服务；麦克风建议使用 http://localhost:8766 页面");
+      }
       try {
         const config = await request("/api/config/public");
         if (config.default_channel_id) $("channelInput").value = config.default_channel_id;
