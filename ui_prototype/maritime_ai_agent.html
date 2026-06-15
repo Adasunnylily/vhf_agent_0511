@@ -887,6 +887,7 @@
                 <audio class="audio-player" id="audioPlayer" controls></audio>
               </div>
               <div class="mini-actions">
+                <button class="secondary" id="continuousDemoBtn">测试集连续守听</button>
                 <button class="secondary" id="riskDemoBtn">高危样例</button>
                 <button class="secondary" id="normalDemoBtn">常规样例</button>
               </div>
@@ -911,6 +912,7 @@
                 <span>[步骤 5] 暂未触发处置动作</span>
               </div>
               <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">等待语音识别后生成对话轮次复核模板</div>
+              <div class="dialogue-box text-box" id="continuousDialogues">连续守听结果将在这里按对话片段滚动展示。</div>
               <div class="review-grid">
                 <label>意图复核
                   <select id="intentEdit">
@@ -1098,6 +1100,11 @@
           <div class="panel-head"><h2>知识库</h2><span class="pill">交管规则 · 国际规范</span></div>
           <div class="panel-body">
             <div class="knowledge-search"><input id="knowledgeQuery" placeholder="检索交管规则、航行法规和风险处置要求" /><button id="knowledgeSearchBtn">检索</button></div>
+            <div class="knowledge-search">
+              <input id="knowledgeCategory" placeholder="资料分类，例如：交管规定" value="交管规定" />
+              <input id="knowledgeFile" type="file" />
+              <button id="knowledgeImportBtn">导入资料</button>
+            </div>
             <div class="list" id="knowledgeList"></div>
           </div>
         </section>
@@ -1245,6 +1252,7 @@
       $("shipEdit").value = "";
       $("aisEdit").value = "";
       $("dialogueEdit").textContent = "等待语音识别后生成对话轮次复核模板";
+      $("continuousDialogues").textContent = "连续守听结果将在这里按对话片段滚动展示。";
       $("aisText").textContent = "未关联";
       $("aisRuntimeText").textContent = "待匹配";
       $("aisDetail").className = "ais-detail";
@@ -1512,6 +1520,45 @@
       }
       throw new Error("任务等待超时");
     }
+    function renderContinuousConversations(task) {
+      const conversations = task?.meta?.conversations || [];
+      if (!conversations.length) {
+        $("continuousDialogues").textContent = "正在守听测试集语音，等待第一段对话完成...";
+        return;
+      }
+      $("continuousDialogues").textContent = conversations.map((item) => {
+        const status = item.status === "failed" ? `识别失败：${item.error || "未知错误"}` : (item.dialogue_review_text || "未生成对话轮次");
+        const events = (item.events || []).map((event) => {
+          const business = intentLabel(event.business_type || "other_business");
+          const level = riskLevelLabel(event.risk_level || "INFO");
+          const action = event.is_auto_reply ? "自动回复" : event.requires_human_review ? "人工复核" : "归档监听";
+          return `处置：${business} / ${level} / ${action}`;
+        }).join("\n");
+        return `【第 ${Number(item.index || 0) + 1} 段】${item.filename}\n${status}${events ? `\n${events}` : ""}`;
+      }).join("\n\n");
+      const latest = conversations[conversations.length - 1];
+      if (latest?.dialogue_review_text) $("dialogueEdit").textContent = latest.dialogue_review_text;
+      if (latest?.events?.length) applyDecision(chooseEvent(latest.events));
+      $("asrStatus").textContent = task.status === "completed" ? "连续守听完成" : "连续守听中";
+      setReasoningTrace([
+        "智能体持续接收测试集语音",
+        `已完成 ${task?.meta?.completed || conversations.length} / ${task?.meta?.total || "?"} 段对话`,
+        "每段对话完成后自动进行分类和处置判断",
+        "需要人工介入的事件进入动作队列",
+        "其余对话自动归档到事件中心",
+      ]);
+      setFlow(task.status === "completed" ? 5 : 2);
+    }
+    async function pollContinuousTask(taskId) {
+      for (let i = 0; i < 240; i += 1) {
+        const task = await request(`/api/tasks/${taskId}`);
+        renderContinuousConversations(task);
+        if (task.status === "completed") return task;
+        if (task.status === "failed") throw new Error(task.error || "连续守听任务失败");
+        await new Promise((resolve) => setTimeout(resolve, 900));
+      }
+      throw new Error("连续守听任务等待超时");
+    }
 
     async function runFileRecognition() {
       const file = $("audioFile").files[0];
@@ -1542,6 +1589,27 @@
       await pollTask(payload.task_id);
       await loadEvents();
       toast("样例研判完成");
+    }
+    async function runContinuousDemo() {
+      resetVoiceWorkflow("连续守听模拟已启动...");
+      $("continuousDialogues").textContent = "正在读取测试集并模拟持续甚高频输入...";
+      setAgent("持续守听中");
+      $("asrStatus").textContent = "连续守听中";
+      setReasoningTrace([
+        "正在连接测试集连续守听任务",
+        "智能体将按顺序接收多段语音",
+        "每段结束后自动重建对话轮次",
+        "自动判断是否人工介入或归档",
+      ]);
+      setFlow(0);
+      const payload = await request("/api/demo/continuous-test-set", {
+        method: "POST",
+        body: form({ channel_id: channelId(), limit: 8, speed_ms: 500 }),
+      });
+      await pollContinuousTask(payload.task_id);
+      await loadEvents();
+      setAgent("连续守听完成");
+      toast("连续守听模拟完成，事件已归档");
     }
 
     function beginAmplitude(stream) {
@@ -2187,6 +2255,17 @@
         $("knowledgeList").innerHTML = (payload.items || []).map((item) => `<div class="event-row"><b>${item.title}</b><span>${item.category || "法规资料"}</span><span>${item.content || item.summary || ""}</span></div>`).join("") || '<div class="event-row"><b>暂无匹配资料</b><span>可通过后端接口导入审核过的规则文档</span></div>';
       } catch (error) { $("knowledgeList").innerHTML = '<div class="event-row"><b>知识库暂不可用</b><span>请检查后端服务</span></div>'; }
     }
+    async function importKnowledgeDocument() {
+      const file = $("knowledgeFile").files[0];
+      if (!file) return toast("请先选择要导入的知识库文件", true);
+      await request("/api/knowledge/documents/import", {
+        method: "POST",
+        body: form({ file, category: $("knowledgeCategory").value || "交管规定" }),
+      });
+      $("knowledgeFile").value = "";
+      toast("知识库资料已导入");
+      await searchKnowledge();
+    }
 
     document.querySelectorAll(".nav-btn").forEach((btn) => btn.addEventListener("click", () => setPage(btn.dataset.page)));
     $("runDemoBtn").addEventListener("click", async () => { try { $("inputMode").value === "mic" ? await toggleMic() : await runFileRecognition(); } catch (error) { toast(`识别失败：${error.message}`, true); } });
@@ -2196,6 +2275,7 @@
     $("queryTrackBtn").addEventListener("click", copilotQueryTrack);
     $("markAlertBtn").addEventListener("click", copilotMarkAlert);
     $("copilotReviewBtn").addEventListener("click", async () => { setAgent("人工复核", "risk"); await updateActiveStatus("confirmed"); toast("已进入人工复核"); });
+    $("continuousDemoBtn").addEventListener("click", () => runContinuousDemo().catch((error) => toast(`连续守听失败：${error.message}`, true)));
     $("riskDemoBtn").addEventListener("click", () => runScenario("smoke_fire").catch((error) => toast(error.message, true)));
     $("normalDemoBtn").addEventListener("click", () => runScenario("static_report").catch((error) => toast(error.message, true)));
     $("speakBtn").addEventListener("click", () => speakText($("replyText").textContent, async () => { setFlow(5); await updateActiveStatus("broadcasted"); }));
@@ -2223,6 +2303,7 @@
       window.open(`${API_BASE}/api/feedback.csv`, "_blank");
     });
     $("knowledgeSearchBtn").addEventListener("click", searchKnowledge);
+    $("knowledgeImportBtn").addEventListener("click", () => importKnowledgeDocument().catch((error) => toast(`导入失败：${error.message}`, true)));
     $("refreshAreasBtn").addEventListener("click", loadAreas);
     $("saveSettingsBtn").addEventListener("click", () => {
       API_BASE = ($("apiBaseInput").value.trim() || defaultApiBase).replace(/\/+$/, "");

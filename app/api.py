@@ -501,6 +501,180 @@ async def run_demo_scenario(
     }
 
 
+@router.get("/demo/continuous-test-set")
+async def list_continuous_test_set(
+    limit: int = 20,
+) -> Dict[str, object]:
+    root = settings.continuous_demo_dir
+    if not root.exists():
+        return {
+            "root": str(root),
+            "exists": False,
+            "items": [],
+            "message": "连续守听测试集目录不存在，请在服务器配置 VHF_CONTINUOUS_DEMO_DIR。",
+        }
+    audio_files = _continuous_audio_files(root, limit=max(1, min(limit, 200)))
+    return {
+        "root": str(root),
+        "exists": True,
+        "count": len(audio_files),
+        "items": [{"filename": item.name, "path": str(item)} for item in audio_files],
+    }
+
+
+@router.post("/demo/continuous-test-set")
+async def run_continuous_test_set(
+    channel_id: str = Form("vhf_demo_01"),
+    limit: int = Form(8),
+    speed_ms: int = Form(600),
+) -> Dict[str, object]:
+    root = settings.continuous_demo_dir
+    if not root.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"连续守听测试集目录不存在: {root}",
+        )
+    audio_files = _continuous_audio_files(root, limit=max(1, min(limit, 50)))
+    if not audio_files:
+        raise HTTPException(status_code=404, detail=f"目录内未找到音频文件: {root}")
+
+    task = task_manager.create(filename=f"continuous:{root.name}", channel_id=channel_id)
+
+    def runner() -> None:
+        all_segments: List[AudioSegment] = []
+        all_events: List[Dict[str, object]] = []
+        conversations: List[Dict[str, object]] = []
+        ws_manager.publish(
+            channel_id,
+            {
+                "type": "continuous_status",
+                "stage": "started",
+                "channel_id": channel_id,
+                "total": len(audio_files),
+            },
+        )
+        for index, audio_path in enumerate(audio_files):
+            ws_manager.publish(
+                channel_id,
+                {
+                    "type": "continuous_status",
+                    "stage": "listening",
+                    "channel_id": channel_id,
+                    "index": index,
+                    "filename": audio_path.name,
+                },
+            )
+            try:
+                run = pipeline.process(
+                    file_path=audio_path,
+                    channel_id=channel_id,
+                    force_full_file_transcribe=False,
+                    enable_denoise=False,
+                )
+                event_payloads = _enrich_event_payloads(
+                    [event.to_dict() for event in run.events],
+                    run.segments,
+                )
+                persisted_events = _persist_decisions(
+                    source_type="continuous_listening_demo",
+                    audio_path=str(audio_path),
+                    segments=run.segments,
+                    events=event_payloads,
+                )
+                all_segments.extend(run.segments)
+                all_events.extend(persisted_events)
+                dialogue_text = build_vhf_dialogue_review(
+                    "\n".join(segment.resolved_text or segment.text for segment in run.segments)
+                )
+                conversation = {
+                    "index": index,
+                    "filename": audio_path.name,
+                    "audio_path": str(audio_path),
+                    "segments": [segment.to_dict() for segment in run.segments],
+                    "events": persisted_events,
+                    "dialogue_review_text": dialogue_text,
+                    "status": "completed",
+                }
+            except Exception as exc:  # noqa: BLE001 - keep the demo stream alive.
+                conversation = {
+                    "index": index,
+                    "filename": audio_path.name,
+                    "audio_path": str(audio_path),
+                    "segments": [],
+                    "events": [],
+                    "dialogue_review_text": "",
+                    "status": "failed",
+                    "error": str(exc),
+                }
+            conversations.append(conversation)
+            task_manager.update(
+                task.id,
+                status="running",
+                segments=[segment.to_dict() for segment in all_segments],
+                events=all_events,
+                meta={
+                    "task_type": "continuous_listening_demo",
+                    "root": str(root),
+                    "total": len(audio_files),
+                    "completed": len(conversations),
+                    "conversations": conversations,
+                },
+            )
+            ws_manager.publish(
+                channel_id,
+                {
+                    "type": "continuous_conversation",
+                    "channel_id": channel_id,
+                    **conversation,
+                },
+            )
+            if speed_ms > 0:
+                threading.Event().wait(min(speed_ms, 3000) / 1000)
+
+        task_manager.update(
+            task.id,
+            status="completed",
+            segments=[segment.to_dict() for segment in all_segments],
+            events=all_events,
+            meta={
+                "task_type": "continuous_listening_demo",
+                "root": str(root),
+                "total": len(audio_files),
+                "completed": len(conversations),
+                "conversations": conversations,
+            },
+        )
+        ws_manager.publish(
+            channel_id,
+            {
+                "type": "continuous_status",
+                "stage": "completed",
+                "channel_id": channel_id,
+                "total": len(audio_files),
+                "events": len(all_events),
+            },
+        )
+
+    task_manager.run_async(task.id, runner)
+    return {
+        "task_id": task.id,
+        "status": "queued",
+        "channel_id": channel_id,
+        "root": str(root),
+        "count": len(audio_files),
+    }
+
+
+def _continuous_audio_files(root: Path, *, limit: int) -> List[Path]:
+    suffixes = {".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg", ".webm"}
+    files = [
+        item
+        for item in root.rglob("*")
+        if item.is_file() and item.suffix.lower() in suffixes
+    ]
+    return sorted(files, key=lambda item: item.name)[:limit]
+
+
 @router.post("/demo/inspection-task")
 async def run_demo_inspection_task(
     channel_id: str = Form("vhf_demo_01"),

@@ -90,6 +90,12 @@ class Settings:
     entity_lexicon_path: Path = Path(
         os.getenv("VHF_ENTITY_LEXICON_PATH", str(data_dir / "lexicon_corrections.json"))
     )
+    continuous_demo_dir: Path = Path(
+        os.getenv(
+            "VHF_CONTINUOUS_DEMO_DIR",
+            "/root/autodl-tmp/original/autodl-tmp/vhf_agent_0511/test_data_0614",
+        )
+    )
 
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
