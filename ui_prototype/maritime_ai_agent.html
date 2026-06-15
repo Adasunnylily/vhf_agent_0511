@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>海事交管智能体 UI Prototype</title>
+  <title>海事交管智能体原型</title>
   <style>
     :root {
       --bg: #f6f9fd;
@@ -780,8 +780,8 @@
   <main class="app">
     <aside class="rail">
       <div class="brand">
-        <div class="logo">AI</div>
-        <div><b>海事交管智能体</b><span>Maritime AI Agent</span></div>
+        <div class="logo">智</div>
+        <div><b>海事交管智能体</b><span>海事智能体</span></div>
       </div>
       <nav class="nav">
         <button class="nav-btn active" data-page="voice">语音交互</button>
@@ -801,14 +801,14 @@
     <section class="workspace">
       <header class="topbar">
         <div class="runtime-title">
-          <small>Maritime AI Agent Runtime</small>
-          <h1 id="pageTitle">自主海事 VHF 智能体控制中心</h1>
+          <small>海事智能体运行中枢</small>
+          <h1 id="pageTitle">自主海事甚高频智能体控制中心</h1>
         </div>
         <div class="right">
           <div class="runtime-states">
-            <span class="runtime-chip"><i class="pulse-dot"></i>Listening</span>
-            <span class="runtime-chip"><i class="pulse-dot blue"></i>Reasoning</span>
-            <span class="runtime-chip"><i class="pulse-dot orange"></i>Acting</span>
+            <span class="runtime-chip"><i class="pulse-dot"></i>监听</span>
+            <span class="runtime-chip"><i class="pulse-dot blue"></i>研判</span>
+            <span class="runtime-chip"><i class="pulse-dot orange"></i>执行</span>
           </div>
           <span class="pill green" id="agentState">待命</span>
           <button class="secondary" id="archiveBtn">存入汇报索引</button>
@@ -817,7 +817,7 @@
 
       <section class="page voice-page agent-control active" id="voicePage">
         <section class="panel agent-map-panel">
-          <div class="panel-head"><h2>海事态势感知</h2><span class="pill green">AIS Live</span></div>
+          <div class="panel-head"><h2>海事态势感知</h2><span class="pill green">船位实时</span></div>
           <div class="agent-panel-body">
             <div class="mission-map">
               <div class="zone blue"></div>
@@ -827,32 +827,32 @@
               <button class="agent-ship green" style="left:28%;top:65%" title="锦华662"></button>
               <button class="agent-ship red" style="left:72%;top:69%" title="宁远梅山"></button>
               <button class="agent-ship green" style="left:62%;top:28%" title="中国银川"></button>
-              <div class="map-caption"><b>北仑山 VHF CH16</b><span>通信目标高亮 · 限制区叠加 · AIS 关联待核验</span></div>
+              <div class="map-caption"><b>北仑山甚高频16频道</b><span>通信目标高亮 · 限制区叠加 · 船位关联待核验</span></div>
             </div>
             <div class="copilot-card">
               <div class="row-head">
-                <div><b>Ship Copilot Inspection</b><span class="subtle">点击船舶后核验身份、轨迹与通信历史</span></div>
+                <div><b>船舶协同核验</b><span class="subtle">点击船舶后核验身份、轨迹与通信历史</span></div>
                 <span class="pill" id="aisText">待匹配</span>
               </div>
               <div class="copilot-grid">
                 <div class="mini-kv"><span>船舶</span><b id="shipText">待匹配</b></div>
-                <div class="mini-kv"><span>AIS状态</span><b id="aisRuntimeStatus">未关联</b></div>
+                <div class="mini-kv"><span>船位状态</span><b id="aisRuntimeStatus">未关联</b></div>
                 <div class="mini-kv"><span>风险评分</span><b id="copilotRiskScore">0.12</b></div>
                 <div class="mini-kv"><span>限制区</span><b id="copilotZone">未进入</b></div>
               </div>
               <div class="ais-detail" id="aisDetail"></div>
               <div class="operator-actions">
-                <button class="secondary">询问船舶</button>
-                <button class="secondary">查询轨迹</button>
-                <button class="secondary">标记预警</button>
-                <button class="secondary">人工复核</button>
+                <button class="secondary" id="askShipBtn">询问船舶</button>
+                <button class="secondary" id="queryTrackBtn">查询轨迹</button>
+                <button class="secondary" id="markAlertBtn">标记预警</button>
+                <button class="secondary" id="copilotReviewBtn">人工复核</button>
               </div>
             </div>
           </div>
         </section>
 
         <section class="panel agent-core-panel">
-          <div class="panel-head"><h2>Agent Cognitive Core</h2><span class="pill" id="asrStatus">ASR</span></div>
+          <div class="panel-head"><h2>智能体认知核心</h2><span class="pill" id="asrStatus">语音识别</span></div>
           <div class="agent-panel-body">
             <div class="agent-state-card">
               <div>
@@ -868,8 +868,8 @@
                   <div class="wave right"></div>
                 </div>
                 <div class="agent-core-meta">
-                  <b id="listenTitle">Agent 正在守听 VHF...</b>
-                  <span>VHF CH16 · <span id="timer">00:00</span> · Runtime State: <span id="decisionStatus">Listening</span></span>
+                  <b id="listenTitle">智能体正在守听甚高频...</b>
+                  <span>甚高频16频道 · <span id="timer">00:00</span> · 运行状态：<span id="decisionStatus">监听中</span></span>
                 </div>
               </div>
             </div>
@@ -893,24 +893,24 @@
             </div>
 
             <div class="agent-stream-card">
-              <h3>实时 ASR 转写流</h3>
+              <h3>实时语音转写流</h3>
               <div class="text-box agent-transcript" id="asrText" contenteditable="true">等待语音输入</div>
               <div class="entity-grid">
                 <div class="entity"><span>意图</span><b id="intentText">待识别</b></div>
-                <div class="entity" id="aisToggle"><span>AIS关联</span><b id="aisRuntimeText">待匹配</b></div>
+                <div class="entity" id="aisToggle"><span>船位关联</span><b id="aisRuntimeText">待匹配</b></div>
               </div>
             </div>
 
             <div class="reasoning-card">
-              <h3>Agent Reasoning Trace</h3>
+              <h3>智能体研判过程</h3>
               <div class="reasoning-log" id="reasoningTrace">
-                <span>[Step 1] Waiting for VHF signal...</span>
-                <span>[Step 2] ASR transcription pending</span>
-                <span>[Step 3] Intent classification pending</span>
-                <span>[Step 4] AIS correlation pending</span>
-                <span>[Step 5] Decision not triggered</span>
+                <span>[步骤 1] 等待甚高频语音信号</span>
+                <span>[步骤 2] 等待语音识别完成</span>
+                <span>[步骤 3] 等待业务意图分类</span>
+                <span>[步骤 4] 等待船位信息关联</span>
+                <span>[步骤 5] 暂未触发处置动作</span>
               </div>
-              <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">等待 ASR 后生成对话轮次复核模板</div>
+              <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">等待语音识别后生成对话轮次复核模板</div>
               <div class="review-grid">
                 <label>意图复核
                   <select id="intentEdit">
@@ -922,14 +922,14 @@
                   </select>
                 </label>
                 <label>船名复核<input id="shipEdit" placeholder="人工确认船名" /></label>
-                <label>AIS 关联复核<select id="aisEdit"><option value="">未关联 AIS</option></select></label>
+                <label>船位关联复核<select id="aisEdit"><option value="">未关联船位</option></select></label>
               </div>
               <div class="flow" id="flow">
                 <div class="flow-step active">语音接入</div>
-                <div class="flow-step">ASR听写</div>
+              <div class="flow-step">语音听写</div>
                 <div class="flow-step">风险研判</div>
                 <div class="flow-step">处置分流</div>
-                <div class="flow-step">TTS播报</div>
+              <div class="flow-step">语音播报</div>
                 <div class="flow-step">事件归档</div>
               </div>
             </div>
@@ -937,21 +937,21 @@
         </section>
 
         <section class="panel agent-action-panel">
-          <div class="panel-head"><h2>Decision & Action Engine</h2><span class="pill">Action Queue</span></div>
+          <div class="panel-head"><h2>决策与动作引擎</h2><span class="pill">动作队列</span></div>
           <div class="agent-panel-body">
             <div class="risk-grid">
-              <div class="risk-tile red"><span>High Risk</span><strong id="riskLabel">否</strong></div>
-              <div class="risk-tile green"><span>Auto Response</span><strong id="autoLabel">待定</strong></div>
-              <div class="risk-tile blue"><span>Human Review</span><strong id="manualLabel">待命</strong></div>
-              <div class="risk-tile"><span>Monitoring</span><strong id="monitorLabel">ON</strong></div>
+              <div class="risk-tile red"><span>高危告警</span><strong id="riskLabel">否</strong></div>
+              <div class="risk-tile green"><span>自动回复</span><strong id="autoLabel">待定</strong></div>
+              <div class="risk-tile blue"><span>人工复核</span><strong id="manualLabel">待命</strong></div>
+              <div class="risk-tile"><span>持续监听</span><strong id="monitorLabel">开启</strong></div>
             </div>
             <div class="action-card">
               <h3>动态动作队列</h3>
               <table class="action-queue">
-                <thead><tr><th>Action</th><th>Status</th><th>Trigger</th><th>Confidence</th><th>Time</th></tr></thead>
+                <thead><tr><th>动作</th><th>状态</th><th>触发</th><th>置信度</th><th>时间</th></tr></thead>
                 <tbody id="actionQueueBody">
-                  <tr><td>Listen VHF</td><td>Running</td><td>CH16</td><td>--</td><td>Now</td></tr>
-                  <tr><td>Classify Risk</td><td>Pending</td><td>ASR</td><td>--</td><td>--</td></tr>
+                  <tr><td>监听甚高频</td><td>运行中</td><td>16频道</td><td>--</td><td>当前</td></tr>
+                  <tr><td>风险分类</td><td>等待中</td><td>语音识别</td><td>--</td><td>--</td></tr>
                 </tbody>
               </table>
             </div>
@@ -977,11 +977,11 @@
 
         <section class="panel agent-timeline-panel">
           <div class="timeline-strip" id="agentTimeline">
-            <div class="timeline-item"><b>10:01 VHF signal</b><span>等待语音触发</span></div>
-            <div class="timeline-item"><b>10:02 ASR</b><span>转写结果生成</span></div>
-            <div class="timeline-item"><b>10:03 Intent</b><span>业务类型识别</span></div>
-            <div class="timeline-item"><b>10:03 Decision</b><span>动作队列更新</span></div>
-            <div class="timeline-item"><b>10:04 AIS</b><span>船舶态势关联</span></div>
+            <div class="timeline-item"><b>10:01 甚高频信号</b><span>等待语音触发</span></div>
+            <div class="timeline-item"><b>10:02 语音识别</b><span>转写结果生成</span></div>
+            <div class="timeline-item"><b>10:03 意图识别</b><span>业务类型识别</span></div>
+            <div class="timeline-item"><b>10:03 决策分流</b><span>动作队列更新</span></div>
+            <div class="timeline-item"><b>10:04 船位关联</b><span>船舶态势关联</span></div>
           </div>
         </section>
       </section>
@@ -1005,8 +1005,8 @@
               <button class="ship-dot" style="left:40%;top:76%" data-ship="中远海运123"></button>
               <div class="floating-info" id="shipInfo">
                 <b>海运888</b>
-                <span>MMSI: 413512345</span>
-                <span>航速: 12.5 kn · 航向: 128°</span>
+                <span>识别码：413512345</span>
+                <span>航速：12.5节 · 航向：128°</span>
                 <span>状态: 进入点验区域</span>
               </div>
               <div class="map-status" id="mapStatus">底图加载中</div>
@@ -1023,9 +1023,9 @@
         </section>
 
         <aside class="panel config-panel">
-          <div class="panel-head"><h2>点验通知配置</h2><span class="pill">Rule</span></div>
+          <div class="panel-head"><h2>点验通知配置</h2><span class="pill">规则</span></div>
           <div class="panel-body" style="display:grid;gap:12px">
-            <input id="areaName" value="北仑主航道A3段" />
+            <input id="areaName" value="北仑主航道三段" />
             <div class="areas-block">
               <div class="areas-head">
                 <b>已保存区域</b>
@@ -1038,10 +1038,10 @@
             <input id="destinationKeyword" placeholder="目的港关键词" />
             <select id="shipType"><option>全部船型</option><option>集装箱船</option><option>散货船</option><option>拖船</option></select>
             <select id="sceneType"><option>进入重点水域</option><option>穿越警戒区</option><option>危险作业提醒</option><option>靠泊前提醒</option></select>
-            <textarea id="noticeText">各船注意，你船已进入北仑主航道A3段关注范围，请保持安全航速，加强瞭望并保持 VHF 守听。</textarea>
+            <textarea id="noticeText">各船注意，你船已进入北仑主航道三段关注范围，请保持安全航速，加强瞭望并保持甚高频守听。</textarea>
             <div class="check-row">
-              <label><input type="checkbox" checked /> VHF 广播</label>
-              <label><input type="checkbox" checked /> AIS 消息</label>
+              <label><input type="checkbox" checked /> 甚高频广播</label>
+              <label><input type="checkbox" checked /> 船位消息</label>
               <label><input type="checkbox" /> 短信推送</label>
             </div>
             <button id="filterBtn">筛选船舶</button>
@@ -1060,7 +1060,7 @@
 
       <section class="page monitor-page" id="monitorPage">
         <section class="panel wide">
-          <div class="panel-head"><h2>船舶监控</h2><span class="pill">仅展示 15 艘有名字船舶</span><button class="secondary" id="refreshShips">刷新AIS目标</button></div>
+          <div class="panel-head"><h2>船舶监控</h2><span class="pill">仅展示 15 艘有名字船舶</span><button class="secondary" id="refreshShips">刷新船位目标</button></div>
           <div class="panel-body">
             <div class="list" id="shipList"></div>
           </div>
@@ -1078,13 +1078,13 @@
           </div>
         </section>
         <section class="panel wide">
-          <div class="panel-head"><h2>事件中心</h2><span class="pill">Archive</span></div>
+          <div class="panel-head"><h2>事件中心</h2><span class="pill">归档</span></div>
           <div class="panel-body"><div class="list" id="eventList"></div></div>
         </section>
         <section class="panel wide">
           <div class="panel-head">
             <h2>事件详情与人工复核记录</h2>
-            <div class="mini-actions"><button class="secondary" id="exportFeedbackBtn">导出复核CSV</button></div>
+            <div class="mini-actions"><button class="secondary" id="exportFeedbackBtn">导出复核表</button></div>
           </div>
           <div class="panel-body">
             <div class="event-detail" id="eventDetail">点击事件列表中的记录查看详情。</div>
@@ -1095,7 +1095,7 @@
 
       <section class="page monitor-page" id="knowledgePage">
         <section class="panel wide">
-          <div class="panel-head"><h2>知识库</h2><span class="pill">VTS · IMO</span></div>
+          <div class="panel-head"><h2>知识库</h2><span class="pill">交管规则 · 国际规范</span></div>
           <div class="panel-body">
             <div class="knowledge-search"><input id="knowledgeQuery" placeholder="检索交管规则、航行法规和风险处置要求" /><button id="knowledgeSearchBtn">检索</button></div>
             <div class="list" id="knowledgeList"></div>
@@ -1105,12 +1105,12 @@
 
       <section class="page monitor-page" id="settingsPage">
         <section class="panel wide">
-          <div class="panel-head"><h2>设置中心</h2><span class="pill">Console</span></div>
+          <div class="panel-head"><h2>设置中心</h2><span class="pill">控制台</span></div>
           <div class="panel-body settings-grid">
-            <div><label class="subtle">后端 API 地址</label><input id="apiBaseInput" /></div>
-            <div><label class="subtle">默认 VHF 频道</label><input id="channelInput" value="vhf_demo_01" /></div>
+            <div><label class="subtle">后端接口地址</label><input id="apiBaseInput" /></div>
+            <div><label class="subtle">默认甚高频频道</label><input id="channelInput" value="vhf_demo_01" /></div>
             <div><label class="subtle">麦克风识别窗口（毫秒）</label><input id="micChunkMs" value="3200" /></div>
-            <div><label class="subtle">说明</label><div class="subtle">设置仅保存在当前浏览器。语音主流程在 AIS 暂不可用时仍可独立运行。</div></div>
+            <div><label class="subtle">说明</label><div class="subtle">设置仅保存在当前浏览器。语音主流程在船位数据暂不可用时仍可独立运行。</div></div>
             <div><button id="saveSettingsBtn">保存设置</button></div>
           </div>
         </section>
@@ -1185,7 +1185,7 @@
       return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     }
     function setReasoningTrace(items) {
-      $("reasoningTrace").innerHTML = items.map((item, index) => `<span>[Step ${index + 1}] ${item}</span>`).join("");
+      $("reasoningTrace").innerHTML = items.map((item, index) => `<span>[步骤 ${index + 1}] ${item}</span>`).join("");
     }
     function setActionQueue(rows) {
       $("actionQueueBody").innerHTML = rows.map((row) => `
@@ -1205,24 +1205,24 @@
     }
     function resetAgentRuntime() {
       setReasoningTrace([
-        "Waiting for VHF signal...",
-        "ASR transcription pending",
-        "Intent classification pending",
-        "AIS correlation pending",
-        "Decision not triggered",
+        "等待甚高频语音信号",
+        "等待语音识别结果",
+        "等待业务意图分类",
+        "等待船位信息关联",
+        "暂未触发处置动作",
       ]);
       setActionQueue([
-        { action: "Listen VHF", status: "Running", trigger: "CH16", confidence: "--", time: "Now" },
-        { action: "Classify Risk", status: "Pending", trigger: "ASR", confidence: "--", time: "--" },
+        { action: "监听甚高频", status: "运行中", trigger: "16频道", confidence: "--", time: "当前" },
+        { action: "风险分类", status: "等待中", trigger: "语音识别", confidence: "--", time: "--" },
       ]);
       setTimeline([
-        { time: "--:--", title: "VHF signal", detail: "等待语音触发" },
-        { time: "--:--", title: "ASR", detail: "转写结果生成" },
-        { time: "--:--", title: "Intent", detail: "业务类型识别" },
-        { time: "--:--", title: "Decision", detail: "动作队列更新" },
-        { time: "--:--", title: "AIS", detail: "船舶态势关联" },
+        { time: "--:--", title: "甚高频信号", detail: "等待语音触发" },
+        { time: "--:--", title: "语音识别", detail: "转写结果生成" },
+        { time: "--:--", title: "意图识别", detail: "业务类型识别" },
+        { time: "--:--", title: "决策分流", detail: "动作队列更新" },
+        { time: "--:--", title: "船位关联", detail: "船舶态势关联" },
       ]);
-      $("monitorLabel").textContent = "ON";
+      $("monitorLabel").textContent = "开启";
       $("aisRuntimeStatus").textContent = "未关联";
       $("aisRuntimeText").textContent = "待匹配";
       $("copilotRiskScore").textContent = "0.12";
@@ -1243,7 +1243,7 @@
       $("intentEdit").value = "other_business";
       $("shipEdit").value = "";
       $("aisEdit").value = "";
-      $("dialogueEdit").textContent = "等待 ASR 后生成对话轮次复核模板";
+      $("dialogueEdit").textContent = "等待语音识别后生成对话轮次复核模板";
       $("aisText").textContent = "未关联";
       $("aisRuntimeText").textContent = "待匹配";
       $("aisDetail").className = "ais-detail";
@@ -1275,7 +1275,7 @@
 
     function setPage(page) {
       const map = { voice: "voicePage", inspection: "inspectionPage", monitor: "monitorPage", events: "eventsPage", knowledge: "knowledgePage", settings: "settingsPage" };
-      const titles = { voice: "自主海事 VHF 智能体控制中心", inspection: "点验界面", monitor: "船舶监控", events: "事件中心", knowledge: "知识库", settings: "设置中心" };
+      const titles = { voice: "自主海事甚高频智能体控制中心", inspection: "点验界面", monitor: "船舶监控", events: "事件中心", knowledge: "知识库", settings: "设置中心" };
       document.querySelectorAll(".nav-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.page === page));
       document.querySelectorAll(".page").forEach((item) => item.classList.remove("active"));
       $(map[page] || "voicePage").classList.add("active");
@@ -1303,6 +1303,24 @@
         invalid_or_noise: "噪声或听不清",
       })[intent] || "其他业务";
     }
+    function riskLevelLabel(level) {
+      return ({
+        L1: "一级高危",
+        L2: "二级高危",
+        L3: "三级高危",
+        AUTO: "自动回复",
+        MANUAL: "人工复核",
+        INFO: "一般监听",
+      })[level] || level || "一般监听";
+    }
+    function reviewStatusLabel(status) {
+      return ({
+        pending: "待处理",
+        confirmed: "已确认",
+        broadcasted: "已播报",
+        archived: "已归档",
+      })[status] || status || "待处理";
+    }
     function showAis(context) {
       state.currentAis = context || null;
       if (!context || !Object.keys(context).length) {
@@ -1312,10 +1330,62 @@
         $("aisDetail").className = "ais-detail";
         return;
       }
-      $("aisText").textContent = `已关联 ${context.ship_name || context.mmsi || "AIS目标"}`;
-      $("aisRuntimeText").textContent = `已关联 ${context.ship_name || context.mmsi || "AIS目标"}`;
+      $("aisText").textContent = `已关联 ${context.ship_name || context.mmsi || "船位目标"}`;
+      $("aisRuntimeText").textContent = `已关联 ${context.ship_name || context.mmsi || "船位目标"}`;
       $("aisRuntimeStatus").textContent = "已关联";
-      $("aisDetail").innerHTML = `<b>${context.ship_name || "AIS目标"}</b><br>MMSI ${context.mmsi || "-"} · 呼号 ${context.callsign || "-"}<br>${context.position_label || "位置待更新"} · 航速 ${context.sog_kn ?? "-"} kn · 航向 ${context.heading_deg ?? context.cog_deg ?? "-"}°`;
+      $("aisDetail").innerHTML = `<b>${context.ship_name || "船位目标"}</b><br>识别码 ${context.mmsi || "-"} · 呼号 ${context.callsign || "-"}<br>${context.position_label || "位置待更新"} · 航速 ${context.sog_kn ?? "-"}节 · 航向 ${context.heading_deg ?? context.cog_deg ?? "-"}°`;
+    }
+    function selectAgentShip(shipName) {
+      const ships = state.ships.length ? state.ships : fallbackShips;
+      const ship = ships.find((item) => item.ship_name === shipName) || fallbackShips.find((item) => item.ship_name === shipName) || {
+        ship_id: shipName,
+        ship_name: shipName,
+        mmsi: "",
+        ship_type: "待核验船舶",
+        sog_kn: "-",
+        position_label: "当前通信目标",
+      };
+      document.querySelectorAll(".agent-ship").forEach((item) => item.classList.toggle("active", item.title === shipName));
+      $("shipText").textContent = ship.ship_name;
+      $("shipEdit").value = ship.ship_name;
+      $("aisText").textContent = `已选中 ${ship.ship_name}`;
+      $("aisRuntimeText").textContent = `已选中 ${ship.ship_name}`;
+      $("aisRuntimeStatus").textContent = ship.mmsi ? "已关联" : "待核验";
+      $("copilotRiskScore").textContent = ship.sog_kn && Number(ship.sog_kn) > 8 ? "0.48" : "0.18";
+      $("copilotZone").textContent = ship.position_label || "当前通信目标";
+      $("aisDetail").innerHTML = `<b>${ship.ship_name}</b><br>识别码 ${ship.mmsi || "待核验"} · ${ship.ship_type || "未知船型"}<br>${ship.position_label || "位置待更新"} · 航速 ${ship.sog_kn ?? "-"}节 · 吃水 ${ship.draft_m ?? "-"}米`;
+      $("aisDetail").classList.add("show");
+      state.currentAis = ship;
+      toast(`已选中船舶：${ship.ship_name}`);
+    }
+    function copilotAskShip() {
+      const ship = $("shipText").textContent === "待匹配" ? "目标船" : $("shipText").textContent;
+      $("replyText").textContent = `${ship}，这里是宁波交管，请报告当前船位、航速、航向和后续动态。`;
+      setAgent("询问话术就绪");
+      toast("已生成询问船舶话术");
+    }
+    function copilotQueryTrack() {
+      const ship = $("shipText").textContent === "待匹配" ? "目标船" : $("shipText").textContent;
+      setReasoningTrace([
+        `已选择船舶：${ship}`,
+        "正在核验船位、航速和航向",
+        "正在比对限制区和当前通信内容",
+        "建议值班员结合语音上下文复核",
+      ]);
+      setAgent("轨迹核验中");
+      toast("已更新船舶轨迹核验信息");
+    }
+    function copilotMarkAlert() {
+      $("riskLabel").textContent = "L2";
+      $("manualLabel").textContent = "立即处理";
+      $("monitorLabel").textContent = "暂停";
+      $("riskReason").textContent = "值班员手动标记预警";
+      setAgent("人工预警", "risk");
+      setActionQueue([
+        { action: "人工标记预警", status: "紧急", trigger: $("shipText").textContent || "船舶核验", confidence: "人工", time: nowLabel() },
+        { action: "接管响应", status: "待处理", trigger: "值班员确认", confidence: "--", time: nowLabel() },
+      ]);
+      toast("已标记为人工预警");
     }
     function showEntities(segments, event) {
       const entities = segments.flatMap((segment) => segment.entities || []);
@@ -1365,14 +1435,15 @@
           if (/船方|锦|甬|海|中|港|轮|拖|引|[A-Z]/.test(speaker)) memory.lastShip = speaker;
           return `${speaker}：${item}。`;
         })
-        .join("\n") || "等待 ASR 后生成对话轮次复核模板";
+        .join("\n") || "等待语音识别后生成对话轮次复核模板";
     }
     function applyDecision(event) {
       state.activeEventId = event?.event_id || event?.id || "";
       const level = event?.risk_level || "INFO";
+      const levelText = riskLevelLabel(level);
       const risk = ["L1", "L2", "L3"].includes(level);
       const auto = level === "AUTO" || event?.is_auto_reply;
-      $("riskLabel").textContent = risk ? level : "否";
+      $("riskLabel").textContent = risk ? levelText : "否";
       $("riskReason").textContent = risk ? (event.summary || "命中高危信号") : "未命中高危信号";
       $("autoLabel").textContent = auto ? "可自动" : "否";
       $("autoReason").textContent = auto ? "常规由动转静报告，可自动回复" : risk ? "高危事件不自动回复" : "等待值班员确认";
@@ -1381,32 +1452,32 @@
       const intent = event?.business_type || (risk ? "emergency_risk" : auto ? "routine_report" : "other_business");
       $("intentText").textContent = intentLabel(intent);
       $("intentEdit").value = intent;
-      $("replyText").textContent = event?.broadcast_text || event?.suggestion || "VTS收到，请保持守听，等待值班员进一步指令。";
+      $("replyText").textContent = event?.broadcast_text || event?.suggestion || "交管中心收到，请保持守听，等待值班员进一步指令。";
       $("dialogueEdit").textContent = buildDialogueReview([], event);
       $("evidenceList").innerHTML = (event?.evidence || ["未命中规则，建议人工结合上下文复核"]).map((item) => `<span>· ${item}</span>`).join("");
       setAgent(risk ? "高危优先" : auto ? "自动回复就绪" : "等待人工确认", risk ? "risk" : "green");
-      $("monitorLabel").textContent = risk ? "PAUSED" : "ON";
+      $("monitorLabel").textContent = risk ? "暂停" : "开启";
       $("copilotRiskScore").textContent = risk ? "0.91" : auto ? "0.12" : "0.46";
       $("copilotZone").textContent = event?.ais_context?.area_name || (risk ? "需核验" : "未进入");
       setReasoningTrace([
-        "Speech detected from VHF channel",
-        `ASR transcription completed: ${event?.asr_text ? "available" : "using current transcript"}`,
-        `Intent classified: ${intentLabel(intent)}`,
-        `Risk score: ${risk ? "high" : auto ? "low" : "medium"} (${level})`,
-        `Decision: ${risk ? "human takeover" : auto ? "auto-reply triggered" : "human review queued"}`,
+        "检测到甚高频语音输入",
+        `语音识别完成：${event?.asr_text ? "已获得文本" : "使用当前转写文本"}`,
+        `业务意图已分类：${intentLabel(intent)}`,
+        `风险评分：${risk ? "高" : auto ? "低" : "中"}（${levelText}）`,
+        `处置决策：${risk ? "人工立即接管" : auto ? "自动回复就绪" : "进入人工复核"}`,
       ]);
       setActionQueue([
-        { action: "Speech detected", status: "Done", trigger: "VHF", confidence: "1.00", time: nowLabel() },
-        { action: "ASR transcription", status: "Done", trigger: "Audio", confidence: "0.86", time: nowLabel() },
-        { action: "Intent classify", status: "Done", trigger: intentLabel(intent), confidence: event?.confidence || "0.82", time: nowLabel() },
-        { action: risk ? "Take over response" : auto ? "Broadcast reply" : "Human review", status: risk ? "Urgent" : auto ? "Ready" : "Queued", trigger: level, confidence: risk ? "0.91" : auto ? "0.88" : "0.64", time: nowLabel() },
+        { action: "语音触发", status: "完成", trigger: "甚高频", confidence: "1.00", time: nowLabel() },
+        { action: "语音听写", status: "完成", trigger: "音频", confidence: "0.86", time: nowLabel() },
+        { action: "意图分类", status: "完成", trigger: intentLabel(intent), confidence: event?.confidence || "0.82", time: nowLabel() },
+        { action: risk ? "人工接管" : auto ? "播报回复" : "人工复核", status: risk ? "紧急" : auto ? "就绪" : "排队", trigger: levelText, confidence: risk ? "0.91" : auto ? "0.88" : "0.64", time: nowLabel() },
       ]);
       setTimeline([
-        { time: nowLabel(), title: "VHF signal received", detail: "检测到有效语音输入" },
-        { time: nowLabel(), title: "ASR completed", detail: "转写与轮次重建完成" },
-        { time: nowLabel(), title: "Intent detected", detail: intentLabel(intent) },
-        { time: nowLabel(), title: risk ? "Human takeover required" : auto ? "Auto-response ready" : "Review queued", detail: level },
-        { time: nowLabel(), title: "AIS correlation", detail: event?.ais_context?.ship_name || "等待人工核验" },
+        { time: nowLabel(), title: "收到甚高频信号", detail: "检测到有效语音输入" },
+        { time: nowLabel(), title: "语音识别完成", detail: "转写与轮次重建完成" },
+        { time: nowLabel(), title: "识别业务意图", detail: intentLabel(intent) },
+        { time: nowLabel(), title: risk ? "需要人工接管" : auto ? "自动回复就绪" : "等待人工复核", detail: levelText },
+        { time: nowLabel(), title: "船位关联", detail: event?.ais_context?.ship_name || "等待人工核验" },
       ]);
       setFlow(3, risk ? "risk" : "normal");
     }
@@ -1415,13 +1486,13 @@
       const rawText = segments.map((item) => item.text).join("\n").trim();
       const resolvedText = segments.map((item) => item.resolved_text || item.text).join("\n").trim();
       $("asrText").textContent = resolvedText || rawText || "未识别到有效语音，请人工复核音频质量";
-      $("asrStatus").textContent = task.status === "completed" ? "ASR完成" : "ASR处理中";
+      $("asrStatus").textContent = task.status === "completed" ? "识别完成" : "识别处理中";
       setReasoningTrace([
-        "Speech detected and uploaded to backend",
-        `ASR transcription completed: ${segments.length} segment(s)`,
-        "Entity resolver applied ship/location candidates",
-        "LLM/rule engine produced decision",
-        "Event archived for operator review",
+        "语音已接入并上传至后端",
+        `语音识别完成：共 ${segments.length} 段`,
+        "已应用船名和地点候选纠错",
+        "研判引擎已生成处置建议",
+        "事件已进入值班员复核与归档流程",
       ]);
       const event = chooseEvent(task.events || []);
       showEntities(segments, event);
@@ -1449,11 +1520,11 @@
       $("asrStatus").textContent = "处理中";
       setAgent("正在听写");
       setReasoningTrace([
-        "Speech detected from file input",
-        "Sending audio to ASR backend",
-        "Waiting for intent classification",
-        "Waiting for AIS correlation",
-        "Action queue pending",
+        "检测到上传录音",
+        "正在发送音频到识别后端",
+        "等待业务意图分类",
+        "等待船位信息关联",
+        "动作队列等待更新",
       ]);
       setFlow(1);
       const endpoint = $("inputMode").value === "stream" ? "/api/stream/upload" : "/api/audio/upload";
@@ -1508,11 +1579,11 @@
       if (payload.dialogue_review_text) $("dialogueEdit").textContent = payload.dialogue_review_text;
       $("asrStatus").textContent = "实时听写";
       setReasoningTrace([
-        "Live microphone chunk received",
-        "ASR partial transcription updated",
-        "Intent classification running",
-        "AIS correlation pending",
-        "Decision engine waiting for stable event",
+        "收到现场麦克风语音片段",
+        "实时转写文本已更新",
+        "正在进行业务意图分类",
+        "等待船位信息关联",
+        "决策引擎等待稳定语音事件",
       ]);
       setFlow(2);
       const event = chooseEvent(payload.events || []);
@@ -1544,14 +1615,14 @@
       }, chunkMs);
       beginAmplitude(stream);
       startTimer();
-      $("listenTitle").textContent = "正在监听 VHF 语音...";
+      $("listenTitle").textContent = "正在监听甚高频语音...";
       setAgent("监听中");
       setReasoningTrace([
-        "Microphone stream connected",
-        "VHF waveform monitoring active",
-        "ASR chunking window started",
-        "Agent waiting for speech endpoint",
-        "No action triggered yet",
+        "麦克风音频流已连接",
+        "甚高频波形监听已启动",
+        "语音分片窗口已启动",
+        "智能体等待有效语音结束点",
+        "暂未触发处置动作",
       ]);
       setFlow(0);
     }
@@ -1635,7 +1706,7 @@
         viewMode: "2D",
       });
       $("map").classList.add("real-map");
-      $("mapStatus").textContent = "高德底图 · AIS实时船位";
+      $("mapStatus").textContent = "高德底图 · 实时船位";
       state.map.on("click", (event) => addAreaLngLat([event.lnglat.lng, event.lnglat.lat]));
       renderAmapMarkers();
     }
@@ -1677,9 +1748,9 @@
         state.ships = (payload.items || []).map(normalizedShip);
       } catch (error) {
         state.ships = fallbackShips.map(normalizedShip);
-        toast("AIS接口暂不可用，当前展示演示船位");
+        toast("船位接口暂不可用，当前展示演示船位");
       }
-      $("aisEdit").innerHTML = `<option value="">未关联 AIS</option>${state.ships.map((ship) => `<option value="${ship.ship_id}">${ship.ship_name} · ${ship.mmsi || "无MMSI"}</option>`).join("")}`;
+      $("aisEdit").innerHTML = `<option value="">未关联船位</option>${state.ships.map((ship) => `<option value="${ship.ship_id}">${ship.ship_name} · ${ship.mmsi || "无识别码"}</option>`).join("")}`;
       renderShips();
     }
     function shipPosition(ship) {
@@ -1688,7 +1759,7 @@
       return [Math.min(92, Math.max(5, x)), Math.min(88, Math.max(6, y))];
     }
     function showShipInfo(ship) {
-      $("shipInfo").innerHTML = `<b>${ship.ship_name}</b><span>MMSI: ${ship.mmsi || "-"}</span><span>${ship.ship_type || "未知船型"} · 吃水 ${ship.draft_m ?? "-"}m · 航速 ${ship.sog_kn ?? "-"}kn</span><span>状态: ${ship.position_label || ship.nav_status || "AIS更新中"}</span>`;
+      $("shipInfo").innerHTML = `<b>${ship.ship_name}</b><span>识别码：${ship.mmsi || "-"}</span><span>${ship.ship_type || "未知船型"} · 吃水 ${ship.draft_m ?? "-"}米 · 航速 ${ship.sog_kn ?? "-"}节</span><span>状态：${ship.position_label || ship.nav_status || "船位更新中"}</span>`;
       $("shipInfo").classList.add("show");
     }
     function hideShipInfo() { $("shipInfo").classList.remove("show"); }
@@ -1697,8 +1768,8 @@
       $("shipList").innerHTML = ships.map((ship) => `
         <div class="ship-card ${state.selectedShipIds.has(ship.ship_id) ? "selected" : ""}" data-ship-id="${ship.ship_id}">
           <div class="row-head"><b>${ship.ship_name}</b><button class="tiny danger delete-ship" data-ship-id="${ship.ship_id}">删除</button></div>
-          <span>${ship.ship_type || "未知船型"} · MMSI ${ship.mmsi || "-"} · ${ship.position_label || "AIS更新中"}</span>
-          <span>吃水 ${ship.draft_m ?? "-"}m · 吨位 ${ship.tonnage_t ?? "-"}t · 航速 ${ship.sog_kn ?? "-"}kn</span>
+          <span>${ship.ship_type || "未知船型"} · 识别码 ${ship.mmsi || "-"} · ${ship.position_label || "船位更新中"}</span>
+          <span>吃水 ${ship.draft_m ?? "-"}米 · 吨位 ${ship.tonnage_t ?? "-"}吨 · 航速 ${ship.sog_kn ?? "-"}节</span>
         </div>`).join("");
       document.querySelectorAll(".ship-dot").forEach((dot) => dot.remove());
       document.querySelectorAll("#shipList .ship-card").forEach((card) => {
@@ -2052,12 +2123,12 @@
     function showEventDetail(event) {
       state.activeEventId = event.event_id || event.id || "";
       $("eventDetail").innerHTML = `
-        <div class="detail-block"><b>${event.event_type || event.business_type || "一般业务"}</b>${event.created_at || ""} · ${event.risk_level || "INFO"} · ${event.review_status || "pending"}</div>
-        <div class="detail-block"><b>ASR原文</b>${event.asr_text || ""}</div>
+        <div class="detail-block"><b>${event.event_type || event.business_type || "一般业务"}</b>${event.created_at || ""} · ${riskLevelLabel(event.risk_level || "INFO")} · ${reviewStatusLabel(event.review_status || "pending")}</div>
+        <div class="detail-block"><b>语音识别原文</b>${event.asr_text || ""}</div>
         <div class="detail-block"><b>纠错/复核文本</b>${event.resolved_text || ""}</div>
         <div class="detail-block"><b>决策依据</b>${(event.evidence || []).join("\n") || event.summary || ""}</div>
         <div class="detail-block"><b>播报话术</b>${event.broadcast_text || event.suggestion || ""}</div>
-        <div class="detail-block"><b>AIS关联</b>${event.ais_context?.ship_name || "未关联"} ${event.ais_context?.mmsi || ""}</div>
+        <div class="detail-block"><b>船位关联</b>${event.ais_context?.ship_name || "未关联"} ${event.ais_context?.mmsi || ""}</div>
         <div class="mini-actions">
           <button data-status="confirmed">确认</button>
           <button data-status="broadcasted">已播报</button>
@@ -2093,7 +2164,7 @@
         toast("事件中心暂不可用", true);
       }
       $("eventList").innerHTML = state.events.length ? state.events.slice(0, 80).map((event) => `
-        <div class="event-row" data-event-id="${event.event_id || event.id || ""}"><b>${event.event_type || event.business_type || "一般业务"}</b><span>${event.created_at || ""} · ${event.risk_level || "INFO"} · ${event.review_status || "pending"}</span><span>${event.resolved_text || event.asr_text || event.summary || ""}</span></div>
+        <div class="event-row" data-event-id="${event.event_id || event.id || ""}"><b>${event.event_type || event.business_type || "一般业务"}</b><span>${event.created_at || ""} · ${riskLevelLabel(event.risk_level || "INFO")} · ${reviewStatusLabel(event.review_status || "pending")}</span><span>${event.resolved_text || event.asr_text || event.summary || ""}</span></div>
       `).join("") : '<div class="event-row"><b>暂无归档事件</b><span>完成语音处置或点验通知后显示</span></div>';
       document.querySelectorAll("#eventList .event-row[data-event-id]").forEach((row) => {
         row.addEventListener("click", () => {
@@ -2113,6 +2184,11 @@
     document.querySelectorAll(".nav-btn").forEach((btn) => btn.addEventListener("click", () => setPage(btn.dataset.page)));
     $("runDemoBtn").addEventListener("click", async () => { try { $("inputMode").value === "mic" ? await toggleMic() : await runFileRecognition(); } catch (error) { toast(`识别失败：${error.message}`, true); } });
     $("micBtn").addEventListener("click", toggleMic);
+    document.querySelectorAll(".agent-ship").forEach((button) => button.addEventListener("click", () => selectAgentShip(button.title)));
+    $("askShipBtn").addEventListener("click", copilotAskShip);
+    $("queryTrackBtn").addEventListener("click", copilotQueryTrack);
+    $("markAlertBtn").addEventListener("click", copilotMarkAlert);
+    $("copilotReviewBtn").addEventListener("click", async () => { setAgent("人工复核", "risk"); await updateActiveStatus("confirmed"); toast("已进入人工复核"); });
     $("riskDemoBtn").addEventListener("click", () => runScenario("smoke_fire").catch((error) => toast(error.message, true)));
     $("normalDemoBtn").addEventListener("click", () => runScenario("static_report").catch((error) => toast(error.message, true)));
     $("speakBtn").addEventListener("click", () => speakText($("replyText").textContent, async () => { setFlow(5); await updateActiveStatus("broadcasted"); }));
@@ -2133,7 +2209,7 @@
       $("areaHint").textContent = `当前：${button.textContent}，请在地图上点击落点`;
       renderArea();
     }));
-    $("sceneType").addEventListener("change", () => { $("noticeText").value = `各船注意，你船已进入${$("areaName").value}，请遵守${$("sceneType").value}相关要求，保持安全航速并守听 VHF。`; });
+      $("sceneType").addEventListener("change", () => { $("noticeText").value = `各船注意，你船已进入${$("areaName").value}，请遵守${$("sceneType").value}相关要求，保持安全航速并守听甚高频。`; });
     $("refreshShips").addEventListener("click", loadShips);
     $("refreshEvents").addEventListener("click", loadEvents);
     $("exportFeedbackBtn").addEventListener("click", () => {
