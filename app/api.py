@@ -8,6 +8,7 @@ import io
 import json
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -1412,9 +1413,21 @@ async def upload_websocket_streaming_replay(
     def runner() -> None:
         prepared = preprocessor.prepare(file_path=saved_path, enable_denoise=False)
         processed_path = Path(prepared.processed_path) if prepared.processed_path else saved_path
-        partial_state: Dict[str, Any] = {"finalized": [], "latest": ""}
+        stream_started_at = time.perf_counter()
+        partial_state: Dict[str, Any] = {
+            "finalized": [],
+            "latest": "",
+            "count": 0,
+            "ttft_ms": None,
+        }
 
         def on_partial(text: str, is_final: bool, row: Dict[str, Any]) -> None:
+            partial_state["count"] += 1
+            if partial_state["ttft_ms"] is None:
+                partial_state["ttft_ms"] = round(
+                    (time.perf_counter() - stream_started_at) * 1000,
+                    1,
+                )
             if is_final:
                 if not partial_state["finalized"] or partial_state["finalized"][-1] != text:
                     partial_state["finalized"].append(text)
@@ -1443,6 +1456,8 @@ async def upload_websocket_streaming_replay(
                     "partial_text": text,
                     "cumulative_text": cumulative_text,
                     "partial_is_final": is_final,
+                    "partial_count": partial_state["count"],
+                    "ttft_ms": partial_state["ttft_ms"],
                     "early_risk_term": high_risk_term,
                     "row": row,
                 },
@@ -1518,6 +1533,7 @@ async def upload_websocket_streaming_replay(
                 "partial_text": result.text,
                 "cumulative_text": result.text,
                 "partial_is_final": True,
+                "partial_count": partial_state["count"],
                 "ttft_ms": result.ttft_ms,
                 "final_latency_ms": result.final_latency_ms,
                 "audio_duration_ms": result.audio_duration_ms,

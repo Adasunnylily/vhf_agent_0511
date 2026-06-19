@@ -3440,6 +3440,9 @@
         if (!replay || replay.taskId !== taskId) return null;
         const task = await request(`/api/tasks/${taskId}`);
         const partialText = String(task.meta?.cumulative_text || task.meta?.partial_text || "").trim();
+        if (task.meta?.ttft_ms && $("latestLatency")) {
+          $("latestLatency").textContent = `${Math.round(Number(task.meta.ttft_ms))}ms`;
+        }
         if (partialText && partialText !== replay.lastPartialText) {
           replay.lastPartialText = partialText;
           $("asrText").textContent = partialText;
@@ -3469,7 +3472,9 @@
         });
         const completed = Number(task.meta?.completed_segments || segments.length);
         const total = Number(task.meta?.total_segments || segments.length || 0);
-        $("replayStatus").textContent = `${task.status === "completed" ? "后端识别完成" : "真实流式识别中"} · 已识别 ${completed}/${total || "?"} 段 · 已展示 ${replay.processedSegmentIds.size} 段`;
+        const ttftLabel = task.meta?.ttft_ms ? ` · 首字 ${Math.round(Number(task.meta.ttft_ms))}ms` : "";
+        const partialLabel = task.meta?.partial_count ? ` · partial ${task.meta.partial_count}次` : "";
+        $("replayStatus").textContent = `${task.status === "completed" ? "后端识别完成" : "真实流式识别中"} · 已识别 ${completed}/${total || "?"} 段 · 已展示 ${replay.processedSegmentIds.size} 段${ttftLabel}${partialLabel}`;
         if (task.status === "failed") throw new Error(task.error || "长音频流式识别失败");
         if (task.status === "completed" && replay.processedSegmentIds.size >= segments.length) {
           if (state.activeBusinessEvent) closeBusinessEvent("长音频识别完成");
