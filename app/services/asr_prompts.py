@@ -39,9 +39,64 @@ def resolve_eval_prompt() -> str:
     return os.getenv("VHF_ASR_EVAL_PROMPT", DEFAULT_ASR_EVAL_PROMPT).strip() or DEFAULT_ASR_EVAL_PROMPT
 
 
+def resolve_paraformer_sample_rate(model: str, fallback: int = 16000) -> int:
+    key = model.strip().lower()
+    if "8k" in key:
+        return 8000
+    return fallback
+
+
 def resolve_paraformer_model(model: str) -> str:
     key = model.strip()
     return PARAFORMER_MODEL_ALIASES.get(key, key)
+
+
+def resolve_dashscope_api_key(*, env_name: str = "DASHSCOPE_API_KEY") -> str:
+    """读取并校验 DashScope API Key，避免非 ASCII 字符导致 HTTP 头编码失败。"""
+    raw = os.getenv(env_name, "")
+    api_key = raw.strip().strip("'\"")
+    if not api_key:
+        raise RuntimeError(f"缺少环境变量 {env_name}")
+
+    for index, char in enumerate(api_key):
+        if ord(char) > 127:
+            raise RuntimeError(
+                f"{env_name} 含非 ASCII 字符（位置 {index}: {char!r}）。"
+                "HTTP Authorization 头只能使用 ASCII，请检查 .env 或 shell 里是否混入了中文标签/空格。"
+                "若 shell 已 export 了错误值，请 unset 后重试，或直接用 .env 中的 sk- 开头密钥。"
+            )
+    if not api_key.startswith("sk-"):
+        raise RuntimeError(
+            f"{env_name} 格式异常，应以 sk- 开头；当前前缀: {api_key[:8]!r}"
+        )
+    return api_key
+
+
+def ensure_dashscope_api_key_in_env(*, env_name: str = "DASHSCOPE_API_KEY") -> str:
+    """解析 API Key 并写回环境变量，避免 shell 中污染的非 ASCII 值影响后续请求。"""
+    api_key = resolve_dashscope_api_key(env_name=env_name)
+    os.environ[env_name] = api_key
+    return api_key
+
+
+def load_project_env(
+    env_path: Path,
+    *,
+    override_keys: tuple[str, ...] = ("DASHSCOPE_API_KEY",),
+) -> None:
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#") or "=" not in raw:
+            continue
+        key, value = raw.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if not key:
+            continue
+        if key in override_keys or key not in os.environ:
+            os.environ[key] = value
 
 
 def default_hotwords_path() -> Path:
@@ -167,10 +222,7 @@ def sync_dashscope_vocabulary(
     except ImportError as exc:
         raise RuntimeError("缺少 dashscope SDK，请安装: pip install dashscope") from exc
 
-    api_key = os.getenv("DASHSCOPE_API_KEY", "").strip()
-    if not api_key:
-        raise RuntimeError("缺少环境变量 DASHSCOPE_API_KEY")
-
+    api_key = resolve_dashscope_api_key()
     dashscope.api_key = api_key
     dashscope.base_http_api_url = os.getenv(
         "DASHSCOPE_HTTP_BASE_URL",

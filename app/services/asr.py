@@ -6,10 +6,11 @@ from pathlib import Path
 import base64
 import re
 import threading
+import time
 from typing import Any, Dict, List, Optional
 from http import HTTPStatus
 
-from app.services.maritime_keywords import MARITIME_HOTWORDS
+from app.services.asr_prompts import ensure_dashscope_api_key_in_env
 from app.services.funasr_emotion import extract_funasr_emotion_tags, extract_funasr_event_tags
 
 
@@ -439,9 +440,7 @@ class QwenASRAdapter(BaseASRAdapter):
                 from openai import OpenAI
             except ImportError as exc:
                 raise RuntimeError("缺少 openai SDK，请安装: pip install openai") from exc
-            api_key = os.getenv(self.api_key_env)
-            if not api_key:
-                raise RuntimeError(f"缺少环境变量 {self.api_key_env}")
+            api_key = ensure_dashscope_api_key_in_env(env_name=self.api_key_env)
             self._client = OpenAI(
                 api_key=api_key,
                 base_url=self.base_url,
@@ -464,6 +463,121 @@ class QwenASRAdapter(BaseASRAdapter):
         }.get(suffix, "audio/wav")
         encoded = base64.b64encode(file_path.read_bytes()).decode("utf-8")
         return f"data:{mime};base64,{encoded}"
+
+
+class LocalQwenASRAdapter(BaseASRAdapter):
+    """Local Qwen3-ASR adapter backed by the official qwen-asr package."""
+
+    def __init__(
+        self,
+        model: str = "Qwen/Qwen3-ASR-0.6B",
+        device_map: str = "cuda:0",
+        dtype: str = "bfloat16",
+        language: str = "Chinese",
+        max_new_tokens: int = 256,
+        max_inference_batch_size: int = 8,
+        prompt: str = "",
+    ) -> None:
+        self.model_name = model
+        self.device_map = device_map
+        self.dtype = dtype
+        self.language = language
+        self.max_new_tokens = max_new_tokens
+        self.max_inference_batch_size = max_inference_batch_size
+        self.prompt = prompt
+        self._model: Any = None
+        self._model_lock = threading.Lock()
+        self._generate_lock = threading.Lock()
+
+    def transcribe(
+        self,
+        file_path: Path,
+        transcript_override: Optional[str] = None,
+    ) -> ASRResult:
+        if transcript_override:
+            return ASRResult(
+                text=transcript_override.strip(),
+                confidence=0.99,
+                engine="manual_override",
+            )
+
+        model = self._ensure_model()
+        started = time.perf_counter()
+        with self._generate_lock:
+            results = self._call_transcribe(model, file_path)
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        text = sanitize_asr_text(self._extract_text(results))
+        return ASRResult(
+            text=text,
+            confidence=0.0,
+            engine=f"qwen_local:{self.model_name}",
+            final_latency_ms=elapsed_ms,
+        )
+
+    def _ensure_model(self) -> Any:
+        if self._model is not None:
+            return self._model
+
+        with self._model_lock:
+            if self._model is not None:
+                return self._model
+            try:
+                import torch
+                from qwen_asr import Qwen3ASRModel
+            except ImportError as exc:
+                raise RuntimeError(
+                    "缺少本地 Qwen3-ASR 依赖，请先安装: pip install -U qwen-asr"
+                ) from exc
+
+            kwargs: Dict[str, Any] = {
+                "device_map": self.device_map,
+                "max_new_tokens": self.max_new_tokens,
+                "max_inference_batch_size": self.max_inference_batch_size,
+            }
+            dtype = self._resolve_torch_dtype(torch)
+            if dtype is not None:
+                kwargs["dtype"] = dtype
+            self._model = Qwen3ASRModel.from_pretrained(self.model_name, **kwargs)
+            return self._model
+
+    def _resolve_torch_dtype(self, torch: Any) -> Any:
+        key = (self.dtype or "").strip().lower()
+        if not key or key in {"auto", "none"}:
+            return None
+        if key in {"bf16", "bfloat16"}:
+            return torch.bfloat16
+        if key in {"fp16", "float16", "half"}:
+            return torch.float16
+        if key in {"fp32", "float32", "float"}:
+            return torch.float32
+        raise ValueError(f"不支持的 Qwen3-ASR dtype: {self.dtype}")
+
+    def _call_transcribe(self, model: Any, file_path: Path) -> Any:
+        kwargs: Dict[str, Any] = {"audio": str(file_path)}
+        if self.language:
+            kwargs["language"] = self.language
+        if self.prompt:
+            kwargs["context"] = self.prompt
+        try:
+            return model.transcribe(**kwargs)
+        except TypeError:
+            kwargs.pop("context", None)
+            return model.transcribe(**kwargs)
+
+    def _extract_text(self, results: Any) -> str:
+        if isinstance(results, list) and results:
+            return self._extract_text(results[0])
+        if isinstance(results, dict):
+            for key in ("text", "transcript", "prediction"):
+                if results.get(key):
+                    return str(results[key]).strip()
+        for attr in ("text", "transcript", "prediction"):
+            value = getattr(results, attr, None)
+            if value:
+                return str(value).strip()
+        if isinstance(results, str):
+            return results.strip()
+        return ""
 
 
 def load_hotword_lines(path: Path, limit: int = 80) -> List[str]:
@@ -529,9 +643,7 @@ class DashScopeParaformerASRAdapter(BaseASRAdapter):
                 engine="manual_override",
             )
 
-        api_key = os.getenv(self.api_key_env)
-        if not api_key:
-            raise RuntimeError(f"缺少环境变量 {self.api_key_env}")
+        api_key = ensure_dashscope_api_key_in_env(env_name=self.api_key_env)
 
         suffix = file_path.suffix.lower()
         if suffix != ".wav":
@@ -696,6 +808,16 @@ def create_asr_adapter(settings: Any) -> BaseASRAdapter:
             base_url=settings.qwen_asr_base_url,
             timeout_s=settings.qwen_asr_timeout_s,
             prompt=settings.qwen_asr_prompt,
+        )
+    if provider in {"qwen_local", "local_qwen", "qwen3_asr_local"}:
+        return LocalQwenASRAdapter(
+            model=getattr(settings, "qwen_local_model", None) or settings.asr_model or "Qwen/Qwen3-ASR-0.6B",
+            device_map=getattr(settings, "qwen_local_device_map", None) or settings.asr_device,
+            dtype=getattr(settings, "qwen_local_dtype", "bfloat16"),
+            language=getattr(settings, "qwen_local_language", "Chinese"),
+            max_new_tokens=getattr(settings, "qwen_local_max_new_tokens", 256),
+            max_inference_batch_size=getattr(settings, "qwen_local_batch_size", 8),
+            prompt=getattr(settings, "qwen_asr_prompt", ""),
         )
     if provider in {"dashscope_paraformer", "paraformer_v2"}:
         from app.services.asr_prompts import resolve_dashscope_vocabulary_id, resolve_paraformer_model

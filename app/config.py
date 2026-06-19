@@ -71,6 +71,12 @@ class Settings:
     asr_vad_max_single_segment_time: int = int(
         os.getenv("VHF_ASR_VAD_MAX_SINGLE_SEGMENT_TIME", "30000")
     )
+    qwen_local_model: str = os.getenv("VHF_QWEN_LOCAL_MODEL", os.getenv("VHF_ASR_MODEL", "Qwen/Qwen3-ASR-0.6B"))
+    qwen_local_device_map: str = os.getenv("VHF_QWEN_LOCAL_DEVICE_MAP", os.getenv("VHF_ASR_DEVICE", "cuda:0"))
+    qwen_local_dtype: str = os.getenv("VHF_QWEN_LOCAL_DTYPE", "bfloat16")
+    qwen_local_language: str = os.getenv("VHF_QWEN_LOCAL_LANGUAGE", "Chinese")
+    qwen_local_max_new_tokens: int = int(os.getenv("VHF_QWEN_LOCAL_MAX_NEW_TOKENS", "256"))
+    qwen_local_batch_size: int = int(os.getenv("VHF_QWEN_LOCAL_BATCH_SIZE", "8"))
     force_full_file_transcribe: bool = os.getenv("VHF_FORCE_FULL_FILE_TRANSCRIBE", "0") == "1"
     stream_simulation_speed: float = float(os.getenv("VHF_STREAM_SIMULATION_SPEED", "8.0"))
     streaming_model: str = os.getenv("VHF_STREAMING_MODEL", "paraformer-zh-streaming")
@@ -86,6 +92,7 @@ class Settings:
         "highpass=f=120,lowpass=f=3800,afftdn=nf=-25",
     )
     amap_key: str = os.getenv("AMAP_KEY", "")
+    amap_security_js_code: str = os.getenv("AMAP_SECURITY_JS_CODE", "")
     entity_resolver_enabled: bool = os.getenv("VHF_ENTITY_RESOLVER_ENABLED", "1") == "1"
     entity_lexicon_path: Path = Path(
         os.getenv("VHF_ENTITY_LEXICON_PATH", str(data_dir / "lexicon_corrections.json"))
@@ -94,6 +101,12 @@ class Settings:
         os.getenv(
             "VHF_CONTINUOUS_DEMO_DIR",
             "/root/autodl-tmp/original/autodl-tmp/vhf_agent_0511/test_data_0614",
+        )
+    )
+    continuous_concat_dir: Path = Path(
+        os.getenv(
+            "VHF_CONTINUOUS_CONCAT_DIR",
+            str(continuous_demo_dir / "音频分类_打乱拼接"),
         )
     )
 

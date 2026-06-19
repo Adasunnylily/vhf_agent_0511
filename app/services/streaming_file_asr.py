@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.config import settings
+from app.services.asr_prompts import ensure_dashscope_api_key_in_env
 from app.services.asr import (
     ASRResult,
     BaseASRAdapter,
@@ -85,14 +86,15 @@ def read_pcm_chunks(
     wav_path: Path,
     *,
     chunk_duration_ms: int = 100,
+    expected_sample_rate: int = DEFAULT_SAMPLE_RATE,
 ) -> Tuple[bytes, int, int, List[bytes]]:
     content = wav_path.read_bytes()
     if not judge_wav(content):
-        raise RuntimeError(f"流式识别需要 16k mono wav，当前文件: {wav_path.name}")
+        raise RuntimeError(f"流式识别需要 mono PCM wav，当前文件: {wav_path.name}")
     channel_num, samp_width, frame_rate, _, wave_data = read_wav_info(content)
-    if channel_num != 1 or samp_width != 2 or frame_rate != DEFAULT_SAMPLE_RATE:
+    if channel_num != 1 or samp_width != 2 or frame_rate != expected_sample_rate:
         raise RuntimeError(
-            f"流式识别需要 16kHz mono 16-bit PCM wav，当前: "
+            f"流式识别需要 {expected_sample_rate}Hz mono 16-bit PCM wav，当前: "
             f"{frame_rate}Hz ch={channel_num} width={samp_width * 8}bit"
         )
     bytes_per_ms = frame_rate * samp_width // 1000
@@ -221,14 +223,14 @@ def run_dashscope_streaming_file(
 
     import dashscope
 
-    api_key = os.getenv(adapter.api_key_env)
-    if not api_key:
-        raise RuntimeError(f"缺少环境变量 {adapter.api_key_env}")
+    api_key = ensure_dashscope_api_key_in_env(env_name=adapter.api_key_env)
     dashscope.api_key = api_key
+    sample_rate = int(getattr(adapter, "sample_rate", DEFAULT_SAMPLE_RATE) or DEFAULT_SAMPLE_RATE)
 
     _, _, audio_duration_ms, pcm_chunks = read_pcm_chunks(
         audio_path,
         chunk_duration_ms=int(os.getenv("DASHSCOPE_STREAM_CHUNK_MS", "100")),
+        expected_sample_rate=sample_rate,
     )
     chunk_ms = int(os.getenv("DASHSCOPE_STREAM_CHUNK_MS", "100"))
 
@@ -283,7 +285,7 @@ def run_dashscope_streaming_file(
         model=model_name,
         callback=callback,
         format="pcm",
-        sample_rate=DEFAULT_SAMPLE_RATE,
+        sample_rate=sample_rate,
         **call_kwargs,
     )
     recognition.start(phrase_id=adapter.phrase_id or None)

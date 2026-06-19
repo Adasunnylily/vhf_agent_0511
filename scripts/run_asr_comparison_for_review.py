@@ -17,22 +17,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from app.services.asr_prompts import load_project_env  # noqa: E402
 
-def load_env(path: Path) -> None:
-    if not path.exists():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        raw = line.strip()
-        if not raw or raw.startswith("#") or "=" not in raw:
-            continue
-        key, value = raw.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip("'\"")
-        if key and key not in os.environ:
-            os.environ[key] = value
-
-
-load_env(REPO_ROOT / ".env")
+load_project_env(REPO_ROOT / ".env")
 if os.getenv("VHF_DATA_DIR", "").startswith("/root/") and not Path("/root").exists():
     os.environ["VHF_DATA_DIR"] = str(REPO_ROOT / "data")
 _omp = os.getenv("OMP_NUM_THREADS", "").strip()
@@ -64,11 +51,17 @@ from app.services.asr_prompts import (  # noqa: E402
     build_qwen_eval_prompt,
     build_volc_request_options,
     default_hotwords_path,
+    ensure_dashscope_api_key_in_env,
+    load_project_env,
     resolve_dashscope_vocabulary_id,
     resolve_paraformer_model,
+    resolve_paraformer_sample_rate,
 )
 from app.services.volc_stream_asr import transcribe_volc_stream_file  # noqa: E402
 from app.services.streaming_file_asr import run_streaming_file_asr  # noqa: E402
+
+ensure_dashscope_api_key_in_env(env_name=settings.dashscope_asr_api_key_env)
+ensure_dashscope_api_key_in_env(env_name=settings.qwen_asr_api_key_env)
 
 
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg", ".webm"}
@@ -214,9 +207,14 @@ def make_paraformer_adapter(model_name: str) -> DashScopeParaformerASRAdapter:
     hotwords_path = settings.asr_hotwords_path if settings.asr_hotwords_path.exists() else default_hotwords_path()
     target_model = resolve_paraformer_model(model_name)
     vocabulary_id = settings.asr_vocabulary_id or resolve_dashscope_vocabulary_id(target_model=target_model)
+    sample_rate = resolve_paraformer_sample_rate(
+        target_model,
+        fallback=int(getattr(settings, "asr_sample_rate", 16000) or 16000),
+    )
     return DashScopeParaformerASRAdapter(
         model=target_model,
         api_key_env=settings.dashscope_asr_api_key_env,
+        sample_rate=sample_rate,
         diarization_enabled=settings.asr_diarization_enabled,
         speaker_count=settings.asr_speaker_count,
         phrase_id=settings.asr_phrase_id,

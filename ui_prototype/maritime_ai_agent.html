@@ -261,6 +261,34 @@
     .reply-box { min-height: 136px; margin: 16px 0; outline: none; }
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     .audio-player { width: 100%; height: 40px; margin-top: 2px; }
+    .chunk-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 8px 2px 2px;
+      scrollbar-width: thin;
+    }
+    .audio-chunk {
+      min-width: 132px;
+      width: auto;
+      min-height: 0;
+      padding: 8px 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(22, 119, 255, .18);
+      background: rgba(244, 248, 253, .84);
+      color: var(--text);
+      text-align: left;
+      display: grid;
+      gap: 3px;
+      box-shadow: none;
+    }
+    .audio-chunk b { font-size: 12px; }
+    .audio-chunk span { color: var(--muted); font-size: 11px; }
+    .audio-chunk.active {
+      border-color: rgba(0, 194, 255, .72);
+      background: linear-gradient(135deg, rgba(22,119,255,.16), rgba(0,194,255,.1));
+      box-shadow: 0 0 0 4px rgba(22,119,255,.08);
+    }
     .flow {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
@@ -479,6 +507,89 @@
     .row-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
     .mini-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
     .mini-actions button, button.tiny { width: auto; min-height: 0; padding: 7px 10px; border-radius: 12px; font-size: 12px; }
+    .stream-test-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .stream-test-card {
+      border-radius: 18px;
+      padding: 12px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(125,211,252,.20);
+      display: grid;
+      gap: 8px;
+      color: #eaf3ff;
+    }
+    .stream-test-card b { font-size: 13px; color: #fff; }
+    .stream-test-card span { color: rgba(234,243,255,.68); font-size: 12px; line-height: 1.45; }
+    .stream-test-card select,
+    .stream-test-card button {
+      min-height: 34px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+    .stream-control-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .stream-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .stream-metric {
+      border-radius: 14px;
+      padding: 8px;
+      background: rgba(4,18,40,.58);
+      border: 1px solid rgba(125,211,252,.14);
+    }
+    .stream-metric small { display: block; color: rgba(234,243,255,.58); font-size: 11px; }
+    .stream-metric strong { display: block; margin-top: 3px; color: #fff; font-size: 14px; }
+    .business-event-card {
+      border-radius: 20px;
+      padding: 14px;
+      background:
+        radial-gradient(circle at 18% 10%, rgba(0,194,255,.14), transparent 34%),
+        rgba(245,249,255,.92);
+      border: 1px solid rgba(184,210,240,.78);
+      display: grid;
+      gap: 10px;
+    }
+    .business-event-card h3 { margin: 0; font-size: 15px; color: #183a60; }
+    .business-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .business-kv {
+      border-radius: 14px;
+      padding: 9px;
+      background: rgba(255,255,255,.78);
+      border: 1px solid rgba(184,210,240,.58);
+    }
+    .business-kv span { display: block; color: var(--muted); font-size: 11px; }
+    .business-kv b { display: block; margin-top: 3px; font-size: 13px; color: #173b62; }
+    .event-archive-list {
+      display: grid;
+      gap: 8px;
+      max-height: 160px;
+      overflow: auto;
+    }
+    .archive-item {
+      border-radius: 14px;
+      padding: 10px;
+      background: rgba(255,255,255,.8);
+      border: 1px solid rgba(184,210,240,.64);
+      color: #173b62;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .archive-item b { display: block; margin-bottom: 4px; }
     button.danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; }
     .event-detail { display: grid; gap: 10px; max-height: 420px; overflow: auto; white-space: pre-wrap; }
     .detail-block { border: 1px solid var(--line); background: rgba(255,255,255,.72); border-radius: 16px; padding: 12px; }
@@ -561,6 +672,11 @@
       grid-template-rows: minmax(680px, 1fr) 148px;
       gap: 18px;
     }
+    .voice-page.streaming-agent {
+      grid-template-columns: minmax(320px, 0.95fr) minmax(460px, 1.2fr) minmax(340px, 0.95fr);
+      grid-template-rows: minmax(720px, 1fr) 168px;
+      gap: 18px;
+    }
     .agent-map-panel,
     .agent-core-panel,
     .agent-action-panel,
@@ -573,6 +689,233 @@
     .agent-action-panel { grid-column: 3; grid-row: 1; }
     .agent-timeline-panel { grid-column: 1 / 4; grid-row: 2; }
     .agent-panel-body { padding: 18px; display: grid; gap: 14px; }
+    .stream-card {
+      border-radius: 24px;
+      border: 1px solid rgba(184, 210, 240, .78);
+      background: rgba(255,255,255,.72);
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      box-shadow: 0 18px 40px rgba(18, 58, 112, 0.08);
+    }
+    .stream-card.dark {
+      color: #eaf3ff;
+      border-color: rgba(80, 170, 255, .24);
+      background:
+        radial-gradient(circle at 50% 20%, rgba(0, 194, 255, .14), transparent 42%),
+        linear-gradient(145deg, rgba(4, 22, 48, .98), rgba(7, 37, 76, .94));
+      box-shadow: inset 0 0 40px rgba(0, 14, 34, .26);
+    }
+    .stream-card.dark h3,
+    .stream-card.dark .subtle,
+    .stream-card.dark span { color: rgba(234,243,255,.72); }
+    .stream-card.dark .dialogue-box,
+    .stream-card.dark .text-box {
+      color: #eaf3ff;
+      background: rgba(4, 18, 40, .76);
+      border-color: rgba(125, 211, 252, .26);
+      box-shadow: inset 0 0 0 1px rgba(22, 119, 255, .08);
+    }
+    .stream-card.dark .dialogue-box:focus,
+    .stream-card.dark .text-box:focus {
+      outline: 2px solid rgba(0, 194, 255, .42);
+      outline-offset: 2px;
+    }
+    .stream-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .stream-head h3 { margin: 0; font-size: 15px; }
+    .chunk-rail {
+      display: grid;
+      gap: 8px;
+    }
+    .chunk-list {
+      display: grid;
+      gap: 8px;
+      max-height: 210px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+    .chunk-item {
+      display: grid;
+      grid-template-columns: 14px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 11px 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.8);
+      border: 1px solid rgba(184, 210, 240, .72);
+      cursor: pointer;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+    .chunk-item:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(18, 58, 112, 0.08); }
+    .chunk-item.active { border-color: rgba(0,194,255,.56); box-shadow: 0 0 0 4px rgba(22,119,255,.08); }
+    .chunk-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 0 7px rgba(22,119,255,.12);
+    }
+    .chunk-meta { display: grid; gap: 4px; }
+    .chunk-meta b { font-size: 13px; }
+    .chunk-meta span { color: var(--muted); font-size: 12px; }
+    .chunk-item small {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+    }
+    .agent-wave-visual {
+      --level: 0.35;
+      display: grid;
+      gap: 10px;
+      min-height: 134px;
+      border-radius: 22px;
+      padding: 14px;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(22,119,255,.22), transparent 44%),
+        linear-gradient(145deg, rgba(4,22,48,.95), rgba(7,37,76,.94));
+      border: 1px solid rgba(80, 170, 255, .24);
+      position: relative;
+      overflow: hidden;
+    }
+    .agent-wave-visual::before,
+    .agent-wave-visual::after {
+      content: "";
+      position: absolute;
+      inset: -20%;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(0,194,255,.16), transparent 30%),
+        linear-gradient(90deg, transparent, rgba(0,194,255,.16), transparent);
+      animation: waveSweep 6s linear infinite;
+      pointer-events: none;
+    }
+    .agent-wave-visual::after { animation-delay: -3s; opacity: .6; }
+    @keyframes waveSweep {
+      0% { transform: translateX(-12%) rotate(0deg); opacity: .16; }
+      50% { transform: translateX(10%) rotate(4deg); opacity: .34; }
+      100% { transform: translateX(-12%) rotate(0deg); opacity: .16; }
+    }
+    .agent-wave-lines {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 88px;
+      z-index: 1;
+      opacity: calc(0.52 + var(--level) * 0.48);
+      transform: scaleY(calc(0.82 + var(--level) * 0.36));
+      transform-origin: center;
+      transition: opacity 120ms ease, transform 120ms ease;
+    }
+    .agent-wave-lines span {
+      width: 5px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #7dd3fc, #1677ff);
+      animation: pulseBar 1.2s ease-in-out infinite;
+    }
+    .agent-wave-lines span:nth-child(2n) { animation-delay: .15s; }
+    .agent-wave-lines span:nth-child(3n) { animation-delay: .28s; }
+    .agent-wave-lines span:nth-child(4n) { animation-delay: .42s; }
+    @keyframes pulseBar {
+      0%,100% { height: calc(18px + var(--level) * 18px); opacity: .36; }
+      50% { height: calc(46px + var(--level) * 46px); opacity: 1; }
+    }
+    .stream-mic-dock {
+      display: grid;
+      place-items: center;
+      gap: 10px;
+      z-index: 1;
+      padding: 8px 0 2px;
+    }
+    .stream-mic-dock .mic-stage { gap: 12px; }
+    .stream-mic-dock .wave { width: 88px; height: 54px; }
+    .stream-mic-dock .agent-orb {
+      width: 92px;
+      height: 92px;
+      box-shadow: 0 0 0 calc(10px + var(--level) * 14px) rgba(22,119,255,.10), 0 0 calc(34px + var(--level) * 44px) rgba(22,119,255,.38);
+    }
+    .stream-mic-dock .agent-orb::before { inset: -12px; }
+    .stream-mic-dock .agent-orb::after { inset: -22px; }
+    .stream-mic-dock .agent-orb svg { width: 42px; height: 42px; }
+    .stream-mic-dock .agent-core-meta { margin-top: 0; color: rgba(234,243,255,.86); }
+    .stream-mic-dock .agent-core-meta b { font-size: 16px; color: #fff; }
+    .stream-mic-dock .agent-core-meta span { color: rgba(234,243,255,.70); font-size: 12px; }
+    .voice-page:not(.mic-visual) .stream-mic-dock { display: none; }
+    .voice-page.mic-visual .agent-wave-lines { display: none; }
+    .classification-streams {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .classification-stream {
+      border-radius: 18px;
+      padding: 12px;
+      background: rgba(245, 249, 255, .92);
+      border: 1px solid rgba(184, 210, 240, .72);
+      min-height: 86px;
+      display: grid;
+      gap: 6px;
+      align-content: start;
+    }
+    .classification-stream b { font-size: 13px; }
+    .classification-stream strong {
+      display: block;
+      margin: 4px 0;
+      color: #0754c9;
+      font-size: 22px;
+    }
+    .classification-stream span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .classification-stream.active {
+      border-color: rgba(22,119,255,.36);
+      box-shadow: 0 0 0 4px rgba(22,119,255,.08);
+    }
+    .inspector-panel {
+      border-radius: 22px;
+      border: 1px solid rgba(184, 210, 240, .78);
+      background: rgba(255,255,255,.72);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .inspector-panel b { display: block; font-size: 14px; }
+    .inspector-panel span,
+    .inspector-panel small { color: var(--muted); line-height: 1.55; }
+    .agent-event-list {
+      display: grid;
+      gap: 10px;
+      max-height: 270px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+    .agent-event-row {
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.82);
+      border: 1px solid rgba(184, 210, 240, .72);
+      cursor: pointer;
+    }
+    .agent-event-row.active { border-color: rgba(0,194,255,.52); box-shadow: 0 0 0 4px rgba(22,119,255,.08); }
+    .agent-event-row b { display: block; margin-bottom: 5px; }
+    .agent-event-row span { display: block; font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .timeline-scroll {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 0 18px 18px;
+    }
+    .timeline-scroll .timeline-item {
+      min-width: 210px;
+      animation: fadeInUp 320ms ease both;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     .mission-map {
       min-height: 310px;
       border-radius: 24px;
@@ -630,6 +973,37 @@
     .agent-ship.green { background: linear-gradient(135deg, #00b884, #00d2a0); }
     .agent-ship.red { background: linear-gradient(135deg, #ef4444, #fb7185); }
     .agent-ship.active { animation: shipPing 2s ease-in-out infinite; }
+    .agent-link-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+      filter: drop-shadow(0 0 8px rgba(0,194,255,.55));
+    }
+    .agent-link-layer line,
+    .agent-link-layer polyline {
+      opacity: 0;
+      transition: opacity .28s ease;
+    }
+    .agent-link-layer.active line,
+    .agent-link-layer.active polyline {
+      opacity: 1;
+    }
+    .agent-alignment-badge {
+      position: absolute;
+      right: 14px;
+      top: 14px;
+      z-index: 3;
+      padding: 8px 10px;
+      border-radius: 14px;
+      background: rgba(4, 19, 40, .72);
+      border: 1px solid rgba(0, 194, 255, .34);
+      color: rgba(255,255,255,.92);
+      font-size: 12px;
+      backdrop-filter: blur(14px);
+    }
     @keyframes shipPing {
       0%,100% { box-shadow: 0 0 0 8px rgba(22,119,255,.14), 0 16px 34px rgba(0,40,90,.28); }
       50% { box-shadow: 0 0 0 22px rgba(22,119,255,.05), 0 16px 40px rgba(0,40,90,.34); }
@@ -667,6 +1041,24 @@
       display: grid;
       place-items: center;
       min-height: 260px;
+    }
+    .agent-runtime-card {
+      min-height: 112px;
+      place-items: stretch;
+      align-content: center;
+      gap: 14px;
+      background:
+        radial-gradient(circle at 16% 18%, rgba(22,119,255,.14), transparent 36%),
+        linear-gradient(145deg, rgba(255,255,255,.94), rgba(238,247,255,.80));
+    }
+    .agent-runtime-card .agent-core-meta {
+      text-align: left;
+      margin-top: 0;
+    }
+    .agent-runtime-card .agent-core-meta b { font-size: 20px; }
+    .agent-runtime-card .runtime-states {
+      justify-content: flex-start;
+      flex-wrap: wrap;
     }
     .agent-orb {
       position: relative;
@@ -716,14 +1108,55 @@
       background: #f8fbff;
       border: 1px solid rgba(184, 210, 240, .8);
     }
-    .reasoning-log { display: grid; gap: 8px; }
+    .reasoning-log {
+      display: grid;
+      gap: 8px;
+      max-height: 260px;
+      overflow: auto;
+      padding-right: 4px;
+    }
     .reasoning-log span {
+      display: block;
       border-radius: 14px;
       padding: 9px 10px;
-      background: #f5f9ff;
-      color: #31506f;
+      background: rgba(245,249,255,.94);
+      color: #203a59;
       font-size: 13px;
       border: 1px solid rgba(184,210,240,.62);
+      cursor: pointer;
+      line-height: 1.45;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+    .reasoning-log span:hover {
+      transform: translateY(-1px);
+      border-color: rgba(0,194,255,.48);
+      box-shadow: 0 8px 18px rgba(0,18,48,.18);
+    }
+    .reasoning-log span.active {
+      color: #ffffff;
+      background: linear-gradient(135deg, rgba(22,119,255,.94), rgba(0,194,255,.76));
+      border-color: rgba(125,211,252,.76);
+      box-shadow: 0 0 0 4px rgba(0,194,255,.12), 0 12px 26px rgba(0,18,48,.24);
+    }
+    .stream-card.dark .reasoning-log span {
+      color: #eaf3ff;
+      background: rgba(5, 20, 46, .82);
+      border-color: rgba(125, 211, 252, .22);
+    }
+    .stream-card.dark .reasoning-log span:hover {
+      border-color: rgba(0, 194, 255, .58);
+      background: rgba(8, 33, 72, .92);
+    }
+    .stream-card.dark .reasoning-log span.active { color: #ffffff; }
+    #dialogueEdit,
+    #continuousDialogues {
+      max-height: 164px;
+      overflow: auto;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    #continuousDialogues {
+      min-height: 150px;
     }
     .action-queue {
       width: 100%;
@@ -815,67 +1248,46 @@
         </div>
       </header>
 
-      <section class="page voice-page agent-control active" id="voicePage">
+      <section class="page voice-page streaming-agent active" id="voicePage">
         <section class="panel agent-map-panel">
-          <div class="panel-head"><h2>海事态势感知</h2><span class="pill green">船位实时</span></div>
+          <div class="panel-head"><h2>连续语音输入</h2><span class="pill green">实时守听</span></div>
           <div class="agent-panel-body">
-            <div class="mission-map">
-              <div class="zone blue"></div>
-              <div class="zone red"></div>
-              <div class="track-line"></div>
-              <button class="agent-ship active" style="left:48%;top:43%" title="湘远15"></button>
-              <button class="agent-ship green" style="left:28%;top:65%" title="锦华662"></button>
-              <button class="agent-ship red" style="left:72%;top:69%" title="宁远梅山"></button>
-              <button class="agent-ship green" style="left:62%;top:28%" title="中国银川"></button>
-              <div class="map-caption"><b>北仑山甚高频16频道</b><span>通信目标高亮 · 限制区叠加 · 船位关联待核验</span></div>
-            </div>
-            <div class="copilot-card">
-              <div class="row-head">
-                <div><b>船舶协同核验</b><span class="subtle">点击船舶后核验身份、轨迹与通信历史</span></div>
-                <span class="pill" id="aisText">待匹配</span>
+            <div class="stream-card dark">
+              <div class="stream-head">
+                <h3>连续甚高频波形</h3>
+                <span class="pill" id="asrStatus">语音识别</span>
               </div>
-              <div class="copilot-grid">
-                <div class="mini-kv"><span>船舶</span><b id="shipText">待匹配</b></div>
-                <div class="mini-kv"><span>船位状态</span><b id="aisRuntimeStatus">未关联</b></div>
-                <div class="mini-kv"><span>风险评分</span><b id="copilotRiskScore">0.12</b></div>
-                <div class="mini-kv"><span>限制区</span><b id="copilotZone">未进入</b></div>
-              </div>
-              <div class="ais-detail" id="aisDetail"></div>
-              <div class="operator-actions">
-                <button class="secondary" id="askShipBtn">询问船舶</button>
-                <button class="secondary" id="queryTrackBtn">查询轨迹</button>
-                <button class="secondary" id="markAlertBtn">标记预警</button>
-                <button class="secondary" id="copilotReviewBtn">人工复核</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel agent-core-panel">
-          <div class="panel-head"><h2>智能体认知核心</h2><span class="pill" id="asrStatus">语音识别</span></div>
-          <div class="agent-panel-body">
-            <div class="agent-state-card">
-              <div>
-                <div class="mic-stage">
-                  <div class="wave"></div>
-                  <button class="agent-orb mic" id="micBtn" aria-label="麦克风">
-                    <svg viewBox="0 0 64 64" fill="none">
-                      <path d="M32 8c-6.1 0-11 4.9-11 11v14c0 6.1 4.9 11 11 11s11-4.9 11-11V19c0-6.1-4.9-11-11-11Z" fill="currentColor"/>
-                      <path d="M16 31c0 8.8 7.2 16 16 16s16-7.2 16-16" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
-                      <path d="M32 47v9M23 56h18" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
-                    </svg>
-                  </button>
-                  <div class="wave right"></div>
+              <div class="agent-wave-visual">
+                <div class="stream-mic-dock">
+                  <div class="mic-stage">
+                    <div class="wave"></div>
+                    <button class="agent-orb mic" id="micBtn" aria-label="麦克风">
+                      <svg viewBox="0 0 64 64" fill="none">
+                        <path d="M32 8c-6.1 0-11 4.9-11 11v14c0 6.1 4.9 11 11 11s11-4.9 11-11V19c0-6.1-4.9-11-11-11Z" fill="currentColor"/>
+                        <path d="M16 31c0 8.8 7.2 16 16 16s16-7.2 16-16" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+                        <path d="M32 47v9M23 56h18" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                    <div class="wave right"></div>
+                  </div>
+                  <div class="agent-core-meta">
+                    <b id="listenTitle">智能体正在守听甚高频...</b>
+                    <span>甚高频16频道 · <span id="timer">00:00</span> · 运行状态：<span id="decisionStatusText">监听中</span></span>
+                  </div>
                 </div>
-                <div class="agent-core-meta">
-                  <b id="listenTitle">智能体正在守听甚高频...</b>
-                  <span>甚高频16频道 · <span id="timer">00:00</span> · 运行状态：<span id="decisionStatus">监听中</span></span>
+                <div class="agent-wave-lines" id="streamWave">
+                  <span style="height:24px"></span><span style="height:42px"></span><span style="height:58px"></span>
+                  <span style="height:34px"></span><span style="height:70px"></span><span style="height:28px"></span>
+                  <span style="height:66px"></span><span style="height:38px"></span><span style="height:54px"></span>
+                  <span style="height:30px"></span><span style="height:64px"></span>
+                </div>
+                <div class="chunk-rail">
+                  <div class="subtle">音频片段</div>
+                  <div class="chunk-list" id="audioChunkList">
+                    <div class="chunk-item"><div class="chunk-dot"></div><div class="chunk-meta"><b>等待连续语音</b><span>点击“真实测试集守听”开始</span></div><small>--</small></div>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div class="agent-stream-card">
-              <h3>语音接入</h3>
               <div class="agent-source-grid">
                 <select id="inputMode">
                   <option value="mic">现场麦克风</option>
@@ -887,32 +1299,70 @@
                 <audio class="audio-player" id="audioPlayer" controls></audio>
               </div>
               <div class="mini-actions">
-                <button class="secondary" id="continuousDemoBtn">测试集连续守听</button>
+                <button class="secondary" id="continuousDemoBtn">真实测试集守听</button>
                 <button class="secondary" id="riskDemoBtn">高危样例</button>
                 <button class="secondary" id="normalDemoBtn">常规样例</button>
               </div>
+              <div class="stream-test-grid">
+                <div class="stream-test-card">
+                  <b>现场麦克风流式测试</b>
+                  <span id="liveMicStatus">待启动 · 每个 chunk 立即进入智能体链路</span>
+                  <div class="stream-control-row">
+                    <select id="liveChunkMs">
+                      <option value="500">500ms</option>
+                      <option value="1000" selected>1000ms</option>
+                      <option value="2000">2000ms</option>
+                    </select>
+                    <button class="secondary" id="startLiveMicBtn">启动麦克风流</button>
+                    <button class="secondary" id="stopLiveMicBtn">停止</button>
+                  </div>
+                  <div class="stream-metrics">
+                    <div class="stream-metric"><small>片段数</small><strong id="streamChunkCount">0</strong></div>
+                    <div class="stream-metric"><small>最新延迟</small><strong id="latestLatency">--</strong></div>
+                    <div class="stream-metric"><small>平均延迟</small><strong id="avgLatency">--</strong></div>
+                  </div>
+                </div>
+                <div class="stream-test-card">
+                  <b>长音频回放流式测试</b>
+                  <span id="replayStatus">选择长音频后按时间线切片，模拟真实甚高频守听</span>
+                  <div class="stream-control-row">
+                    <select id="replayChunkMs">
+                      <option value="1000" selected>1秒片段</option>
+                      <option value="2000">2秒片段</option>
+                      <option value="3000">3秒片段</option>
+                    </select>
+                    <select id="replaySpeed">
+                      <option value="1">1x</option>
+                      <option value="2" selected>2x</option>
+                      <option value="4">4x</option>
+                    </select>
+                    <button class="secondary" id="startReplayBtn">启动回放流</button>
+                    <button class="secondary" id="pauseReplayBtn">暂停</button>
+                    <button class="secondary" id="stopReplayBtn">停止</button>
+                  </div>
+                  <div class="stream-metrics">
+                    <div class="stream-metric"><small>回放位置</small><strong id="replayPosition">00:00</strong></div>
+                    <div class="stream-metric"><small>处理积压</small><strong id="streamBacklog">0</strong></div>
+                    <div class="stream-metric"><small>当前状态</small><strong id="streamSourceStatus">待命</strong></div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="agent-stream-card">
-              <h3>实时语音转写流</h3>
+            <div class="stream-card">
+              <div class="stream-head">
+                <h3>实时语音转写流</h3>
+                <span class="pill" id="decisionStatus">监听中</span>
+              </div>
               <div class="text-box agent-transcript" id="asrText" contenteditable="true">等待语音输入</div>
               <div class="entity-grid">
                 <div class="entity"><span>意图</span><b id="intentText">待识别</b></div>
                 <div class="entity" id="aisToggle"><span>船位关联</span><b id="aisRuntimeText">待匹配</b></div>
+                <div class="entity"><span>船名</span><b id="shipText">待匹配</b></div>
+                <div class="entity"><span>船位状态</span><b id="aisRuntimeStatus">未关联</b></div>
+                <div class="entity"><span>风险评分</span><b id="copilotRiskScore">0.12</b></div>
+                <div class="entity"><span>限制区</span><b id="copilotZone">未进入</b></div>
               </div>
-            </div>
-
-            <div class="reasoning-card">
-              <h3>智能体研判过程</h3>
-              <div class="reasoning-log" id="reasoningTrace">
-                <span>[步骤 1] 等待甚高频语音信号</span>
-                <span>[步骤 2] 等待语音识别完成</span>
-                <span>[步骤 3] 等待业务意图分类</span>
-                <span>[步骤 4] 等待船位信息关联</span>
-                <span>[步骤 5] 暂未触发处置动作</span>
-              </div>
-              <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">等待语音识别后生成对话轮次复核模板</div>
-              <div class="dialogue-box text-box" id="continuousDialogues">连续守听结果将在这里按对话片段滚动展示。</div>
               <div class="review-grid">
                 <label>意图复核
                   <select id="intentEdit">
@@ -926,26 +1376,92 @@
                 <label>船名复核<input id="shipEdit" placeholder="人工确认船名" /></label>
                 <label>船位关联复核<select id="aisEdit"><option value="">未关联船位</option></select></label>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel agent-core-panel">
+          <div class="panel-head"><h2>智能体认知核心</h2><span class="pill">流式推理</span></div>
+          <div class="agent-panel-body">
+            <div class="agent-state-card agent-runtime-card">
+              <div class="agent-core-meta">
+                <b>智能体运行状态</b>
+                <span>连续监听、实时听写、风险研判、动作归档已接入同一条流式链路。</span>
+              </div>
+              <div class="runtime-states">
+                <span class="runtime-chip"><i class="pulse-dot"></i>监听</span>
+                <span class="runtime-chip"><i class="pulse-dot blue"></i>研判</span>
+                <span class="runtime-chip"><i class="pulse-dot orange"></i>执行</span>
+              </div>
+            </div>
+
+            <div class="stream-card dark">
+              <div class="stream-head">
+                <h3>智能体思维轨迹</h3>
+                <span class="pill">逐步展开</span>
+              </div>
+              <div class="reasoning-log" id="reasoningTrace">
+                <span>[步骤 1] 等待甚高频语音信号</span>
+                <span>[步骤 2] 等待语音识别完成</span>
+                <span>[步骤 3] 等待业务意图分类</span>
+                <span>[步骤 4] 等待船位信息关联</span>
+                <span>[步骤 5] 暂未触发处置动作</span>
+              </div>
+              <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">等待语音识别后生成对话轮次复核模板</div>
+              <div class="dialogue-box text-box" id="continuousDialogues">连续守听结果将在这里按对话片段滚动展示。</div>
+            </div>
+
+            <div class="stream-card">
+              <div class="stream-head">
+                <h3>局部决策与复核</h3>
+                <span class="pill" id="aisText">待匹配</span>
+              </div>
               <div class="flow" id="flow">
                 <div class="flow-step active">语音接入</div>
-              <div class="flow-step">语音听写</div>
+                <div class="flow-step">语音听写</div>
                 <div class="flow-step">风险研判</div>
                 <div class="flow-step">处置分流</div>
-              <div class="flow-step">语音播报</div>
+                <div class="flow-step">语音播报</div>
                 <div class="flow-step">事件归档</div>
+              </div>
+              <div class="ais-detail" id="aisDetail"></div>
+              <div class="mini-actions">
+                <button class="secondary" id="askShipBtn">询问船舶</button>
+                <button class="secondary" id="queryTrackBtn">查询轨迹</button>
+                <button class="secondary" id="markAlertBtn">标记预警</button>
+                <button class="secondary" id="copilotReviewBtn">人工复核</button>
               </div>
             </div>
           </div>
         </section>
 
         <section class="panel agent-action-panel">
-          <div class="panel-head"><h2>决策与动作引擎</h2><span class="pill">动作队列</span></div>
+          <div class="panel-head"><h2>分类与动作引擎</h2><span class="pill">动作队列</span></div>
           <div class="agent-panel-body">
-            <div class="risk-grid">
-              <div class="risk-tile red"><span>高危告警</span><strong id="riskLabel">否</strong></div>
-              <div class="risk-tile green"><span>自动回复</span><strong id="autoLabel">待定</strong></div>
-              <div class="risk-tile blue"><span>人工复核</span><strong id="manualLabel">待命</strong></div>
-              <div class="risk-tile"><span>持续监听</span><strong id="monitorLabel">开启</strong></div>
+            <div class="classification-streams">
+              <div class="classification-stream" id="streamEmergency"><b>高危告警</b><strong id="riskLabel">否</strong><span>等待事件输入</span></div>
+              <div class="classification-stream" id="streamAutoReply"><b>自动回复</b><strong id="autoLabel">待定</strong><span>等待事件输入</span></div>
+              <div class="classification-stream" id="streamHumanReview"><b>人工复核</b><strong id="manualLabel">待命</strong><span>等待事件输入</span></div>
+              <div class="classification-stream" id="streamMonitoring"><b>持续监听</b><strong id="monitorLabel">开启</strong><span>等待事件输入</span></div>
+            </div>
+            <div class="business-event-card">
+              <div class="stream-head">
+                <h3>当前业务事件</h3>
+                <span class="pill" id="businessEventState">IDLE_LISTENING</span>
+              </div>
+              <div class="business-grid">
+                <div class="business-kv"><span>事件ID</span><b id="activeEventIdText">暂无</b></div>
+                <div class="business-kv"><span>船舶</span><b id="activeEventShip">待确认</b></div>
+                <div class="business-kv"><span>意图</span><b id="activeEventIntent">待识别</b></div>
+                <div class="business-kv"><span>风险</span><b id="activeEventRisk">INFO</b></div>
+                <div class="business-kv"><span>轮次数</span><b id="activeEventUtterances">0</b></div>
+                <div class="business-kv"><span>动作</span><b id="activeEventAction">等待</b></div>
+              </div>
+              <div class="mini-actions">
+                <button class="secondary" id="approveEventBtn">批准</button>
+                <button class="secondary" id="rejectEventBtn">驳回</button>
+                <button class="secondary" id="closeBusinessEventBtn">关闭事件</button>
+              </div>
             </div>
             <div class="action-card">
               <h3>动态动作队列</h3>
@@ -956,6 +1472,15 @@
                   <tr><td>风险分类</td><td>等待中</td><td>语音识别</td><td>--</td><td>--</td></tr>
                 </tbody>
               </table>
+            </div>
+            <div class="inspector-panel">
+              <div class="stream-head">
+                <h3>事件检查器</h3>
+                <span class="pill" id="inspectorStatus">未选择事件</span>
+              </div>
+              <b id="inspectorTitle">点击音频片段或思维轨迹查看详情</b>
+              <span id="inspectorSummary">这里将展示原始转写、置信度、意图、风险评分、船舶匹配和动作建议。</span>
+              <small id="inspectorDetail">当前没有选中的 agent 事件。</small>
             </div>
             <div class="action-card">
               <h3>决策依据</h3>
@@ -968,6 +1493,12 @@
               <h3>建议话术</h3>
               <div class="reply-box" id="replyText" contenteditable="true">等待生成回复内容</div>
             </div>
+            <div class="action-card">
+              <h3>业务事件归档</h3>
+              <div class="event-archive-list" id="businessEventArchive">
+                <div class="archive-item"><b>暂无闭合事件</b>持续守听后，闭合业务事件会自动进入这里。</div>
+              </div>
+            </div>
             <div class="operator-actions">
               <button class="red" id="manualBtn">接管响应</button>
               <button class="green" id="speakBtn">广播话术</button>
@@ -978,7 +1509,8 @@
         </section>
 
         <section class="panel agent-timeline-panel">
-          <div class="timeline-strip" id="agentTimeline">
+          <div class="panel-head"><h2>全局事件时间线</h2><span class="pill">系统记忆</span></div>
+          <div class="timeline-scroll" id="agentTimeline">
             <div class="timeline-item"><b>10:01 甚高频信号</b><span>等待语音触发</span></div>
             <div class="timeline-item"><b>10:02 语音识别</b><span>转写结果生成</span></div>
             <div class="timeline-item"><b>10:03 意图识别</b><span>业务类型识别</span></div>
@@ -1116,7 +1648,7 @@
           <div class="panel-body settings-grid">
             <div><label class="subtle">后端接口地址</label><input id="apiBaseInput" /></div>
             <div><label class="subtle">默认甚高频频道</label><input id="channelInput" value="vhf_demo_01" /></div>
-            <div><label class="subtle">麦克风识别窗口（毫秒）</label><input id="micChunkMs" value="3200" /></div>
+            <div><label class="subtle">麦克风识别窗口（毫秒）</label><input id="micChunkMs" value="1800" /></div>
             <div><label class="subtle">说明</label><div class="subtle">设置仅保存在当前浏览器。语音主流程在船位数据暂不可用时仍可独立运行。</div></div>
             <div><button id="saveSettingsBtn">保存设置</button></div>
           </div>
@@ -1133,7 +1665,14 @@
       events: [],
       selectedShipIds: new Set(),
       activeEventId: "",
+      selectedAgentEvent: null,
       currentAis: null,
+      agentEvents: [],
+      audioChunks: [],
+      classificationStreams: { emergency: [], autoReply: [], humanReview: [], monitoring: [] },
+      actionQueue: [],
+      globalTimeline: [],
+      lastContinuousCount: 0,
       seconds: 0,
       timer: null,
       mic: null,
@@ -1147,6 +1686,19 @@
       mapOverlays: [],
       feedback: [],
       ttsUtterance: null,
+      eventState: "IDLE_LISTENING",
+      activeBusinessEvent: null,
+      businessEvents: [],
+      eventCloseTimer: null,
+      streaming: {
+        activeSource: "",
+        activeRequests: 0,
+        maxConcurrent: 1,
+        queue: [],
+        latencies: [],
+        chunkSeq: 0,
+        replay: null,
+      },
     };
     const fallbackShips = [
       { ship_id: "ship_jl008", ship_name: "锦龙008", mmsi: "413245008", ship_type: "集装箱船", draft_m: 10.8, tonnage_t: 16800, sog_kn: 7.2, lng: 121.8842, lat: 29.9138, position_label: "北仑港主航道" },
@@ -1166,7 +1718,15 @@
     let API_BASE = defaultApiBase;
 
     function channelId() { return $("channelInput").value.trim() || "vhf_demo_01"; }
-    function setLevel(level) { document.querySelectorAll(".mic,.wave").forEach((el) => el.style.setProperty("--level", level)); }
+    function setLevel(level) {
+      document.querySelectorAll(".mic,.wave,.agent-wave-visual,.agent-wave-lines").forEach((el) => el.style.setProperty("--level", level));
+    }
+    function updateInputVisualMode(mode = $("inputMode")?.value || "stream") {
+      const voicePage = $("voicePage");
+      if (!voicePage) return;
+      voicePage.classList.toggle("mic-visual", mode === "mic");
+      voicePage.classList.toggle("stream-visual", mode !== "mic");
+    }
     function toast(message, error = false) {
       $("toast").textContent = message;
       $("toast").className = `toast show${error ? " error" : ""}`;
@@ -1187,6 +1747,7 @@
       $("agentState").textContent = text;
       $("agentState").className = kind === "green" ? "pill green" : "pill";
       if ($("decisionStatus")) $("decisionStatus").textContent = text;
+      if ($("decisionStatusText")) $("decisionStatusText").textContent = text;
     }
     function nowLabel() {
       const now = new Date();
@@ -1196,6 +1757,7 @@
       $("reasoningTrace").innerHTML = items.map((item, index) => `<span>[步骤 ${index + 1}] ${item}</span>`).join("");
     }
     function setActionQueue(rows) {
+      state.actionQueue = Array.isArray(rows) ? rows.slice() : [];
       $("actionQueueBody").innerHTML = rows.map((row) => `
         <tr>
           <td>${row.action}</td>
@@ -1207,9 +1769,517 @@
       `).join("");
     }
     function setTimeline(items) {
+      state.globalTimeline = Array.isArray(items) ? items.slice() : [];
       $("agentTimeline").innerHTML = items.map((item) => `
         <div class="timeline-item"><b>${item.time} ${item.title}</b><span>${item.detail}</span></div>
       `).join("");
+    }
+    function appendAgentEvent(event) {
+      if (!event) return null;
+      const entry = {
+        event_id: event.event_id || event.id || `agent_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+        source_chunk_id: event.chunk_id || event.source_chunk_id || "",
+        stage: event.stage || event.type || "state",
+        title: event.title || event.stage_label || event.type || "事件",
+        detail: event.detail || event.summary || event.asr_text || "",
+        asr_text: event.asr_text || "",
+        asr_confidence: event.asr_confidence ?? event.confidence ?? "",
+        intent: event.intent || event.business_type || "other_business",
+        risk_score: event.risk_score ?? event.risk_level ?? "",
+        matched_ship: event.matched_ship || event.ais_context?.ship_name || "",
+        confidence: event.confidence ?? event.match_confidence ?? "",
+        time: event.time || nowLabel(),
+        decision_reason: event.decision_reason || event.summary || "",
+        suggested_action: event.suggested_action || event.broadcast_text || "",
+        executed_action: event.executed_action || "",
+        raw: event,
+      };
+      state.agentEvents = [...state.agentEvents, entry].slice(-120);
+      state.selectedAgentEvent = entry;
+      renderStreamingAgentConsole();
+      return entry;
+    }
+    function appendAudioChunk(chunk) {
+      if (!chunk) return null;
+      const entry = {
+        chunk_id: chunk.chunk_id || chunk.id || `chunk_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+        index: chunk.index ?? state.audioChunks.length,
+        filename: chunk.filename || "音频片段",
+        timestamp: chunk.timestamp || nowLabel(),
+        status: chunk.status || "待处理",
+        confidence: chunk.confidence ?? "",
+        audio_url: chunk.audio_url || "",
+        asr_text: chunk.asr_text || "",
+        matched_ship: chunk.matched_ship || "",
+        event_id: chunk.event_id || "",
+        summary: chunk.summary || "",
+        ais_alignment: chunk.ais_alignment || null,
+        raw: chunk,
+      };
+      const existingIndex = state.audioChunks.findIndex((item) => item.chunk_id === entry.chunk_id);
+      if (existingIndex >= 0) {
+        state.audioChunks = state.audioChunks.map((item, index) => (
+          index === existingIndex
+            ? { ...item, ...entry, raw: { ...(item.raw || {}), ...(entry.raw || {}) } }
+            : item
+        )).slice(-60);
+        return state.audioChunks.find((item) => item.chunk_id === entry.chunk_id) || entry;
+      }
+      state.audioChunks = [...state.audioChunks, entry].slice(-60);
+      return entry;
+    }
+    function routeClassification(event) {
+      const risk = Number(event?.risk_score ?? 0);
+      const intent = event?.intent || event?.business_type || "other_business";
+      let bucket = "monitoring";
+      if (risk >= 0.85 || intent === "emergency_risk") bucket = "emergency";
+      else if (risk >= 0.4 && risk < 0.85) bucket = "humanReview";
+      else if (event?.auto_reply_allowed || event?.is_auto_reply || intent === "routine_report") bucket = "autoReply";
+      state.classificationStreams[bucket] = [...state.classificationStreams[bucket], {
+        title: event.title || intentLabel(intent),
+        detail: event.summary || event.decision_reason || event.asr_text || "",
+        time: event.time || nowLabel(),
+      }].slice(-18);
+      return bucket;
+    }
+    function createActionFromPolicy(event) {
+      const risk = Number(event?.risk_score ?? 0);
+      const intent = event?.intent || event?.business_type || "other_business";
+      if (risk >= 0.85 || intent === "emergency_risk") {
+        return { action: "高危处置", trigger: "高危或遇险", status: "执行中", confidence: risk.toFixed(2), time: nowLabel(), suggested_action: "广播 + 人工接管" };
+      }
+      if (risk >= 0.4 && risk < 0.85) {
+        return { action: "辅助研判", trigger: "中风险", status: "待执行", confidence: risk.toFixed(2), time: nowLabel(), suggested_action: "人工确认后播报" };
+      }
+      if (event?.auto_reply_allowed || event?.is_auto_reply || intent === "routine_report") {
+        return { action: "自动回复", trigger: "常规业务", status: "已完成", confidence: risk.toFixed(2) || "0.32", time: nowLabel(), suggested_action: "标准 VTS 回复" };
+      }
+      return { action: "仅归档", trigger: "持续监听", status: "已完成", confidence: risk.toFixed(2) || "0.18", time: nowLabel(), suggested_action: "进入事件中心" };
+    }
+    function appendGlobalTimeline(item) {
+      if (!item) return;
+      state.globalTimeline = [...state.globalTimeline, {
+        time: item.time || nowLabel(),
+        title: item.title || "系统事件",
+        detail: item.detail || "",
+      }].slice(-40);
+      renderGlobalTimeline();
+    }
+    function renderStreamingAgentConsole() {
+      renderAgentThinkingTrace();
+      renderClassificationStreams();
+      renderActionQueue();
+      renderGlobalTimeline();
+      renderAudioChunks();
+      renderAgentInspector();
+      renderActiveBusinessEvent();
+      renderBusinessEventArchive();
+    }
+    function renderAgentThinkingTrace() {
+      const events = state.agentEvents.slice(-12);
+      if (!events.length) {
+        $("reasoningTrace").innerHTML = `
+          <span>[步骤 1] 等待甚高频语音信号</span>
+          <span>[步骤 2] 等待语音识别完成</span>
+          <span>[步骤 3] 等待业务意图分类</span>
+          <span>[步骤 4] 等待船位信息关联</span>
+          <span>[步骤 5] 暂未触发处置动作</span>
+        `;
+        return;
+      }
+      $("reasoningTrace").innerHTML = events.map((event, index) => `
+        <span class="${event.event_id === state.selectedAgentEvent?.event_id ? "active" : ""}" data-event-id="${event.event_id}">[步骤 ${index + 1}] ${event.title} · ${event.detail || event.intent || ""}</span>
+      `).join("");
+      document.querySelectorAll("#reasoningTrace [data-event-id]").forEach((row) => {
+        row.addEventListener("click", () => openAgentInspector(row.dataset.eventId));
+      });
+    }
+    function renderClassificationStreams() {
+      const cfg = [
+        ["streamEmergency", "高危告警", "riskLabel", $("riskLabel")?.textContent || "否", state.classificationStreams.emergency],
+        ["streamAutoReply", "自动回复", "autoLabel", $("autoLabel")?.textContent || "待定", state.classificationStreams.autoReply],
+        ["streamHumanReview", "人工复核", "manualLabel", $("manualLabel")?.textContent || "待命", state.classificationStreams.humanReview],
+        ["streamMonitoring", "持续监听", "monitorLabel", $("monitorLabel")?.textContent || "开启", state.classificationStreams.monitoring],
+      ];
+      cfg.forEach(([id, title, valueId, value, items]) => {
+        const el = $(id);
+        if (!el) return;
+        el.classList.toggle("active", (items || []).length > 0);
+        el.innerHTML = `<b>${title}</b><strong id="${valueId}">${value}</strong>` + ((items || []).slice(-4).map((item) => `<span>${item.time} · ${item.title} · ${item.detail}</span>`).join("") || "<span>等待事件输入</span>");
+      });
+    }
+    function renderActionQueue() {
+      const rows = state.actionQueue.length ? state.actionQueue : [
+        { action: "监听甚高频", status: "运行中", trigger: "16频道", confidence: "--", time: "当前" },
+        { action: "风险分类", status: "等待中", trigger: "语音识别", confidence: "--", time: "--" },
+      ];
+      $("actionQueueBody").innerHTML = rows.map((row) => `
+        <tr>
+          <td>${row.action}</td>
+          <td>${row.status}</td>
+          <td>${row.trigger}</td>
+          <td>${row.confidence}</td>
+          <td>${row.time}</td>
+        </tr>
+      `).join("");
+    }
+    function renderGlobalTimeline() {
+      const items = state.globalTimeline.length ? state.globalTimeline : [
+        { time: "--:--", title: "甚高频信号", detail: "等待语音触发" },
+        { time: "--:--", title: "语音识别", detail: "转写结果生成" },
+        { time: "--:--", title: "意图识别", detail: "业务类型识别" },
+        { time: "--:--", title: "决策分流", detail: "动作队列更新" },
+      ];
+      $("agentTimeline").innerHTML = items.map((item) => `
+        <div class="timeline-item"><b>${item.time} ${item.title}</b><span>${item.detail}</span></div>
+      `).join("");
+    }
+    function renderAudioChunks() {
+      const chunks = state.audioChunks.length ? state.audioChunks : [
+        { chunk_id: "placeholder", filename: "等待连续语音", timestamp: "--", status: "等待", confidence: "--", asr_text: "点击“真实测试集守听”开始" },
+      ];
+      $("audioChunkList").innerHTML = chunks.map((chunk) => `
+        <div class="chunk-item ${chunk.chunk_id === state.selectedAgentEvent?.source_chunk_id ? "active" : ""}" data-chunk-id="${chunk.chunk_id}">
+          <div class="chunk-dot"></div>
+          <div class="chunk-meta">
+            <b>${chunk.filename}</b>
+            <span>${chunk.timestamp} · ${chunk.status}${chunk.audio_url ? " · 点击播放原音" : ""}</span>
+          </div>
+          <small>${chunk.confidence || "--"}</small>
+        </div>
+      `).join("");
+      document.querySelectorAll("#audioChunkList .chunk-item").forEach((row) => {
+        row.addEventListener("click", () => {
+          const chunk = state.audioChunks.find((item) => item.chunk_id === row.dataset.chunkId);
+          if (chunk) {
+            openAgentInspector(chunk.event_id || chunk.chunk_id);
+            if (chunk.audio_url) playContinuousChunk(chunk);
+          }
+        });
+      });
+    }
+    function renderAudioChunkTimeline() {
+      renderAudioChunks();
+    }
+    function setEventState(nextState, detail = "") {
+      state.eventState = nextState;
+      if ($("businessEventState")) $("businessEventState").textContent = nextState;
+      appendAgentEvent({ stage: nextState.toLowerCase(), title: `状态：${nextState}`, detail });
+      appendGlobalTimeline({ time: nowLabel(), title: `状态切换 ${nextState}`, detail });
+    }
+    function extractShipFromText(text = "") {
+      const known = ["锦龙228", "锦龙008", "锦华662", "中国银川", "港顺177", "宁远梅山", "货轮876", "湘远15"];
+      const hit = known.find((name) => text.includes(name));
+      if (hit) return hit;
+      const match = text.match(/([\u4e00-\u9fa5A-Za-z]{1,6}\d{2,4})/);
+      return match ? match[1] : "";
+    }
+    function createBusinessEvent(sourceType, chunk) {
+      const event = {
+        eventId: `be_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`,
+        status: "EVENT_ACTIVE",
+        startTime: Date.now(),
+        endTime: null,
+        sourceType,
+        shipName: "",
+        mmsi: "",
+        intent: "monitoring_only",
+        riskLevel: "INFO",
+        riskScore: 0,
+        utterances: [],
+        audioChunks: [],
+        matchedShip: "",
+        actions: [],
+        summary: "",
+        closeReason: "",
+        exportedAudioUrl: "",
+        aisContext: {},
+        inspectionContext: {},
+        autoReplySpoken: false,
+      };
+      if (chunk) event.audioChunks.push(chunk);
+      state.activeBusinessEvent = event;
+      state.activeEventId = event.eventId;
+      setEventState("EVENT_ACTIVE", `${sourceType === "mic" ? "现场麦克风" : "长音频回放"}创建业务事件`);
+      return event;
+    }
+    function ensureBusinessEvent(chunk, text = "") {
+      const ship = extractShipFromText(text);
+      const active = state.activeBusinessEvent;
+      if (!active || active.status === "EVENT_CLOSED" || active.status === "ARCHIVED") {
+        const event = createBusinessEvent(chunk.sourceType, chunk);
+        event.shipName = ship || "";
+        return event;
+      }
+      if (ship && active.shipName && ship !== active.shipName && active.utterances.length >= 2) {
+        closeBusinessEvent("检测到新船名，自动闭合上一业务事件");
+        const event = createBusinessEvent(chunk.sourceType, chunk);
+        event.shipName = ship;
+        return event;
+      }
+      if (!active.audioChunks.some((item) => item.chunkId === chunk.chunkId)) active.audioChunks.push(chunk);
+      if (ship && !active.shipName) active.shipName = ship;
+      return active;
+    }
+    function classifyUtterance(text = "") {
+      if (detectEarlyRisk(text).isHighRisk) return { intent: "emergency", riskLevel: "L1", riskScore: 0.92, autoReply: false, humanApproval: true };
+      if (/(申请|准备|离泊|起锚|开航|解缆|穿越申请)/.test(text)) return { intent: "human_approval", riskLevel: "MANUAL", riskScore: 0.68, autoReply: false, humanApproval: true };
+      if (/(靠泊计划|靠妥|靠码头|抛锚|抛妥|向您报告|向你报告|报告完毕|不抛锚|直接进去)/.test(text)) return { intent: "auto_reply", riskLevel: "AUTO", riskScore: 0.18, autoReply: true, humanApproval: false };
+      return { intent: "monitoring_only", riskLevel: "INFO", riskScore: 0.28, autoReply: false, humanApproval: false };
+    }
+    function classifyDecisionPayload(payload = {}, text = "") {
+      const event = payload.decisionEvent || payload.event || {};
+      const businessType = event.business_type || payload.business_type || "";
+      const riskLevel = event.risk_level || payload.risk_level || "";
+      if (businessType === "emergency_risk" || ["L1", "L2", "L3"].includes(riskLevel)) {
+        return { intent: "emergency", riskLevel: riskLevel || "L1", riskScore: Number(event.confidence || 0.92), autoReply: false, humanApproval: true };
+      }
+      if (businessType === "routine_report" && (event.is_auto_reply || riskLevel === "AUTO")) {
+        return { intent: "auto_reply", riskLevel: "AUTO", riskScore: Number(event.confidence || 0.18), autoReply: true, humanApproval: false };
+      }
+      if (businessType === "departure_request" || riskLevel === "MANUAL" || event.action_type === "manual_business") {
+        return { intent: "human_approval", riskLevel: "MANUAL", riskScore: Number(event.confidence || 0.68), autoReply: false, humanApproval: true };
+      }
+      if (businessType === "other_business" || businessType === "invalid_or_noise") {
+        return { intent: "monitoring_only", riskLevel: riskLevel || "INFO", riskScore: Number(event.confidence || 0.28), autoReply: false, humanApproval: false };
+      }
+      return classifyUtterance(text);
+    }
+    function detectEarlyRisk(text = "") {
+      const terms = ["Mayday", "求救", "着火", "冒烟", "进水", "碰撞", "失控", "搁浅", "人员落水"];
+      const hit = terms.find((term) => text.toLowerCase().includes(term.toLowerCase()));
+      return { isHighRisk: Boolean(hit), term: hit || "" };
+    }
+    function addBusinessAction(event, action) {
+      if (!event.actions.some((item) => item.action === action.action && item.trigger === action.trigger)) {
+        event.actions.push(action);
+      }
+      state.actionQueue = [...state.actionQueue.slice(-8), action];
+      appendGlobalTimeline({ time: nowLabel(), title: "动作触发", detail: `${action.action} · ${action.trigger}` });
+      setEventState("ACTION_TRIGGERED", action.action);
+    }
+    function triggerEarlyRiskIfNeeded(event, text) {
+      const risk = detectEarlyRisk(text);
+      if (!risk.isHighRisk || event.riskLevel === "L1") return false;
+      event.intent = "emergency";
+      event.riskLevel = "L1";
+      event.riskScore = 0.92;
+      event.summary = `检测到高危词：${risk.term}`;
+      routeClassification({ intent: "emergency_risk", risk_score: 0.92, title: "高危早期告警", summary: event.summary, time: nowLabel() });
+      addBusinessAction(event, { action: "高危告警", status: "执行中", trigger: risk.term, confidence: "0.92", time: nowLabel(), suggested_action: "立即报警 + 人工接管" });
+      addBusinessAction(event, { action: "人工升级", status: "待接管", trigger: "高危语音", confidence: "0.92", time: nowLabel(), suggested_action: "值班员立即接管" });
+      appendAgentEvent({ stage: "early_risk_detected", title: "早期高危检测", detail: event.summary, asr_text: text, intent: "emergency_risk", risk_score: "0.92", chunk_id: event.audioChunks.at(-1)?.chunkId || "" });
+      return true;
+    }
+    function receivePartialAsr(chunk, text) {
+      const event = ensureBusinessEvent(chunk, text);
+      setEventState("UTTERANCE_STREAMING", text);
+      triggerEarlyRiskIfNeeded(event, text);
+      appendAgentEvent({ stage: "partial_asr", title: "partial ASR", detail: text, asr_text: text, chunk_id: chunk.chunkId, intent: event.intent, risk_score: event.riskScore.toFixed(2) });
+      renderStreamingAgentConsole();
+    }
+    function handleFinalUtterance(chunk, text, payload = {}) {
+      const event = ensureBusinessEvent(chunk, text);
+      const classification = classifyDecisionPayload(payload, text);
+      const decisionEvent = payload.decisionEvent || payload.event || {};
+      if (decisionEvent.ais_context) {
+        event.aisContext = decisionEvent.ais_context;
+        event.matchedShip = decisionEvent.ais_context.ship_name || event.matchedShip;
+      }
+      if (decisionEvent.inspection_context) event.inspectionContext = decisionEvent.inspection_context;
+      const ship = extractShipFromText(text);
+      if (ship) event.shipName = ship;
+      event.utterances.push({ text, chunkId: chunk.chunkId, time: Date.now(), confidence: payload.confidence || "0.82" });
+      event.intent = event.riskLevel === "L1" ? "emergency" : classification.intent;
+      event.riskLevel = event.riskLevel === "L1" ? "L1" : classification.riskLevel;
+      event.riskScore = Math.max(event.riskScore || 0, classification.riskScore);
+      event.summary = event.utterances.map((item) => item.text).join(" / ").slice(0, 180);
+      setEventState("UTTERANCE_FINALIZED", text);
+      routeClassification({
+        intent: event.intent === "emergency" ? "emergency_risk" : event.intent === "auto_reply" ? "routine_report" : event.intent === "human_approval" ? "departure_request" : "other_business",
+        risk_score: event.riskScore,
+        auto_reply_allowed: event.intent === "auto_reply",
+        title: event.shipName || "当前通信事件",
+        summary: text,
+        time: nowLabel(),
+      });
+      if (event.intent === "emergency") {
+        triggerEarlyRiskIfNeeded(event, text);
+      } else if (event.intent === "auto_reply") {
+        const reply = `${event.shipName || "相关船舶"}，收到，请保持甚高频守听，注意航道通航安全。`;
+        $("replyText").textContent = reply;
+        addBusinessAction(event, { action: "自动VHF回复", status: "已播报", trigger: "常规报告", confidence: event.riskScore.toFixed(2), time: nowLabel(), suggested_action: reply });
+        if (!event.autoReplySpoken) {
+          event.autoReplySpoken = true;
+          speakText(reply);
+        }
+      } else if (event.intent === "human_approval") {
+        addBusinessAction(event, { action: "等待人工批准", status: "待审批", trigger: "申请类业务", confidence: event.riskScore.toFixed(2), time: nowLabel(), suggested_action: "值班员确认后回复" });
+      } else {
+        addBusinessAction(event, { action: "监听归档", status: "已记录", trigger: "一般通信", confidence: event.riskScore.toFixed(2), time: nowLabel(), suggested_action: "持续守听" });
+      }
+      if (!payload.suppressAutoClose) {
+        if (/(完毕|收到|结束|保持守听|再会|谢谢交管|好的谢谢)/.test(text)) {
+          scheduleBusinessEventClosure("检测到结束语");
+        } else {
+          scheduleBusinessEventClosure("静默超时");
+        }
+      }
+      renderStreamingAgentConsole();
+    }
+    function scheduleBusinessEventClosure(reason) {
+      clearTimeout(state.eventCloseTimer);
+      setEventState("WAITING_FOR_MORE_SPEECH", reason);
+      state.eventCloseTimer = setTimeout(() => closeBusinessEvent(reason), 5000);
+    }
+    function closeBusinessEvent(reason = "人工或静默闭合") {
+      const event = state.activeBusinessEvent;
+      if (!event || event.status === "EVENT_CLOSED" || event.status === "ARCHIVED") return;
+      event.status = "EVENT_CLOSED";
+      event.endTime = Date.now();
+      event.closeReason = reason;
+      event.exportedAudioUrl = event.audioChunks.find((chunk) => chunk.audio_url)?.audio_url || "chunks://collected";
+      setEventState("EVENT_CLOSED", reason);
+      event.status = "ARCHIVED";
+      state.businessEvents = [event, ...state.businessEvents].slice(0, 30);
+      state.activeBusinessEvent = null;
+      setEventState("ARCHIVED", `${event.eventId} 已归档`);
+      appendGlobalTimeline({ time: nowLabel(), title: "业务事件归档", detail: event.summary || reason });
+      archiveBusinessEvent(event).catch((error) => {
+        appendGlobalTimeline({ time: nowLabel(), title: "事件持久化失败", detail: error.message });
+      });
+      renderStreamingAgentConsole();
+    }
+    async function archiveBusinessEvent(event) {
+      const businessType = event.intent === "emergency"
+        ? "emergency_risk"
+        : event.intent === "auto_reply"
+          ? "routine_report"
+          : event.intent === "human_approval"
+            ? "departure_request"
+            : "other_business";
+      const actionType = event.intent === "emergency"
+        ? "emergency_manual"
+        : event.intent === "auto_reply"
+          ? "auto_reply"
+          : event.intent === "human_approval"
+            ? "manual_business"
+            : "archive_only";
+      await request("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: event.eventId,
+          source_type: event.sourceType,
+          risk_level: event.riskLevel,
+          business_type: businessType,
+          action_type: actionType,
+          review_status: event.intent === "auto_reply" ? "broadcasted" : event.intent === "monitoring_only" ? "archived" : "pending",
+          asr_text: event.utterances.map((item) => item.text).join("\n"),
+          resolved_text: event.utterances.map((item) => item.text).join("\n"),
+          summary: event.summary,
+          suggestion: event.actions.at(-1)?.suggested_action || "",
+          broadcast_text: event.intent === "auto_reply" ? $("replyText").textContent : "",
+          evidence: [`事件闭合原因: ${event.closeReason}`],
+          ais_context: event.aisContext || {},
+          inspection_context: event.inspectionContext || {},
+          start_ms: event.audioChunks[0]?.startTime || 0,
+          end_ms: event.audioChunks.at(-1)?.endTime || 0,
+          segment_ids: event.audioChunks.map((item) => item.chunkId),
+        }),
+      });
+    }
+    function renderActiveBusinessEvent() {
+      const event = state.activeBusinessEvent;
+      if ($("businessEventState")) $("businessEventState").textContent = state.eventState;
+      $("activeEventIdText").textContent = event?.eventId || "暂无";
+      $("activeEventShip").textContent = event?.shipName || "待确认";
+      $("activeEventIntent").textContent = event?.intent || "待识别";
+      $("activeEventRisk").textContent = event?.riskLevel || "INFO";
+      $("activeEventUtterances").textContent = String(event?.utterances?.length || 0);
+      $("activeEventAction").textContent = event?.actions?.at(-1)?.action || "等待";
+    }
+    function renderBusinessEventArchive() {
+      const list = $("businessEventArchive");
+      if (!list) return;
+      list.innerHTML = state.businessEvents.length ? state.businessEvents.map((event) => `
+        <div class="archive-item">
+          <b>${event.shipName || "待确认船舶"} · ${event.intent} · ${event.riskLevel}</b>
+          ${event.summary || "无摘要"}<br/>
+          ${new Date(event.startTime).toLocaleTimeString()} - ${event.endTime ? new Date(event.endTime).toLocaleTimeString() : "--"} · ${event.closeReason || "已闭合"} · 音频：${event.exportedAudioUrl || "chunk refs"}
+        </div>
+      `).join("") : '<div class="archive-item"><b>暂无闭合事件</b>持续守听后，闭合业务事件会自动进入这里。</div>';
+    }
+    function renderAgentInspector() {
+      const event = state.selectedAgentEvent;
+      if (!event) {
+        $("inspectorStatus").textContent = "未选择事件";
+        $("inspectorTitle").textContent = "点击音频片段或思维轨迹查看详情";
+        $("inspectorSummary").textContent = "这里将展示原始转写、置信度、意图、风险评分、船舶匹配和动作建议。";
+        $("inspectorDetail").textContent = "当前没有选中的 agent 事件。";
+        return;
+      }
+      $("inspectorStatus").textContent = event.stage || "事件详情";
+      $("inspectorTitle").textContent = event.title || event.intent || "Agent 事件";
+      $("inspectorSummary").textContent = `时间 ${event.time || "--"} · 意图 ${intentLabel(event.intent)} · 风险 ${event.risk_score || "--"} · 船舶 ${event.matched_ship || "未匹配"}`;
+      $("inspectorDetail").textContent = [
+        `原始转写：${event.asr_text || "无"}`,
+        `ASR置信度：${event.asr_confidence || "--"}`,
+        `决策原因：${event.decision_reason || "无"}`,
+        `建议/执行动作：${event.suggested_action || event.executed_action || "无"}`,
+      ].join("\n");
+    }
+    function openAgentInspector(eventId) {
+      const event = state.agentEvents.find((item) => item.event_id === eventId || item.raw?.chunk_id === eventId);
+      if (event) {
+        state.selectedAgentEvent = event;
+      } else {
+        const chunk = state.audioChunks.find((item) => item.chunk_id === eventId);
+        state.selectedAgentEvent = chunk ? {
+          event_id: chunk.chunk_id,
+          source_chunk_id: chunk.chunk_id,
+          stage: "音频片段",
+          title: chunk.filename,
+          detail: chunk.summary || chunk.status,
+          asr_text: chunk.asr_text || "尚未完成识别",
+          asr_confidence: chunk.confidence || "--",
+          intent: "other_business",
+          risk_score: "--",
+          matched_ship: chunk.matched_ship || "待匹配",
+          confidence: chunk.confidence || "--",
+          time: chunk.timestamp || nowLabel(),
+          decision_reason: chunk.summary || "真实测试集原音片段，可播放核对。",
+          suggested_action: chunk.audio_url ? "播放原音并等待识别结果" : "等待识别结果",
+          raw: chunk,
+        } : null;
+      }
+      renderStreamingAgentConsole();
+    }
+    async function playContinuousChunk(chunk, autoplay = true) {
+      const audio = $("audioPlayer");
+      if (!chunk?.audio_url) return;
+      const src = chunk.audio_url.startsWith("http") ? chunk.audio_url : `${API_BASE}${chunk.audio_url}`;
+      audio.src = src;
+      audio.title = `${chunk.filename || "原音片段"} · ${src}`;
+      audio.onerror = () => toast("音频加载失败：请确认后端已启动，或测试集音频可被 ffmpeg 转码", true);
+      audio.controls = true;
+      audio.load();
+      if (!autoplay) {
+        toast("原音片段已载入播放器，可点击播放核对切分");
+        return;
+      }
+      try {
+        await audio.play();
+      } catch (error) {
+        console.warn("continuous audio play failed", error, src);
+        toast("原音片段已载入播放器。若浏览器阻止播放，请点击播放器播放");
+      }
+    }
+    function inferContinuousIntent(event) {
+      const intent = event?.business_type || event?.intent || "other_business";
+      const risk = Number(event?.risk_score ?? 0);
+      const autoReplyAllowed = event?.is_auto_reply || event?.auto_reply_allowed || intent === "routine_report";
+      return { intent, risk, autoReplyAllowed };
     }
     function resetAgentRuntime() {
       setReasoningTrace([
@@ -1264,6 +2334,17 @@
       $("manualReason").textContent = "复杂业务进入人工复核";
       $("evidenceList").innerHTML = "";
       $("replyText").textContent = "等待生成回复内容";
+      state.agentEvents = [];
+      state.audioChunks = [];
+      state.classificationStreams = { emergency: [], autoReply: [], humanReview: [], monitoring: [] };
+      state.actionQueue = [];
+      state.globalTimeline = [];
+      state.selectedAgentEvent = null;
+      state.lastContinuousCount = 0;
+      state.eventState = "IDLE_LISTENING";
+      state.activeBusinessEvent = null;
+      clearTimeout(state.eventCloseTimer);
+      renderStreamingAgentConsole();
       resetAgentRuntime();
       setFlow(0);
     }
@@ -1343,6 +2424,34 @@
       $("aisRuntimeText").textContent = `已关联 ${context.ship_name || context.mmsi || "船位目标"}`;
       $("aisRuntimeStatus").textContent = "已关联";
       $("aisDetail").innerHTML = `<b>${context.ship_name || "船位目标"}</b><br>识别码 ${context.mmsi || "-"} · 呼号 ${context.callsign || "-"}<br>${context.position_label || "位置待更新"} · 航速 ${context.sog_kn ?? "-"}节 · 航向 ${context.heading_deg ?? context.cog_deg ?? "-"}°`;
+    }
+    function applyInspectionContext(event = {}) {
+      const context = event.inspection_context || {};
+      if (!context.triggered) return;
+      const ships = [context.center_ship, ...(context.matched_ships || [])].filter(Boolean);
+      state.selectedShipIds = new Set(ships.map((ship) => ship.ship_id).filter(Boolean));
+      if (state.activeBusinessEvent) {
+        state.activeBusinessEvent.aisContext = event.ais_context || context.center_ship || {};
+        state.activeBusinessEvent.inspectionContext = context;
+      }
+      state.actionQueue = [
+        ...state.actionQueue.slice(-7),
+        {
+          action: "高危周边点验",
+          trigger: event.ais_context?.ship_name || "高危AIS目标",
+          status: "已圈选",
+          confidence: event.confidence || "--",
+          time: nowLabel(),
+          suggested_action: `核验中心船周边 ${context.radius_m || 3000} 米内 ${context.matched_count || 0} 艘船舶`,
+        },
+      ];
+      appendGlobalTimeline({
+        time: nowLabel(),
+        title: "高危事件触发周边点验",
+        detail: `${event.ais_context?.ship_name || "目标船"} 周边命中 ${context.matched_count || 0} 艘船舶`,
+      });
+      renderActionQueue();
+      renderShips();
     }
     function selectAgentShip(shipName) {
       const ships = state.ships.length ? state.ships : fallbackShips;
@@ -1468,19 +2577,27 @@
       $("monitorLabel").textContent = risk ? "暂停" : "开启";
       $("copilotRiskScore").textContent = risk ? "0.91" : auto ? "0.12" : "0.46";
       $("copilotZone").textContent = event?.ais_context?.area_name || (risk ? "需核验" : "未进入");
-      setReasoningTrace([
-        "检测到甚高频语音输入",
-        `语音识别完成：${event?.asr_text ? "已获得文本" : "使用当前转写文本"}`,
-        `业务意图已分类：${intentLabel(intent)}`,
-        `风险评分：${risk ? "高" : auto ? "低" : "中"}（${levelText}）`,
-        `处置决策：${risk ? "人工立即接管" : auto ? "自动回复就绪" : "进入人工复核"}`,
-      ]);
-      setActionQueue([
+      applyInspectionContext(event || {});
+      const routed = routeClassification({
+        intent,
+        risk_score: risk ? 0.91 : auto ? 0.12 : 0.46,
+        auto_reply_allowed: auto,
+        title: intentLabel(intent),
+        summary: event?.summary || event?.broadcast_text || event?.suggestion || "",
+        time: nowLabel(),
+      });
+      const policyAction = createActionFromPolicy({
+        intent,
+        risk_score: risk ? 0.91 : auto ? 0.12 : 0.46,
+        auto_reply_allowed: auto,
+      });
+      state.actionQueue = [
         { action: "语音触发", status: "完成", trigger: "甚高频", confidence: "1.00", time: nowLabel() },
         { action: "语音听写", status: "完成", trigger: "音频", confidence: "0.86", time: nowLabel() },
         { action: "意图分类", status: "完成", trigger: intentLabel(intent), confidence: event?.confidence || "0.82", time: nowLabel() },
-        { action: risk ? "人工接管" : auto ? "播报回复" : "人工复核", status: risk ? "紧急" : auto ? "就绪" : "排队", trigger: levelText, confidence: risk ? "0.91" : auto ? "0.88" : "0.64", time: nowLabel() },
-      ]);
+        { action: policyAction.action, status: policyAction.status, trigger: routed === "emergency" ? "高危" : routed === "humanReview" ? "中风险" : routed === "autoReply" ? "常规业务" : "持续监听", confidence: policyAction.confidence, time: policyAction.time },
+      ];
+      renderActionQueue();
       setTimeline([
         { time: nowLabel(), title: "收到甚高频信号", detail: "检测到有效语音输入" },
         { time: nowLabel(), title: "语音识别完成", detail: "转写与轮次重建完成" },
@@ -1488,6 +2605,20 @@
         { time: nowLabel(), title: risk ? "需要人工接管" : auto ? "自动回复就绪" : "等待人工复核", detail: levelText },
         { time: nowLabel(), title: "船位关联", detail: event?.ais_context?.ship_name || "等待人工核验" },
       ]);
+      appendAgentEvent({
+        stage: "decision",
+        title: "决策分流",
+        detail: `${intentLabel(intent)} · ${levelText}`,
+        chunk_id: event?.chunk_id || "",
+        asr_text: event?.asr_text || $("asrText").textContent,
+        asr_confidence: event?.confidence || "0.82",
+        intent,
+        risk_score: policyAction.confidence,
+        matched_ship: event?.ais_context?.ship_name || $("shipText").textContent,
+        decision_reason: event?.summary || event?.evidence?.[0] || "基于业务规则与船位上下文",
+        suggested_action: event?.broadcast_text || event?.suggestion || policyAction.suggested_action,
+        executed_action: policyAction.action,
+      });
       setFlow(3, risk ? "risk" : "normal");
     }
     function applyTask(task) {
@@ -1509,6 +2640,34 @@
       $("dialogueEdit").textContent = buildDialogueReview(segments, event);
       $("shipEdit").value = $("shipText").textContent === "待匹配" ? "" : $("shipText").textContent;
       if (event?.ais_context?.ship_id) $("aisEdit").value = event.ais_context.ship_id;
+      appendAgentEvent({
+        stage: "archive",
+        title: "文件识别完成",
+        detail: event?.business_type || "一般业务",
+        chunk_id: task.audio_id || "",
+        asr_text: resolvedText || rawText,
+        asr_confidence: event?.confidence || "0.82",
+        intent: event?.business_type || "other_business",
+        risk_score: event?.risk_level || "INFO",
+        matched_ship: event?.ais_context?.ship_name || $("shipText").textContent,
+        decision_reason: event?.summary || "文件识别任务已完成",
+        suggested_action: event?.broadcast_text || event?.suggestion || "留档",
+        executed_action: event?.is_auto_reply ? "自动回复" : "人工复核",
+      });
+      appendAudioChunk({
+        chunk_id: task.audio_id || `file_${Date.now()}`,
+        index: 0,
+        filename: task.audio_id || "上传录音",
+        timestamp: nowLabel(),
+        status: "完成",
+        confidence: event?.confidence || "0.82",
+        audio_url: $("audioPlayer").src || "",
+        asr_text: resolvedText || rawText,
+        matched_ship: event?.ais_context?.ship_name || $("shipText").textContent,
+        event_id: state.activeEventId || "",
+        summary: event?.summary || "",
+      });
+      renderStreamingAgentConsole();
       setFlow(4);
     }
     async function pollTask(taskId, handler = applyTask) {
@@ -1538,7 +2697,90 @@
       }).join("\n\n");
       const latest = conversations[conversations.length - 1];
       if (latest?.dialogue_review_text) $("dialogueEdit").textContent = latest.dialogue_review_text;
+      if (latest?.segments?.length) {
+        const latestText = latest.segments.map((segment) => segment.resolved_text || segment.text || "").join("\n").trim();
+        if (latestText) $("asrText").textContent = latestText;
+      }
       if (latest?.events?.length) applyDecision(chooseEvent(latest.events));
+      if (conversations.length > state.lastContinuousCount) {
+        conversations.slice(state.lastContinuousCount).forEach((item) => {
+          const event = chooseEvent(item.events || []) || { business_type: "other_business", risk_level: "INFO", evidence: [] };
+          const alignment = item.ais_alignment || {};
+          const sequenceBase = `${Number(item.index || 0) + 1}`;
+          const chunk = appendAudioChunk({
+            chunk_id: item.audio_url || `continuous-${sequenceBase}`,
+            index: Number(item.index || 0),
+            filename: item.filename || `第${sequenceBase}段`,
+            timestamp: nowLabel(),
+            status: item.status === "failed" ? "失败" : "完成",
+            confidence: event.confidence || alignment.confidence_score || "0.82",
+            audio_url: item.audio_url || "",
+            asr_text: item.segments?.map((segment) => segment.resolved_text || segment.text || "").join(" ").trim(),
+            matched_ship: alignment.ship_name || event?.ais_context?.ship_name || "",
+            event_id: event.event_id || event.id || "",
+            summary: item.dialogue_review_text || "",
+            ais_alignment: alignment,
+          });
+          setLevel(Math.min(1, Math.max(.22, Number(event.confidence || alignment.confidence_score || 0.72))).toFixed(2));
+          const rawAsr = item.segments?.map((segment) => segment.text || "").join("\n").trim();
+          const resolvedAsr = item.segments?.map((segment) => segment.resolved_text || segment.text || "").join("\n").trim();
+          const intent = event.business_type || "other_business";
+          const riskScore = alignment.confidence_score ? Number(alignment.confidence_score) * (intent === "emergency_risk" ? 1 : 0.72) : (intent === "emergency_risk" ? 0.92 : 0.28);
+          const routed = routeClassification({
+            intent,
+            risk_score: riskScore,
+            auto_reply_allowed: intent === "routine_report",
+            title: item.filename,
+            summary: item.dialogue_review_text || "",
+            time: nowLabel(),
+          });
+          const action = createActionFromPolicy({
+            intent,
+            risk_score: riskScore,
+            auto_reply_allowed: intent === "routine_report",
+          });
+          state.actionQueue = [
+            ...state.actionQueue.filter((row) => row.action !== action.action).slice(-6),
+            action,
+          ];
+          [
+            ["speech_detected", `第 ${sequenceBase} 段语音接入`, item.filename],
+            ["asr_completed", "ASR听写完成", resolvedAsr || rawAsr || "未生成文本"],
+            ["intent_classified", "业务意图分类完成", intentLabel(intent)],
+            ["risk_scored", "风险评分完成", `风险 ${riskScore.toFixed(2)}`],
+            ["ais_matched", "船舶候选匹配完成", alignment.ship_name || event?.ais_context?.ship_name || "待匹配船舶"],
+            ["decision_triggered", "决策分流触发", `路由至 ${routed === "emergency" ? "高危" : routed === "humanReview" ? "人工复核" : routed === "autoReply" ? "自动回复" : "持续监听"}`],
+            ["action_executed", "动作队列更新", action.action],
+            ["archived", "事件归档完成", item.status === "failed" ? "识别失败" : "进入系统记忆"],
+          ].forEach(([stage, title, detail]) => appendAgentEvent({
+            stage,
+            title,
+            detail,
+            chunk_id: chunk.chunk_id,
+            asr_text: rawAsr || resolvedAsr,
+            asr_confidence: event.confidence || alignment.confidence_score || "0.82",
+            intent,
+            risk_score: riskScore.toFixed(2),
+            matched_ship: alignment.ship_name || event?.ais_context?.ship_name || "待匹配",
+            time: nowLabel(),
+            decision_reason: `路由至 ${routed === "emergency" ? "高危" : routed === "humanReview" ? "人工复核" : routed === "autoReply" ? "自动回复" : "持续监听"}`,
+            suggested_action: action.suggested_action,
+            executed_action: stage === "action_executed" && item.status !== "failed" ? action.action : "",
+          }));
+          [
+            ["VHF语音接入", `第 ${sequenceBase} 段：${item.filename || "连续语音片段"}`],
+            ["ASR听写完成", resolvedAsr || rawAsr || "未生成文本"],
+            ["业务意图识别", intentLabel(intent)],
+            ["风险评分完成", `风险 ${riskScore.toFixed(2)}`],
+            ["AIS候选关联", alignment.ship_name || event?.ais_context?.ship_name || "待匹配船舶"],
+            ["决策分流触发", `路由：${routed === "emergency" ? "高危告警" : routed === "humanReview" ? "人工复核" : routed === "autoReply" ? "自动回复" : "持续监听"}`],
+            ["动作队列更新", action.action],
+            ["事件归档完成", alignment.ship_name || event?.ais_context?.ship_name || "未匹配船舶"],
+          ].forEach(([title, detail]) => appendGlobalTimeline({ time: nowLabel(), title, detail }));
+          if (chunk?.audio_url) playContinuousChunk(chunk, false);
+        });
+        state.lastContinuousCount = conversations.length;
+      }
       $("asrStatus").textContent = task.status === "completed" ? "连续守听完成" : "连续守听中";
       setReasoningTrace([
         "智能体持续接收测试集语音",
@@ -1548,11 +2790,18 @@
         "其余对话自动归档到事件中心",
       ]);
       setFlow(task.status === "completed" ? 5 : 2);
+      renderStreamingAgentConsole();
     }
-    async function pollContinuousTask(taskId) {
+    async function pollContinuousTask(taskId, options = {}) {
+      const startedAt = Date.now();
+      const firstChunkTimeoutMs = Number(options.firstChunkTimeoutMs || 0);
       for (let i = 0; i < 240; i += 1) {
         const task = await request(`/api/tasks/${taskId}`);
         renderContinuousConversations(task);
+        const conversations = task?.meta?.conversations || [];
+        if (firstChunkTimeoutMs && !conversations.length && Date.now() - startedAt > firstChunkTimeoutMs) {
+          throw new Error("后端连续守听暂无片段输出");
+        }
         if (task.status === "completed") return task;
         if (task.status === "failed") throw new Error(task.error || "连续守听任务失败");
         await new Promise((resolve) => setTimeout(resolve, 900));
@@ -1560,9 +2809,180 @@
       throw new Error("连续守听任务等待超时");
     }
 
+    async function loadContinuousTestSetPreview(limit = 8) {
+      const dataset = await request(`/api/demo/continuous-test-set?limit=${limit}`);
+      const items = dataset?.items || [];
+      if (!dataset?.exists) {
+        throw new Error(dataset?.message || "连续守听测试集目录不存在");
+      }
+      if (!items.length) {
+        throw new Error("连续守听测试集目录内没有可用音频");
+      }
+      items.forEach((item, index) => {
+        const durationText = item.duration_ms ? ` · ${Math.round(item.duration_ms / 1000)}秒` : "";
+        const labelText = item.class_label ? ` · ${item.class_label}` : "";
+        appendAudioChunk({
+          chunk_id: `/api/demo/continuous-test-set/audio/${index}`,
+          index,
+          filename: item.filename || `测试集片段 ${index + 1}`,
+          timestamp: nowLabel(),
+          status: "已发现原音",
+          confidence: "待识别",
+          audio_url: `/api/demo/continuous-test-set/audio/${index}`,
+          asr_text: "",
+          summary: `真实测试集音频${durationText}${labelText}，点击可播放原音核对切分。`,
+        });
+      });
+      $("continuousDialogues").textContent = [
+        `真实连续守听测试集：${dataset.root}`,
+        `模式：${dataset.mode === "concat_labeled_stream" ? "拼接长音频按标签切片回放" : "多音频文件顺序回放"}`,
+        `已发现 ${items.length} 段音频，正在按顺序送入 ASR + 智能体研判。`,
+        "左侧片段列表可点击播放每段原始音频，用于核对是否切分成功。",
+      ].join("\n");
+      renderStreamingAgentConsole();
+      return dataset;
+    }
+
+    const localContinuousSamples = [
+      {
+        filename: "连续守听片段 01",
+        dialogue_review_text: "[船方] 宁波舟山交管，港顺177。\n[交管] 请讲。\n[船方] 港顺177在野鸭山北锚地西侧由北向南进入4号警戒区，去马峙锚地，向你报备。\n[交管] 收到了，注意4号警戒区交会船，再会。",
+        asr_text: "宁波舟山交管港顺177。请讲。港顺177在野鸭山北锚地西侧由北向南进入四号警戒区，去马峙锚地，向你报备。收到了，注意四号警戒区交会船，再会。",
+        intent: "other_business",
+        risk_score: 0.46,
+        confidence: "0.84",
+        ship_name: "港顺177",
+        summary: "穿越警戒区报备，需持续关注交会船态势。",
+        auto_reply_allowed: false,
+      },
+      {
+        filename: "连续守听片段 02",
+        dialogue_review_text: "[船方] 宁波交管，锦龙228接码头通知，今早晨不抛锚了，直接进去。\n[交管] 好，注意安全。\n[船方] 好的，谢谢老师。",
+        asr_text: "宁波交管锦龙228，锦龙228接码头通知，今早晨不抛锚了，直接进去。好，注意安全。好的，谢谢老师。",
+        intent: "routine_report",
+        risk_score: 0.18,
+        confidence: "0.91",
+        ship_name: "锦龙228",
+        summary: "由动态转静态的靠泊/不抛锚报告，可自动回复并归档。",
+        auto_reply_allowed: true,
+      },
+      {
+        filename: "连续守听片段 03",
+        dialogue_review_text: "[船方] 交管晚上好，宁远梅山向您申请在北仑二期通达7号泊位作业完毕，申请离泊。\n[交管] 好，下一步再报。\n[船方] 收到，谢谢交管。",
+        asr_text: "交管晚上好，宁远梅山向您申请在北仑二期通达七号泊位作业完毕，申请离泊。好，下一步再报。收到，谢谢交管。",
+        intent: "departure_request",
+        risk_score: 0.68,
+        confidence: "0.87",
+        ship_name: "宁远梅山",
+        summary: "离泊申请属于由静到动，需要人工审核同意。",
+        auto_reply_allowed: false,
+      },
+    ];
+    function stageTitle(stage) {
+      return {
+        speech_detected: "检测到语音片段",
+        asr_completed: "ASR听写完成",
+        intent_classified: "业务意图分类完成",
+        risk_scored: "风险评分完成",
+        ais_matched: "船舶候选匹配完成",
+        decision_triggered: "决策分流触发",
+        action_executed: "动作队列更新",
+        archived: "事件归档完成",
+      }[stage] || "智能体事件";
+    }
+    async function appendLocalStage(sample, chunk, stage, index) {
+      const intent = sample.intent || "other_business";
+      const action = createActionFromPolicy({
+        intent,
+        risk_score: sample.risk_score,
+        auto_reply_allowed: sample.auto_reply_allowed,
+      });
+      if (stage === "intent_classified") {
+        routeClassification({
+          intent,
+          risk_score: sample.risk_score,
+          auto_reply_allowed: sample.auto_reply_allowed,
+          title: intentLabel(intent),
+          summary: sample.summary,
+          time: nowLabel(),
+        });
+      }
+      if (stage === "action_executed") {
+        state.actionQueue = [...state.actionQueue.slice(-6), action];
+      }
+      appendGlobalTimeline({
+        time: nowLabel(),
+        title: stage === "archived" ? `第 ${index + 1} 段归档完成` : stageTitle(stage),
+        detail: stage === "asr_completed"
+          ? sample.asr_text
+          : `${sample.ship_name} · ${intentLabel(intent)} · ${sample.summary}`,
+      });
+      appendAgentEvent({
+        stage,
+        title: stageTitle(stage),
+        detail: stage === "asr_completed" ? sample.asr_text : sample.summary,
+        chunk_id: chunk.chunk_id,
+        asr_text: sample.asr_text,
+        asr_confidence: sample.confidence,
+        intent,
+        risk_score: Number(sample.risk_score).toFixed(2),
+        matched_ship: stage === "ais_matched" ? sample.ship_name : sample.ship_name,
+        confidence: sample.confidence,
+        decision_reason: sample.summary,
+        suggested_action: action.suggested_action,
+        executed_action: stage === "action_executed" ? action.action : "",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 260));
+    }
+    async function runLocalContinuousFallback(error) {
+      toast(`后端连续守听暂不可用，已切换本地流式演示：${error?.message || "接口未连接"}`);
+      $("continuousDialogues").textContent = "本地连续守听演示启动：正在按片段模拟 VHF 持续输入...";
+      setAgent("本地流式演示中");
+      $("asrStatus").textContent = "本地演示";
+      appendGlobalTimeline({ time: nowLabel(), title: "连续守听启动", detail: "后端不可用，使用本地样例验证第一阶段界面" });
+      for (const [index, sample] of localContinuousSamples.entries()) {
+        setLevel(Math.min(1, Math.max(.22, Number(sample.confidence || 0.72))).toFixed(2));
+        const chunk = appendAudioChunk({
+          chunk_id: `local-continuous-${index}`,
+          index,
+          filename: sample.filename,
+          timestamp: nowLabel(),
+          status: "接入中",
+          confidence: sample.confidence,
+          asr_text: sample.asr_text,
+          matched_ship: sample.ship_name,
+          summary: sample.summary,
+        });
+        $("continuousDialogues").textContent = localContinuousSamples.slice(0, index + 1).map((item, idx) => (
+          `【第 ${idx + 1} 段】${item.filename}\n${item.dialogue_review_text}\n处置：${intentLabel(item.intent)} / 风险 ${Number(item.risk_score).toFixed(2)} / ${item.auto_reply_allowed ? "自动回复" : "人工复核或持续监听"}`
+        )).join("\n\n");
+        $("dialogueEdit").textContent = sample.dialogue_review_text;
+        $("asrText").textContent = sample.asr_text;
+        $("intentText").textContent = intentLabel(sample.intent);
+        $("shipText").textContent = sample.ship_name;
+        $("aisRuntimeText").textContent = "模拟匹配";
+        $("aisRuntimeStatus").textContent = "已关联候选";
+        $("copilotRiskScore").textContent = Number(sample.risk_score).toFixed(2);
+        $("replyText").textContent = sample.auto_reply_allowed
+          ? `${sample.ship_name}，收到，请保持甚高频守听，注意航道通航安全。`
+          : `${sample.ship_name}，该业务需值班员确认后回复。`;
+        for (const stage of ["speech_detected", "asr_completed", "intent_classified", "risk_scored", "ais_matched", "decision_triggered", "action_executed", "archived"]) {
+          await appendLocalStage(sample, chunk, stage, index);
+        }
+        chunk.status = "完成";
+        renderStreamingAgentConsole();
+      }
+      setAgent("连续守听完成");
+      $("asrStatus").textContent = "连续守听完成";
+      setLevel(.35);
+      setFlow(5);
+      toast("本地连续守听演示完成");
+    }
+
     async function runFileRecognition() {
       const file = $("audioFile").files[0];
       if (!file) return toast("请先选择一段音频", true);
+      updateInputVisualMode($("inputMode").value);
       resetVoiceWorkflow("正在接入音频...");
       $("audioPlayer").src = URL.createObjectURL(file);
       $("asrStatus").textContent = "处理中";
@@ -1591,25 +3011,49 @@
       toast("样例研判完成");
     }
     async function runContinuousDemo() {
-      resetVoiceWorkflow("连续守听模拟已启动...");
-      $("continuousDialogues").textContent = "正在读取测试集并模拟持续甚高频输入...";
-      setAgent("持续守听中");
-      $("asrStatus").textContent = "连续守听中";
+      updateInputVisualMode("stream");
+      resetVoiceWorkflow("真实测试集连续守听已启动...");
+      $("continuousDialogues").textContent = "正在读取真实测试集音频目录...";
+      setAgent("真实守听中");
+      $("asrStatus").textContent = "读取测试集";
+      state.lastContinuousCount = 0;
+      state.agentEvents = [];
+      state.audioChunks = [];
+      state.classificationStreams = { emergency: [], autoReply: [], humanReview: [], monitoring: [] };
+      state.actionQueue = [];
+      state.globalTimeline = [];
       setReasoningTrace([
-        "正在连接测试集连续守听任务",
-        "智能体将按顺序接收多段语音",
+        "正在读取真实测试集音频",
+        "智能体将按顺序接收测试集原音",
         "每段结束后自动重建对话轮次",
         "自动判断是否人工介入或归档",
       ]);
       setFlow(0);
-      const payload = await request("/api/demo/continuous-test-set", {
-        method: "POST",
-        body: form({ channel_id: channelId(), limit: 8, speed_ms: 500 }),
-      });
-      await pollContinuousTask(payload.task_id);
-      await loadEvents();
-      setAgent("连续守听完成");
-      toast("连续守听模拟完成，事件已归档");
+      renderStreamingAgentConsole();
+      try {
+        appendGlobalTimeline({ time: nowLabel(), title: "真实测试集读取", detail: "正在检查后端连续守听音频目录" });
+        await loadContinuousTestSetPreview(8);
+        $("asrStatus").textContent = "真实守听中";
+        appendGlobalTimeline({ time: nowLabel(), title: "连续守听启动", detail: "开始按真实测试集音频顺序识别" });
+        const payload = await request("/api/demo/continuous-test-set", {
+          method: "POST",
+          body: form({ channel_id: channelId(), limit: 8, speed_ms: 500 }),
+        });
+        await pollContinuousTask(payload.task_id);
+        await loadEvents();
+        setAgent("真实守听完成");
+        toast("真实测试集连续守听完成，事件已归档");
+      } catch (error) {
+        setAgent("真实守听失败", "risk");
+        $("asrStatus").textContent = "真实守听失败";
+        $("continuousDialogues").textContent = [
+          "真实测试集连续守听失败。",
+          `原因：${error?.message || "后端接口不可用"}`,
+          "请确认后端服务已启动，并且 VHF_CONTINUOUS_DEMO_DIR 指向真实音频目录。",
+        ].join("\n");
+        appendGlobalTimeline({ time: nowLabel(), title: "连续守听失败", detail: error?.message || "后端接口不可用" });
+        toast(`真实测试集连续守听失败：${error?.message || "后端接口不可用"}`, true);
+      }
     }
 
     function beginAmplitude(stream) {
@@ -1636,83 +3080,478 @@
       if (window.MediaRecorder && MediaRecorder.isTypeSupported("audio/webm")) return "audio/webm";
       return "";
     }
-    async function sendMicBlob(blob, cumulative = false) {
-      if (!state.mic?.active || blob.size < 2048) return;
-      const seq = state.mic.seq++;
-      const payload = await request("/api/mic/chunk", {
-        method: "POST",
-        body: form({ file: new File([blob], `mic_${seq}.webm`, { type: blob.type }), session_id: state.mic.sessionId, channel_id: channelId(), seq, cumulative }),
+    function formatDuration(seconds) {
+      const total = Math.max(0, Math.floor(Number(seconds) || 0));
+      const min = String(Math.floor(total / 60)).padStart(2, "0");
+      const sec = String(total % 60).padStart(2, "0");
+      return `${min}:${sec}`;
+    }
+    function renderStreamingStatus() {
+      const latencies = state.streaming.latencies;
+      const latest = latencies.length ? latencies[latencies.length - 1] : null;
+      const avg = latencies.length ? Math.round(latencies.reduce((sum, item) => sum + item.totalMs, 0) / latencies.length) : 0;
+      const backlog = Math.max(0, state.streaming.queue.length + state.streaming.activeRequests - state.streaming.maxConcurrent);
+      if ($("streamChunkCount")) $("streamChunkCount").textContent = String(state.streaming.chunkSeq);
+      if ($("latestLatency")) $("latestLatency").textContent = latest ? `${latest.totalMs}ms` : "--";
+      if ($("avgLatency")) $("avgLatency").textContent = avg ? `${avg}ms` : "--";
+      if ($("streamBacklog")) $("streamBacklog").textContent = String(backlog);
+      if ($("streamSourceStatus")) $("streamSourceStatus").textContent = state.streaming.activeSource || "待命";
+    }
+    function recordChunkLatency(chunk) {
+      chunk.renderedAt = performance.now();
+      const totalMs = Math.max(0, Math.round(chunk.renderedAt - (chunk.captureStartedAt || chunk.captureEndedAt || chunk.renderedAt)));
+      const uploadMs = chunk.uploadStartedAt && chunk.asrReturnedAt ? Math.max(0, Math.round(chunk.asrReturnedAt - chunk.uploadStartedAt)) : totalMs;
+      state.streaming.latencies = [...state.streaming.latencies, { chunkId: chunk.chunkId, totalMs, uploadMs }].slice(-30);
+      renderStreamingStatus();
+      return { totalMs, uploadMs };
+    }
+    const mockAsrSamples = [
+      { text: "宁波舟山交管，港顺177叫。", intent: "other_business", risk: 0.26, ship: "港顺177", auto: false },
+      { text: "交管晚上好，港顺177由北向南进入四号警戒区，去马峙锚地，向你报备。", intent: "other_business", risk: 0.46, ship: "港顺177", auto: false },
+      { text: "宁波交管，锦龙228接码头通知，今早晨不抛锚了，直接进去。", intent: "routine_report", risk: 0.18, ship: "锦龙228", auto: true },
+      { text: "交管晚上好，宁远梅山作业完毕，申请离泊。", intent: "departure_request", risk: 0.68, ship: "宁远梅山", auto: false },
+      { text: "交管，前方船速突然下降，请求协助避让。", intent: "other_business", risk: 0.56, ship: "待确认船舶", auto: false },
+      { text: "交管，我船机舱冒烟，需要立即协助。", intent: "emergency_risk", risk: 0.92, ship: "待确认船舶", auto: false },
+    ];
+    function mockAsrForChunk(chunk) {
+      const sample = mockAsrSamples[chunk.index % mockAsrSamples.length];
+      return {
+        status: "mocked",
+        text: sample.text,
+        resolved_text: sample.text,
+        cumulative_text: `${$("asrText").textContent === "等待语音输入" ? "" : $("asrText").textContent}\n${sample.text}`.trim(),
+        dialogue_review_text: `[${sample.ship === "待确认船舶" ? "待确认船方" : sample.ship}] ${sample.text}`,
+        confidence: "mock",
+        events: [{
+          business_type: sample.intent,
+          risk_level: sample.risk >= 0.85 ? "L1" : sample.risk >= 0.4 ? "L2" : "INFO",
+          confidence: sample.risk.toFixed(2),
+          is_auto_reply: sample.auto,
+          requires_human_review: !sample.auto,
+          summary: sample.risk >= 0.85 ? "高危关键词触发" : sample.auto ? "常规报告可自动回复" : "需持续监听或人工复核",
+          ais_context: { ship_name: sample.ship },
+        }],
+      };
+    }
+    function chunkEventFromPayload(payload, chunk) {
+      const event = chooseEvent(payload.events || []) || {};
+      const intent = event.business_type || event.intent || "other_business";
+      const risk = Number(event.confidence || (intent === "emergency_risk" ? 0.92 : intent === "departure_request" ? 0.62 : intent === "routine_report" ? 0.18 : 0.36));
+      return {
+        intent,
+        risk,
+        autoReplyAllowed: Boolean(event.is_auto_reply || intent === "routine_report"),
+        event,
+        text: payload.resolved_text || payload.cumulative_text || payload.text || chunk.asr_text || "",
+      };
+    }
+    function applyChunkAsrResult(chunk, payload, source = "backend") {
+      chunk.asrReturnedAt = performance.now();
+      const routedPayload = chunkEventFromPayload(payload, chunk);
+      const text = routedPayload.text || mockAsrForChunk(chunk).text;
+      handleFinalUtterance(chunk, text, {
+        ...payload,
+        decisionEvent: routedPayload.event,
+        suppressAutoClose: chunk.sourceType === "long_audio",
       });
-      if (payload.status === "skipped") return;
-      $("asrText").textContent = payload.resolved_text || payload.cumulative_text || payload.text || $("asrText").textContent;
+      if (routedPayload.event?.ais_context) showAis(routedPayload.event.ais_context);
+      applyInspectionContext(routedPayload.event || {});
+      chunk.status = source === "mock" ? "asr_partial" : "asr_final";
+      chunk.asr_text = text;
+      chunk.confidence = source === "mock" ? "mock" : (payload.confidence || routedPayload.event.confidence || "0.82");
+      appendAudioChunk({
+        chunk_id: chunk.chunkId,
+        index: chunk.index,
+        filename: chunk.filename,
+        timestamp: nowLabel(),
+        status: source === "mock" ? "模拟识别" : "识别完成",
+        confidence: chunk.confidence,
+        asr_text: text,
+        matched_ship: routedPayload.event?.ais_context?.ship_name || "",
+        summary: source === "mock" ? "后端未及时返回，使用前端模拟 ASR 保持流式演示。" : "后端短片段 ASR 返回。",
+      });
+      $("asrText").textContent = payload.cumulative_text || `${$("asrText").textContent === "等待语音输入" ? "" : $("asrText").textContent}\n${text}`.trim();
       if (payload.dialogue_review_text) $("dialogueEdit").textContent = payload.dialogue_review_text;
-      $("asrStatus").textContent = "实时听写";
-      setReasoningTrace([
-        "收到现场麦克风语音片段",
-        "实时转写文本已更新",
-        "正在进行业务意图分类",
-        "等待船位信息关联",
-        "决策引擎等待稳定语音事件",
-      ]);
+      $("asrStatus").textContent = source === "mock" ? "模拟听写" : "实时听写";
+      $("intentText").textContent = intentLabel(routedPayload.intent);
+      $("shipText").textContent = routedPayload.event?.ais_context?.ship_name || $("shipText").textContent || "待匹配";
+      $("copilotRiskScore").textContent = routedPayload.risk.toFixed(2);
+      const classification = routeClassification({
+        intent: routedPayload.intent,
+        risk_score: routedPayload.risk,
+        auto_reply_allowed: routedPayload.autoReplyAllowed,
+        title: `${chunk.filename} · ${source === "mock" ? "模拟ASR" : "真实ASR"}`,
+        summary: text,
+        time: nowLabel(),
+      });
+      const action = createActionFromPolicy({
+        intent: routedPayload.intent,
+        risk_score: routedPayload.risk,
+        auto_reply_allowed: routedPayload.autoReplyAllowed,
+      });
+      state.actionQueue = [...state.actionQueue.slice(-7), action];
+      [
+        ["asr_completed", source === "mock" ? "模拟ASR返回" : "ASR返回", text],
+        ["intent_classified", "业务意图分类", intentLabel(routedPayload.intent)],
+        ["risk_scored", "风险评分", `风险 ${routedPayload.risk.toFixed(2)}`],
+        ["ais_matched", "AIS候选关联", routedPayload.event?.ais_context?.ship_name || "待匹配"],
+        ["decision_triggered", "策略分流", classification === "autoReply" ? "自动回复" : classification === "humanReview" ? "人工复核" : classification === "emergency" ? "高危告警" : "持续监听"],
+        ["action_executed", "动作队列更新", action.action],
+      ].forEach(([stage, title, detail]) => appendAgentEvent({
+        stage,
+        title,
+        detail,
+        chunk_id: chunk.chunkId,
+        asr_text: text,
+        asr_confidence: chunk.confidence,
+        intent: routedPayload.intent,
+        risk_score: routedPayload.risk.toFixed(2),
+        matched_ship: routedPayload.event?.ais_context?.ship_name || "待匹配",
+        decision_reason: action.trigger,
+        suggested_action: action.suggested_action,
+        executed_action: stage === "action_executed" ? action.action : "",
+      }));
+      appendGlobalTimeline({ time: nowLabel(), title: source === "mock" ? "模拟ASR更新" : "ASR听写更新", detail: text });
+      recordChunkLatency(chunk);
+      renderStreamingAgentConsole();
       setFlow(2);
-      const event = chooseEvent(payload.events || []);
-      if (event) {
-        applyDecision(event);
-        showEntities([], event);
-        $("shipEdit").value = $("shipText").textContent === "待匹配" ? "" : $("shipText").textContent;
-        if (event?.ais_context?.ship_id) $("aisEdit").value = event.ais_context.ship_id;
+    }
+    async function processAudioChunk(chunk) {
+      appendAudioChunk({
+        chunk_id: chunk.chunkId,
+        index: chunk.index,
+        filename: chunk.filename,
+        timestamp: nowLabel(),
+        status: "已捕获",
+        confidence: "--",
+        asr_text: "",
+        summary: `${chunk.sourceType === "mic" ? "麦克风" : "长音频回放"} ${chunk.durationMs}ms 片段`,
+      });
+      appendAgentEvent({
+        stage: "speech_detected",
+        title: "捕获音频片段",
+        detail: `${chunk.sourceType === "mic" ? "现场麦克风" : "长音频回放"} · ${chunk.durationMs}ms`,
+        chunk_id: chunk.chunkId,
+      });
+      appendGlobalTimeline({ time: nowLabel(), title: "音频片段捕获", detail: chunk.filename });
+      setEventState("SPEECH_DETECTED", chunk.filename);
+      setTimeout(() => {
+        const sample = mockAsrForChunk(chunk);
+        const partial = sample.text.slice(0, Math.min(sample.text.length, 18));
+        receivePartialAsr(chunk, partial);
+      }, 260);
+      chunk.uploadStartedAt = performance.now();
+      appendAudioChunk({
+        chunk_id: chunk.chunkId,
+        index: chunk.index,
+        filename: chunk.filename,
+        timestamp: nowLabel(),
+        status: "上传/识别中",
+        confidence: "--",
+        summary: "正在进入短片段 ASR / Agent 推理链路",
+      });
+      renderStreamingStatus();
+      let usedFallback = false;
+      const fallbackTimer = setTimeout(() => {
+        if (chunk.status === "asr_final") return;
+        usedFallback = true;
+        applyChunkAsrResult(chunk, mockAsrForChunk(chunk), "mock");
+      }, 1200);
+      try {
+        if (!chunk.blob || chunk.sourceType !== "mic" || !state.mic?.sessionId) {
+          await new Promise((resolve) => setTimeout(resolve, 260));
+          if (!usedFallback) applyChunkAsrResult(chunk, mockAsrForChunk(chunk), "mock");
+          return;
+        }
+        const payload = await request("/api/mic/chunk", {
+          method: "POST",
+          body: form({
+            file: new File([chunk.blob], `stream_${chunk.index}.webm`, { type: chunk.blob.type || "audio/webm" }),
+            session_id: state.mic.sessionId,
+            channel_id: channelId(),
+            seq: chunk.index,
+            cumulative: false,
+          }),
+        });
+        clearTimeout(fallbackTimer);
+        if (payload.status === "skipped") {
+          chunk.status = "failed";
+          appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "跳过空片", confidence: "--", summary: payload.reason || "空音频" });
+          renderStreamingAgentConsole();
+          return;
+        }
+        applyChunkAsrResult(chunk, payload, usedFallback ? "backend_late" : "backend");
+      } catch (error) {
+        clearTimeout(fallbackTimer);
+        if (!usedFallback) applyChunkAsrResult(chunk, mockAsrForChunk(chunk), "mock");
+        appendGlobalTimeline({ time: nowLabel(), title: "短片段ASR失败", detail: error.message });
       }
     }
-    async function startMic() {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("当前页面无法调用麦克风，请用 http://localhost:8766/maritime_ai_agent.html 打开页面，并允许浏览器麦克风权限。");
+    function enqueueAudioChunk(chunk) {
+      state.streaming.queue.push(chunk);
+      renderStreamingStatus();
+      drainAudioChunkQueue();
+    }
+    function drainAudioChunkQueue() {
+      while (state.streaming.activeRequests < state.streaming.maxConcurrent && state.streaming.queue.length) {
+        const chunk = state.streaming.queue.shift();
+        state.streaming.activeRequests += 1;
+        processAudioChunk(chunk)
+          .finally(() => {
+            state.streaming.activeRequests = Math.max(0, state.streaming.activeRequests - 1);
+            renderStreamingStatus();
+            drainAudioChunkQueue();
+          });
       }
+    }
+    function makeStreamingChunk({ sourceType, blob = null, durationMs, startTime = 0, endTime = 0 }) {
+      const index = state.streaming.chunkSeq++;
+      return {
+        chunkId: `${sourceType}_${Date.now()}_${index}`,
+        sourceType,
+        index,
+        startTime,
+        endTime,
+        durationMs,
+        blob,
+        status: "captured",
+        captureStartedAt: performance.now() - durationMs,
+        captureEndedAt: performance.now(),
+        filename: `${sourceType === "mic" ? "麦克风" : "长音频"}片段 ${index + 1}`,
+      };
+    }
+    function handleMicChunk(blob) {
+      if (!state.mic?.active || blob.size < 1024) return;
+      const intervalMs = Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 1000);
+      enqueueAudioChunk(makeStreamingChunk({ sourceType: "mic", blob, durationMs: intervalMs }));
+      if ($("liveMicStatus")) $("liveMicStatus").textContent = `采集中 · chunk=${intervalMs}ms · 已捕获 ${state.streaming.chunkSeq} 段`;
+    }
+    async function startLiveMicStream() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("当前页面无法调用麦克风，请使用 http://localhost 或代理页面打开，并允许麦克风权限。");
+      }
+      updateInputVisualMode("mic");
+      if (state.mic) await stopLiveMicStream();
+      stopLongAudioReplay();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      resetVoiceWorkflow("麦克风已接入，等待有效语音...");
       const result = await request("/api/mic/start", { method: "POST", body: form({ channel_id: channelId(), denoise_mode: "off" }) });
       const archiveParts = [];
       const mimeType = bestMicMime();
-      const archiveRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      archiveRecorder.ondataavailable = (event) => { if (event.data.size) archiveParts.push(event.data); };
-      archiveRecorder.onstop = () => { if (archiveParts.length) $("audioPlayer").src = URL.createObjectURL(new Blob(archiveParts, { type: archiveRecorder.mimeType })); };
-      archiveRecorder.start(1000);
-      const chunkMs = Number($("micChunkMs").value) || 3200;
-      state.mic = { active: true, stream, sessionId: result.session_id, seq: 0, archiveRecorder, archiveParts, sendChain: Promise.resolve(), liveTimer: null };
-      state.mic.liveTimer = setInterval(() => {
-        if (!state.mic?.active || !archiveParts.length) return;
-        const blob = new Blob([...archiveParts], { type: archiveRecorder.mimeType || "audio/webm" });
-        state.mic.sendChain = state.mic.sendChain
-          .then(() => sendMicBlob(blob, true))
-          .catch((error) => toast(`分片识别失败：${error.message}`, true));
-      }, chunkMs);
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      const chunkMs = Math.max(500, Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 1000));
+      state.streaming.activeSource = "现场麦克风";
+      state.streaming.chunkSeq = 0;
+      state.streaming.queue = [];
+      state.streaming.latencies = [];
+      state.mic = { active: true, stream, sessionId: result.session_id, seq: 0, archiveRecorder: recorder, archiveParts, sendChain: Promise.resolve(), liveTimer: null };
+      recorder.ondataavailable = (event) => {
+        if (!event.data.size) return;
+        archiveParts.push(event.data);
+        handleMicChunk(event.data);
+      };
+      recorder.onstop = () => {
+        if (archiveParts.length) $("audioPlayer").src = URL.createObjectURL(new Blob(archiveParts, { type: recorder.mimeType || "audio/webm" }));
+      };
+      resetVoiceWorkflow("现场麦克风流式测试已启动...");
+      $("listenTitle").textContent = "现场麦克风流式接入中...";
+      $("asrStatus").textContent = "麦克风流";
+      $("liveMicStatus").textContent = `运行中 · chunk=${chunkMs}ms`;
+      setAgent("监听中");
       beginAmplitude(stream);
       startTimer();
-      $("listenTitle").textContent = "正在监听甚高频语音...";
-      setAgent("监听中");
-      setReasoningTrace([
-        "麦克风音频流已连接",
-        "甚高频波形监听已启动",
-        "语音分片窗口已启动",
-        "智能体等待有效语音结束点",
-        "暂未触发处置动作",
-      ]);
-      setFlow(0);
+      recorder.start(chunkMs);
+      renderStreamingStatus();
     }
-    async function stopMic() {
+    async function stopLiveMicStream() {
       if (!state.mic) return;
       state.mic.active = false;
-      clearInterval(state.mic.liveTimer);
-      if (state.mic.archiveRecorder.state !== "inactive") state.mic.archiveRecorder.stop();
-      state.mic.stream.getTracks().forEach((track) => track.stop());
+      if (state.mic.archiveRecorder?.state !== "inactive") state.mic.archiveRecorder.stop();
+      state.mic.stream?.getTracks().forEach((track) => track.stop());
       if (state.mic.audioCtx) state.mic.audioCtx.close();
       const sessionId = state.mic.sessionId;
       state.mic = null;
+      state.streaming.activeSource = "";
       stopTimer();
+      setLevel(.35);
+      updateInputVisualMode($("inputMode").value);
       $("listenTitle").textContent = "我在听，请说话...";
-      const result = await request("/api/mic/stop", { method: "POST", body: form({ session_id: sessionId }) });
-      if (result.text) $("asrText").textContent = result.text;
+      if ($("liveMicStatus")) $("liveMicStatus").textContent = "已停止";
+      try {
+        const result = await request("/api/mic/stop", { method: "POST", body: form({ session_id: sessionId }) });
+        if (result.text) $("asrText").textContent = result.text;
+        await loadEvents();
+      } catch (error) {
+        appendGlobalTimeline({ time: nowLabel(), title: "麦克风停止同步失败", detail: error.message });
+      }
       setAgent("监听结束");
-      await loadEvents();
+      renderStreamingStatus();
+    }
+    function sliceLongAudioToChunks(file, chunkSizeMs) {
+      return { file, chunkSizeMs };
+    }
+    function taskEventForSegment(task, segment) {
+      return (task.events || []).find((event) => event.segment_id === segment.id) || {
+        segment_id: segment.id,
+        business_type: "other_business",
+        risk_level: Number(segment.confidence || 0) < 0.8 ? "MANUAL" : "INFO",
+        action_type: Number(segment.confidence || 0) < 0.8 ? "manual_review" : "archive_only",
+        requires_human_review: Number(segment.confidence || 0) < 0.8,
+        is_auto_reply: false,
+        confidence: segment.confidence || 0,
+        summary: Number(segment.confidence || 0) < 0.8 ? "低置信度语音，建议人工复核" : "一般业务持续监听",
+        ais_context: {},
+      };
+    }
+    function ingestLongReplaySegment(task, segment, index) {
+      const replay = state.streaming.replay;
+      if (!replay || replay.processedSegmentIds.has(segment.id)) return;
+      const startMs = Number(segment.start_ms || 0);
+      const endMs = Number(segment.end_ms || startMs);
+      if (replay.lastEndMs !== null && startMs - replay.lastEndMs > 5000 && state.activeBusinessEvent) {
+        closeBusinessEvent("连续音频静默超过5秒");
+      }
+      const chunk = makeStreamingChunk({
+        sourceType: "long_audio",
+        durationMs: Math.max(0, endMs - startMs),
+        startTime: startMs,
+        endTime: endMs,
+      });
+      chunk.filename = `真实音频事件 ${index + 1} · ${formatDuration(startMs / 1000)}-${formatDuration(endMs / 1000)}`;
+      chunk.audio_url = replay.audio.src;
+      const event = taskEventForSegment(task, segment);
+      replay.transcripts.push(segment.resolved_text || segment.text || "");
+      applyChunkAsrResult(chunk, {
+        text: segment.text || "",
+        resolved_text: segment.resolved_text || segment.text || "",
+        cumulative_text: replay.transcripts.filter(Boolean).join("\n"),
+        dialogue_review_text: event.dialogue_review_text || "",
+        confidence: segment.confidence || event.confidence || "0.82",
+        events: [event],
+      }, "backend");
+      replay.processedSegmentIds.add(segment.id);
+      replay.lastEndMs = endMs;
+      if (/(再会|报告完毕|通话结束|保持守听)/.test(segment.resolved_text || segment.text || "")) {
+        closeBusinessEvent("检测到业务结束语");
+      }
+    }
+    async function pollLongReplayTask(taskId) {
+      for (let attempt = 0; attempt < 1800; attempt += 1) {
+        const replay = state.streaming.replay;
+        if (!replay || replay.taskId !== taskId) return null;
+        const task = await request(`/api/tasks/${taskId}`);
+        const segments = task.segments || [];
+        const visibleUntilMs = replay.audio.ended
+          ? Number.POSITIVE_INFINITY
+          : Math.max(1500, (replay.audio.currentTime || 0) * 1000 + 1500);
+        segments.forEach((segment, index) => {
+          if (Number(segment.start_ms || 0) <= visibleUntilMs) ingestLongReplaySegment(task, segment, index);
+        });
+        const completed = Number(task.meta?.completed_segments || segments.length);
+        const total = Number(task.meta?.total_segments || segments.length || 0);
+        $("replayStatus").textContent = `${task.status === "completed" ? "后端识别完成" : "真实流式识别中"} · 已识别 ${completed}/${total || "?"} 段 · 已展示 ${replay.processedSegmentIds.size} 段`;
+        if (task.status === "failed") throw new Error(task.error || "长音频流式识别失败");
+        if (task.status === "completed" && replay.processedSegmentIds.size >= segments.length) {
+          if (state.activeBusinessEvent) closeBusinessEvent("长音频识别完成");
+          clearInterval(replay.timer);
+          state.streaming.activeSource = "";
+          $("replayStatus").textContent = `真实长音频守听完成 · 共 ${segments.length} 个VAD语音段`;
+          $("asrStatus").textContent = "连续守听完成";
+          setAgent("连续守听完成");
+          await loadEvents();
+          renderStreamingStatus();
+          return task;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      }
+      throw new Error("长音频守听任务等待超时");
+    }
+    async function startLongAudioReplay(file) {
+      if (!file) throw new Error("请先在上传录音处选择一段长音频");
+      await stopLiveMicStream();
+      updateInputVisualMode("stream");
+      const chunkSizeMs = Number($("replayChunkMs")?.value || 1000);
+      const speed = Number($("replaySpeed")?.value || 1);
+      const audio = $("audioPlayer");
+      audio.src = URL.createObjectURL(file);
+      audio.controls = true;
+      audio.playbackRate = speed;
+      await new Promise((resolve) => {
+        if (Number.isFinite(audio.duration) && audio.duration > 0) return resolve();
+        audio.onloadedmetadata = () => resolve();
+      });
+      state.streaming.activeSource = "长音频回放";
+      state.streaming.chunkSeq = 0;
+      state.streaming.queue = [];
+      state.streaming.latencies = [];
+      state.streaming.replay = {
+        file,
+        audio,
+        chunkSizeMs,
+        speed,
+        timer: null,
+        paused: false,
+        taskId: "",
+        processedSegmentIds: new Set(),
+        transcripts: [],
+        lastEndMs: null,
+      };
+      resetVoiceWorkflow("长音频回放流式测试已启动...");
+      $("replayStatus").textContent = `回放中 · ${file.name} · chunk=${chunkSizeMs}ms · ${speed}x`;
+      $("asrStatus").textContent = "长音频回放";
+      setAgent("回放守听中");
+      setLevel(.45);
+      audio.play().catch(() => toast("浏览器阻止自动播放，请点击播放器播放后继续真实守听", true));
+      state.streaming.replay.timer = setInterval(() => {
+        const replay = state.streaming.replay;
+        if (!replay || replay.paused) return;
+        const positionMs = Math.max(0, (audio.currentTime || 0) * 1000);
+        $("replayPosition").textContent = formatDuration(positionMs / 1000);
+        setLevel(Math.min(1, 0.28 + (Math.sin(positionMs / 800) + 1) * 0.22).toFixed(2));
+      }, Math.max(250, chunkSizeMs / speed));
+      const payload = await request("/api/stream/upload", {
+        method: "POST",
+        body: form({ file, channel_id: channelId(), denoise_mode: "off" }),
+      });
+      state.streaming.replay.taskId = payload.task_id;
+      pollLongReplayTask(payload.task_id).catch((error) => {
+        $("replayStatus").textContent = `真实流式识别失败：${error.message}`;
+        appendGlobalTimeline({ time: nowLabel(), title: "长音频识别失败", detail: error.message });
+        toast(`长音频识别失败：${error.message}`, true);
+      });
+      renderStreamingStatus();
+    }
+    function pauseLongAudioReplay() {
+      const replay = state.streaming.replay;
+      if (!replay) return;
+      replay.paused = !replay.paused;
+      if (replay.paused) {
+        replay.audio.pause();
+        $("replayStatus").textContent = "回放已暂停";
+      } else {
+        replay.audio.play().catch(() => {});
+        $("replayStatus").textContent = "回放继续";
+      }
+      renderStreamingStatus();
+    }
+    function stopLongAudioReplay() {
+      const replay = state.streaming.replay;
+      if (!replay) return;
+      clearInterval(replay.timer);
+      replay.audio.pause();
+      state.streaming.replay = null;
+      state.streaming.activeSource = "";
+      $("replayStatus").textContent = "回放已停止";
+      setLevel(.35);
+      renderStreamingStatus();
+    }
+    async function sendMicBlob(blob, cumulative = false) {
+      handleMicChunk(blob);
+    }
+    async function startMic() {
+      await startLiveMicStream();
+    }
+    async function stopMic() {
+      await stopLiveMicStream();
       toast("麦克风监听已结束，原音可回放");
     }
     async function toggleMic() {
@@ -1750,6 +3589,9 @@
       try {
         const config = await request("/api/config/public");
         if (config.default_channel_id) $("channelInput").value = config.default_channel_id;
+        if (config.amap_security_js_code) {
+          window._AMapSecurityConfig = { securityJsCode: config.amap_security_js_code };
+        }
         await loadAmapSdk(config.amap_key || "");
       } catch (error) {
         $("mapStatus").textContent = "后端暂未连接，使用演示底图";
@@ -1765,6 +3607,7 @@
         return Promise.resolve();
       }
       return new Promise((resolve) => {
+        $("mapStatus").textContent = "正在加载高德底图";
         const script = document.createElement("script");
         script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}`;
         script.onload = () => { initAmap(); resolve(); };
@@ -2025,64 +3868,103 @@
     async function collectMatchedShips() {
       const active = state.activeAreas.length ? state.activeAreas : null;
       if (!active) {
-        const payload = await request("/api/inspection/filter", { method: "POST", body: inspectionForm() });
-        const items = payload.items || [];
+        let items = [];
+        try {
+          const payload = await request("/api/inspection/filter", { method: "POST", body: inspectionForm() });
+          items = payload.items || [];
+        } catch (error) {
+          items = [];
+        }
         if (items.length || !state.areaGeometry.length) return items;
         return localFilterByGeometry({ type: state.areaMode, points: state.areaGeometry, line_buffer_m: Number($("lineBuffer").value) || 500 });
       }
       const merged = new Map();
       for (const area of active) {
-        const payload = await request("/api/inspection/filter", {
-          method: "POST",
-          body: form({
-            area_name: area.area_name,
-            min_draft_m: $("minDraft").value || 0,
-            min_tonnage_t: $("minTon").value || 0,
-            min_speed_kn: $("minSpeed").value || 0,
-            destination_keyword: $("destinationKeyword").value,
-            ship_types: selectedShipType(),
-            area_geometry: JSON.stringify({ type: area.geometry_type, points: area.geometry || [], line_buffer_m: area.line_buffer_m || Number($("lineBuffer").value) || 500 }),
-          }),
-        });
-        (payload.items || []).forEach((ship) => merged.set(ship.ship_id, ship));
-        if (!(payload.items || []).length) {
+        let items = [];
+        try {
+          const payload = await request("/api/inspection/filter", {
+            method: "POST",
+            body: form({
+              area_name: area.area_name,
+              min_draft_m: $("minDraft").value || 0,
+              min_tonnage_t: $("minTon").value || 0,
+              min_speed_kn: $("minSpeed").value || 0,
+              destination_keyword: $("destinationKeyword").value,
+              ship_types: selectedShipType(),
+              area_geometry: JSON.stringify({ type: area.geometry_type, points: area.geometry || [], line_buffer_m: area.line_buffer_m || Number($("lineBuffer").value) || 500 }),
+            }),
+          });
+          items = payload.items || [];
+        } catch (error) {
+          items = [];
+        }
+        items.forEach((ship) => merged.set(ship.ship_id, ship));
+        if (!items.length) {
           localFilterByGeometry({ type: area.geometry_type, points: area.geometry || [], line_buffer_m: area.line_buffer_m || Number($("lineBuffer").value) || 500 })
             .forEach((ship) => merged.set(ship.ship_id, ship));
         }
       }
       return [...merged.values()];
     }
+    function buildLocalInspectionNotices(ships) {
+      const areaName = $("areaName").value || "点验区域";
+      const template = $("noticeText").value || "{船名}，请注意，你船已进入{区域}，请保持甚高频守听。";
+      return ships.map((ship) => ({
+        ship,
+        notice_text: template
+          .replaceAll("{船名}", ship.ship_name || "目标船舶")
+          .replaceAll("{区域}", areaName)
+          .replaceAll("{MMSI}", ship.mmsi || "")
+          .replaceAll("{船型}", ship.ship_type || "")
+          .replaceAll("{航速}", String(ship.sog_kn ?? ""))
+          .replaceAll("{航向}", String(ship.heading_deg ?? "")),
+      }));
+    }
     async function broadcastInspection() {
       try {
         setAgent("正在生成点验通知");
         const active = state.activeAreas.length ? state.activeAreas : null;
         let taskId = "";
+        let localNotices = [];
         if (!active) {
-          const payload = await request("/api/inspection/run", { method: "POST", body: inspectionForm(true) });
-          taskId = payload.task_id;
+          try {
+            const payload = await request("/api/inspection/run", { method: "POST", body: inspectionForm(true) });
+            taskId = payload.task_id;
+          } catch (error) {
+            const matched = await collectMatchedShips();
+            renderMatched(matched);
+            localNotices = buildLocalInspectionNotices(matched);
+          }
         } else {
           const matched = await collectMatchedShips();
           renderMatched(matched);
           if (!matched.length) return toast("多区域未命中船舶，请调整范围或筛选条件", true);
-          const payload = await request("/api/inspection/run", {
-            method: "POST",
-            body: form({
-              area_name: active.map((area) => area.area_name).join("、"),
-              min_draft_m: $("minDraft").value || 0,
-              min_tonnage_t: $("minTon").value || 0,
-              min_speed_kn: $("minSpeed").value || 0,
-              destination_keyword: $("destinationKeyword").value,
-              ship_types: selectedShipType(),
-              area_geometry: "",
-              notice_template: $("noticeText").value,
-              channel_id: channelId(),
-              ship_ids: matched.map((ship) => ship.ship_id).join(","),
-            }),
-          });
-          taskId = payload.task_id;
+          try {
+            const payload = await request("/api/inspection/run", {
+              method: "POST",
+              body: form({
+                area_name: active.map((area) => area.area_name).join("、"),
+                min_draft_m: $("minDraft").value || 0,
+                min_tonnage_t: $("minTon").value || 0,
+                min_speed_kn: $("minSpeed").value || 0,
+                destination_keyword: $("destinationKeyword").value,
+                ship_types: selectedShipType(),
+                area_geometry: "",
+                notice_template: $("noticeText").value,
+                channel_id: channelId(),
+                ship_ids: matched.map((ship) => ship.ship_id).join(","),
+              }),
+            });
+            taskId = payload.task_id;
+          } catch (error) {
+            localNotices = buildLocalInspectionNotices(matched);
+          }
         }
-        const task = await pollTask(taskId, () => {});
-        const notices = task.meta?.notices || [];
+        let notices = localNotices;
+        if (taskId) {
+          const task = await pollTask(taskId, () => {});
+          notices = task.meta?.notices || [];
+        }
         if (notices[0]?.notice_text) {
           speakText(notices[0].notice_text);
         }
@@ -2268,8 +4150,25 @@
     }
 
     document.querySelectorAll(".nav-btn").forEach((btn) => btn.addEventListener("click", () => setPage(btn.dataset.page)));
+    $("inputMode").addEventListener("change", () => updateInputVisualMode($("inputMode").value));
     $("runDemoBtn").addEventListener("click", async () => { try { $("inputMode").value === "mic" ? await toggleMic() : await runFileRecognition(); } catch (error) { toast(`识别失败：${error.message}`, true); } });
     $("micBtn").addEventListener("click", toggleMic);
+    $("startLiveMicBtn").addEventListener("click", () => startLiveMicStream().catch((error) => toast(`麦克风流启动失败：${error.message}`, true)));
+    $("stopLiveMicBtn").addEventListener("click", () => stopLiveMicStream().catch((error) => toast(`麦克风流停止失败：${error.message}`, true)));
+    $("startReplayBtn").addEventListener("click", () => startLongAudioReplay($("audioFile").files[0]).catch((error) => toast(`长音频回放失败：${error.message}`, true)));
+    $("pauseReplayBtn").addEventListener("click", pauseLongAudioReplay);
+    $("stopReplayBtn").addEventListener("click", stopLongAudioReplay);
+    $("approveEventBtn").addEventListener("click", () => {
+      if (!state.activeBusinessEvent) return toast("当前没有待批准业务事件", true);
+      addBusinessAction(state.activeBusinessEvent, { action: "人工批准", status: "已批准", trigger: "值班员", confidence: "人工", time: nowLabel(), suggested_action: "允许执行并播报" });
+      toast("当前业务事件已批准");
+    });
+    $("rejectEventBtn").addEventListener("click", () => {
+      if (!state.activeBusinessEvent) return toast("当前没有待驳回业务事件", true);
+      addBusinessAction(state.activeBusinessEvent, { action: "人工驳回", status: "已驳回", trigger: "值班员", confidence: "人工", time: nowLabel(), suggested_action: "拒绝申请并提示保持守听" });
+      toast("当前业务事件已驳回");
+    });
+    $("closeBusinessEventBtn").addEventListener("click", () => closeBusinessEvent("操作员手动关闭"));
     document.querySelectorAll(".agent-ship").forEach((button) => button.addEventListener("click", () => selectAgentShip(button.title)));
     $("askShipBtn").addEventListener("click", copilotAskShip);
     $("queryTrackBtn").addEventListener("click", copilotQueryTrack);
@@ -2315,6 +4214,7 @@
     });
     setInterval(() => $("clock").textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false }), 1000);
     $("apiBaseInput").value = API_BASE;
+    updateInputVisualMode($("inputMode").value);
     setupRuntime();
     loadShips();
     loadAreas();

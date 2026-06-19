@@ -143,6 +143,25 @@ class KeywordRiskEngineTests(unittest.TestCase):
         self.assertEqual(events[0].action_type, "manual_business")
         self.assertTrue(events[0].requires_human_review)
 
+    def test_departure_request_wins_over_pier_keyword(self) -> None:
+        engine = KeywordRiskEngine()
+        segment = AudioSegment(
+            id="seg_6",
+            channel_id="vhf_01",
+            file_path="demo.wav",
+            clip_path=None,
+            start_ms=0,
+            end_ms=3000,
+            duration_ms=3000,
+            text="我船在码头作业完毕，现在申请离泊开航",
+            confidence=0.92,
+        )
+
+        events = engine.evaluate(segment)
+
+        self.assertEqual("MANUAL", events[0].risk_level)
+        self.assertEqual("manual_business", events[0].action_type)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -366,6 +366,31 @@ class InspectionTaskSimulator:
                 return ship.to_dict()
         return None
 
+    def nearby_ships(
+        self,
+        lng: float,
+        lat: float,
+        radius_m: float = 3000.0,
+        exclude_ship_id: str = "",
+        limit: int = DEFAULT_DISPLAY_SHIP_LIMIT,
+    ) -> List[Dict[str, object]]:
+        matches: List[tuple[float, InspectionShip]] = []
+        for ship in self._ships:
+            if exclude_ship_id and ship.ship_id == exclude_ship_id:
+                continue
+            if not self._has_display_name(ship):
+                continue
+            distance_m = self._distance_m(lng, lat, ship.lng, ship.lat)
+            if distance_m <= max(0.0, radius_m):
+                matches.append((distance_m, ship))
+        matches.sort(key=lambda item: item[0])
+        if limit > 0:
+            matches = matches[:limit]
+        return [
+            {**ship.to_dict(), "distance_m": round(distance_m)}
+            for distance_m, ship in matches
+        ]
+
     def dynamic_lexicon_payload(self) -> Dict[str, List[Dict[str, object]]]:
         ships = []
         for ship in self._ships:
@@ -592,6 +617,19 @@ class InspectionTaskSimulator:
         proj_x = x1 + t * dx
         proj_y = y1 + t * dy
         return math.hypot(px - proj_x, py - proj_y)
+
+    @staticmethod
+    def _distance_m(lng1: float, lat1: float, lng2: float, lat2: float) -> float:
+        earth_radius_m = 6_371_000.0
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lng = math.radians(lng2 - lng1)
+        value = (
+            math.sin(delta_lat / 2) ** 2
+            + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lng / 2) ** 2
+        )
+        return earth_radius_m * 2 * math.atan2(math.sqrt(value), math.sqrt(1 - value))
 
     def _ship_from_row(self, row: Dict[str, object], fallback_id: str = "") -> InspectionShip:
         return InspectionShip(

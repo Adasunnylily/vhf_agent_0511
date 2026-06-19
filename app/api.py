@@ -6,10 +6,13 @@ import re
 import csv
 import io
 import json
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, File, Form, HTTPException, Response, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 
 from app.domain.models import AudioSegment
 from app.config import settings, uses_cloud_clip_asr, uses_dashscope_recognition
@@ -48,6 +51,7 @@ async def public_config() -> Dict[str, object]:
     return {
         "default_channel_id": settings.default_channel_id,
         "amap_key": settings.amap_key,
+        "amap_security_js_code": settings.amap_security_js_code,
     }
 
 
@@ -68,6 +72,81 @@ def _best_ais_context_from_entities(entities: List[Dict[str, Any]]) -> Optional[
     return None
 
 
+def _attach_high_risk_inspection(payload: Dict[str, Any]) -> Dict[str, Any]:
+    if str(payload.get("risk_level") or "") not in {"L1", "L2", "L3"}:
+        return payload
+    ais_context = payload.get("ais_context")
+    if not isinstance(ais_context, dict):
+        ais_context = {}
+    try:
+        lng = float(ais_context.get("lng"))
+        lat = float(ais_context.get("lat"))
+    except (TypeError, ValueError):
+        payload["inspection_context"] = {
+            "triggered": False,
+            "reason": "高危事件尚未匹配到可定位 AIS 船舶",
+            "radius_m": 3000,
+            "matched_ships": [],
+        }
+        return payload
+
+    nearby = inspection_simulator.nearby_ships(
+        lng=lng,
+        lat=lat,
+        radius_m=3000,
+        exclude_ship_id=str(ais_context.get("ship_id") or ""),
+    )
+    payload["inspection_context"] = {
+        "triggered": True,
+        "reason": "高危事件自动触发周边船舶点验",
+        "radius_m": 3000,
+        "center_ship": ais_context,
+        "matched_count": len(nearby),
+        "matched_ships": nearby,
+    }
+    evidence = list(payload.get("evidence") or [])
+    evidence.append(f"高危周边点验: 3公里内{len(nearby)}艘船舶")
+    payload["evidence"] = evidence
+    return payload
+
+
+def _parse_time_to_ms(value: Any) -> int:
+    text = str(value or "").strip()
+    if not text:
+        return 0
+    text = text.replace("，", ".")
+    if ":" not in text:
+        try:
+            return int(float(text) * 1000)
+        except ValueError:
+            return 0
+    parts = [part.strip() for part in text.split(":")]
+    try:
+        if len(parts) == 3:
+            hours, minutes, seconds = parts
+            total = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+        elif len(parts) == 2:
+            minutes, seconds = parts
+            total = int(minutes) * 60 + float(seconds)
+        else:
+            total = float(parts[-1])
+        return int(total * 1000)
+    except ValueError:
+        return 0
+
+
+def _pick_row_value(row: Dict[str, Any], candidates: List[str]) -> str:
+    normalized = {str(key).strip().lower(): value for key, value in row.items()}
+    for key in candidates:
+        if key.lower() in normalized and str(normalized[key.lower()] or "").strip():
+            return str(normalized[key.lower()]).strip()
+    for raw_key, value in row.items():
+        key = str(raw_key or "").strip().lower()
+        if any(candidate.lower() in key for candidate in candidates) and str(value or "").strip():
+            return str(value).strip()
+    return ""
+
+
 def _enrich_event_payloads(
     events: List[Dict[str, Any]],
     segments: List[AudioSegment],
@@ -83,20 +162,58 @@ def _enrich_event_payloads(
             payload["entities"] = segment.entities
             payload["ais_context"] = _best_ais_context_from_entities(segment.entities) or {}
             payload = ais_risk_analyzer.enrich_event(payload)
+            payload = _attach_high_risk_inspection(payload)
         enriched.append(payload)
     return enriched
 
 
 def _decision_business_type(payload: Dict[str, Any]) -> str:
+    explicit = str(payload.get("business_type") or "").strip()
+    if explicit in {
+        "routine_report",
+        "departure_request",
+        "emergency_risk",
+        "other_business",
+        "invalid_or_noise",
+    }:
+        return explicit
     risk_level = str(payload.get("risk_level") or "")
     action_type = str(payload.get("action_type") or "")
     if risk_level in {"L1", "L2", "L3"}:
         return "emergency_risk"
     if action_type == "auto_reply":
         return "routine_report"
-    if action_type in {"manual_business", "manual_review"}:
+    if action_type == "manual_business":
+        return "departure_request"
+    if action_type == "manual_review":
         return "other_business"
     return "other_business"
+
+
+def _default_decision_payload(segment: AudioSegment) -> Dict[str, Any]:
+    requires_review = segment.confidence < 0.8
+    event_id = f"evt_{uuid.uuid4().hex[:12]}"
+    return {
+        "event_id": event_id,
+        "id": event_id,
+        "segment_id": segment.id,
+        "channel_id": segment.channel_id,
+        "event_type": "低置信度语音" if requires_review else "一般业务通话",
+        "risk_level": "MANUAL" if requires_review else "INFO",
+        "summary": (
+            "识别置信度较低，进入人工复核。"
+            if requires_review
+            else "未发现高危、自动回复或审批信号，保持监听并归档。"
+        ),
+        "evidence": [f"ASR置信度: {segment.confidence:.2f}"],
+        "suggestion": "建议值班员复核原音。" if requires_review else "持续守听，无需主动回复。",
+        "broadcast_text": "",
+        "action_type": "manual_review" if requires_review else "archive_only",
+        "requires_human_review": requires_review,
+        "is_auto_reply": False,
+        "review_status": "pending" if requires_review else "archived",
+        "business_type": "other_business",
+    }
 
 
 def _persist_decisions(
@@ -111,23 +228,7 @@ def _persist_decisions(
     for segment in segments:
         payload = event_by_segment.get(segment.id)
         if payload is None:
-            event_id = f"evt_{uuid.uuid4().hex[:12]}"
-            payload = {
-                "event_id": event_id,
-                "id": event_id,
-                "segment_id": segment.id,
-                "channel_id": segment.channel_id,
-                "event_type": "一般业务通话",
-                "risk_level": "INFO",
-                "summary": "未命中自动回复或高危规则，已归档供值班员复核。",
-                "evidence": [],
-                "suggestion": "建议值班员结合上下文确认是否需要进一步处置。",
-                "broadcast_text": "",
-                "action_type": "manual_review",
-                "requires_human_review": True,
-                "is_auto_reply": False,
-                "review_status": "pending",
-            }
+            payload = _default_decision_payload(segment)
         payload["source_type"] = source_type
         payload["audio_path"] = audio_path
         payload["asr_text"] = segment.text
@@ -135,6 +236,7 @@ def _persist_decisions(
         payload["entities"] = segment.entities
         payload["ais_context"] = _best_ais_context_from_entities(segment.entities) or {}
         payload = ais_risk_analyzer.enrich_event(payload)
+        payload = _attach_high_risk_inspection(payload)
         payload["business_type"] = _decision_business_type(payload)
         payload["dialogue_review_text"] = _build_dialogue_review_template(
             str(payload["resolved_text"])
@@ -146,6 +248,7 @@ def _persist_decisions(
             payload["source_type"] = source_type
             payload["audio_path"] = audio_path
             payload = ais_risk_analyzer.enrich_event(payload)
+            payload = _attach_high_risk_inspection(payload)
             payload["business_type"] = _decision_business_type(payload)
             decisions.append(payload)
     event_store.extend(decisions)
@@ -513,13 +616,43 @@ async def list_continuous_test_set(
             "items": [],
             "message": "连续守听测试集目录不存在，请在服务器配置 VHF_CONTINUOUS_DEMO_DIR。",
         }
-    audio_files = _continuous_audio_files(root, limit=max(1, min(limit, 200)))
+    demo_items = _continuous_demo_items(root, limit=max(1, min(limit, 200)))
     return {
         "root": str(root),
+        "concat_root": str(settings.continuous_concat_dir),
         "exists": True,
-        "count": len(audio_files),
-        "items": [{"filename": item.name, "path": str(item)} for item in audio_files],
+        "mode": "concat_labeled_stream" if demo_items and demo_items[0].get("kind") == "concat_segment" else "file_sequence",
+        "count": len(demo_items),
+        "items": [
+            {
+                "filename": str(item.get("filename") or Path(item["source"]).name),
+                "path": str(item["source"]),
+                "start_ms": item.get("start_ms"),
+                "end_ms": item.get("end_ms"),
+                "duration_ms": (
+                    int(item["end_ms"]) - int(item["start_ms"])
+                    if item.get("start_ms") is not None and item.get("end_ms") is not None
+                    else None
+                ),
+                "class_label": item.get("class_label") or "",
+                "source_file": item.get("source_file") or "",
+            }
+            for item in demo_items
+        ],
     }
+
+
+@router.get("/demo/continuous-test-set/audio/{index}")
+async def get_continuous_test_audio(index: int) -> FileResponse:
+    root = settings.continuous_demo_dir
+    if not root.exists():
+        raise HTTPException(status_code=404, detail=f"连续守听测试集目录不存在: {root}")
+    demo_items = _continuous_demo_items(root, limit=200)
+    if index < 0 or index >= len(demo_items):
+        raise HTTPException(status_code=404, detail="音频片段不存在")
+    item = demo_items[index]
+    preview_path = _materialize_continuous_item_audio(item)
+    return FileResponse(preview_path, media_type="audio/wav", filename=f"{Path(item['source']).stem}_{index:03d}_preview.wav")
 
 
 @router.post("/demo/continuous-test-set")
@@ -534,8 +667,8 @@ async def run_continuous_test_set(
             status_code=404,
             detail=f"连续守听测试集目录不存在: {root}",
         )
-    audio_files = _continuous_audio_files(root, limit=max(1, min(limit, 50)))
-    if not audio_files:
+    demo_items = _continuous_demo_items(root, limit=max(1, min(limit, 50)))
+    if not demo_items:
         raise HTTPException(status_code=404, detail=f"目录内未找到音频文件: {root}")
 
     task = task_manager.create(filename=f"continuous:{root.name}", channel_id=channel_id)
@@ -550,10 +683,11 @@ async def run_continuous_test_set(
                 "type": "continuous_status",
                 "stage": "started",
                 "channel_id": channel_id,
-                "total": len(audio_files),
+                "total": len(demo_items),
             },
         )
-        for index, audio_path in enumerate(audio_files):
+        for index, item in enumerate(demo_items):
+            audio_path = Path(item["source"])
             ws_manager.publish(
                 channel_id,
                 {
@@ -561,12 +695,15 @@ async def run_continuous_test_set(
                     "stage": "listening",
                     "channel_id": channel_id,
                     "index": index,
-                    "filename": audio_path.name,
+                    "filename": str(item.get("filename") or audio_path.name),
+                    "start_ms": item.get("start_ms"),
+                    "end_ms": item.get("end_ms"),
                 },
             )
             try:
+                processing_path = _materialize_continuous_item_audio(item)
                 run = pipeline.process(
-                    file_path=audio_path,
+                    file_path=processing_path,
                     channel_id=channel_id,
                     force_full_file_transcribe=False,
                     enable_denoise=False,
@@ -577,7 +714,7 @@ async def run_continuous_test_set(
                 )
                 persisted_events = _persist_decisions(
                     source_type="continuous_listening_demo",
-                    audio_path=str(audio_path),
+                    audio_path=str(processing_path),
                     segments=run.segments,
                     events=event_payloads,
                 )
@@ -586,22 +723,40 @@ async def run_continuous_test_set(
                 dialogue_text = build_vhf_dialogue_review(
                     "\n".join(segment.resolved_text or segment.text for segment in run.segments)
                 )
+                ais_alignment = _build_continuous_ais_alignment(
+                    index=index,
+                    segments=run.segments,
+                    events=persisted_events,
+                )
                 conversation = {
                     "index": index,
-                    "filename": audio_path.name,
-                    "audio_path": str(audio_path),
+                    "filename": str(item.get("filename") or audio_path.name),
+                    "audio_path": str(processing_path),
+                    "source_audio_path": str(audio_path),
+                    "audio_url": f"/api/demo/continuous-test-set/audio/{index}",
+                    "start_ms": item.get("start_ms"),
+                    "end_ms": item.get("end_ms"),
+                    "class_label": item.get("class_label") or "",
+                    "source_file": item.get("source_file") or "",
                     "segments": [segment.to_dict() for segment in run.segments],
                     "events": persisted_events,
+                    "ais_alignment": ais_alignment,
                     "dialogue_review_text": dialogue_text,
                     "status": "completed",
                 }
             except Exception as exc:  # noqa: BLE001 - keep the demo stream alive.
                 conversation = {
                     "index": index,
-                    "filename": audio_path.name,
+                    "filename": str(item.get("filename") or audio_path.name),
                     "audio_path": str(audio_path),
+                    "audio_url": f"/api/demo/continuous-test-set/audio/{index}",
+                    "start_ms": item.get("start_ms"),
+                    "end_ms": item.get("end_ms"),
+                    "class_label": item.get("class_label") or "",
+                    "source_file": item.get("source_file") or "",
                     "segments": [],
                     "events": [],
+                    "ais_alignment": _build_continuous_ais_alignment(index=index, segments=[], events=[]),
                     "dialogue_review_text": "",
                     "status": "failed",
                     "error": str(exc),
@@ -615,7 +770,8 @@ async def run_continuous_test_set(
                 meta={
                     "task_type": "continuous_listening_demo",
                     "root": str(root),
-                    "total": len(audio_files),
+                    "mode": "concat_labeled_stream" if demo_items and demo_items[0].get("kind") == "concat_segment" else "file_sequence",
+                    "total": len(demo_items),
                     "completed": len(conversations),
                     "conversations": conversations,
                 },
@@ -639,7 +795,8 @@ async def run_continuous_test_set(
             meta={
                 "task_type": "continuous_listening_demo",
                 "root": str(root),
-                "total": len(audio_files),
+                "mode": "concat_labeled_stream" if demo_items and demo_items[0].get("kind") == "concat_segment" else "file_sequence",
+                "total": len(demo_items),
                 "completed": len(conversations),
                 "conversations": conversations,
             },
@@ -650,7 +807,7 @@ async def run_continuous_test_set(
                 "type": "continuous_status",
                 "stage": "completed",
                 "channel_id": channel_id,
-                "total": len(audio_files),
+                "total": len(demo_items),
                 "events": len(all_events),
             },
         )
@@ -661,7 +818,7 @@ async def run_continuous_test_set(
         "status": "queued",
         "channel_id": channel_id,
         "root": str(root),
-        "count": len(audio_files),
+        "count": len(demo_items),
     }
 
 
@@ -673,6 +830,187 @@ def _continuous_audio_files(root: Path, *, limit: int) -> List[Path]:
         if item.is_file() and item.suffix.lower() in suffixes
     ]
     return sorted(files, key=lambda item: item.name)[:limit]
+
+
+def _continuous_concat_items(limit: int) -> List[Dict[str, Any]]:
+    root = settings.continuous_concat_dir
+    audio_path = root / "shuffled_concat.wav"
+    labels_path = root / "shuffled_concat_labels.csv"
+    manifest_path = root / "shuffled_concat_manifest.json"
+    if not audio_path.exists():
+        return []
+
+    items: List[Dict[str, Any]] = []
+    if labels_path.exists():
+        with labels_path.open("r", encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f)
+            for index, row in enumerate(reader):
+                if index >= limit:
+                    break
+                range_text = _pick_row_value(row, ["起止时间", "time_range", "range"])
+                start_ms = _parse_time_to_ms(_pick_row_value(row, ["start_ms", "start", "开始", "起始时间", "开始时间"]))
+                end_ms = _parse_time_to_ms(_pick_row_value(row, ["end_ms", "end", "结束", "结束时间"]))
+                if range_text and (not start_ms or not end_ms):
+                    parts = re.split(r"\s*(?:-|~|—|–|至|到)\s*", range_text, maxsplit=1)
+                    if len(parts) == 2:
+                        start_ms = _parse_time_to_ms(parts[0])
+                        end_ms = _parse_time_to_ms(parts[1])
+                if end_ms <= start_ms:
+                    continue
+                class_label = _pick_row_value(row, ["分类", "label", "business_type", "category"])
+                source_name = _pick_row_value(row, ["原文件名", "filename", "source", "source_file", "文件"])
+                items.append(
+                    {
+                        "kind": "concat_segment",
+                        "source": audio_path,
+                        "index": len(items),
+                        "start_ms": start_ms,
+                        "end_ms": end_ms,
+                        "filename": f"{len(items) + 1:03d}_{class_label or 'unknown'}_{source_name or audio_path.name}",
+                        "class_label": class_label,
+                        "source_file": source_name,
+                    }
+                )
+    elif manifest_path.exists():
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        rows = data if isinstance(data, list) else data.get("items") or data.get("segments") or []
+        for row in rows[:limit]:
+            start_ms = int(row.get("start_ms") or _parse_time_to_ms(row.get("start_time") or row.get("start") or "0"))
+            end_ms = int(row.get("end_ms") or _parse_time_to_ms(row.get("end_time") or row.get("end") or "0"))
+            if end_ms <= start_ms:
+                continue
+            class_label = str(row.get("classification") or row.get("category") or row.get("label") or "")
+            source_name = str(row.get("filename") or row.get("source_file") or row.get("source") or "")
+            items.append(
+                {
+                    "kind": "concat_segment",
+                    "source": audio_path,
+                    "index": len(items),
+                    "start_ms": start_ms,
+                    "end_ms": end_ms,
+                    "filename": f"{len(items) + 1:03d}_{class_label or 'unknown'}_{source_name or audio_path.name}",
+                    "class_label": class_label,
+                    "source_file": source_name,
+                }
+            )
+    return items[:limit]
+
+
+def _continuous_demo_items(root: Path, *, limit: int) -> List[Dict[str, Any]]:
+    concat_items = _continuous_concat_items(limit)
+    if concat_items:
+        return concat_items
+    return [
+        {
+            "kind": "file",
+            "source": audio_path,
+            "index": index,
+            "start_ms": None,
+            "end_ms": None,
+            "filename": audio_path.name,
+            "class_label": "",
+            "source_file": audio_path.name,
+        }
+        for index, audio_path in enumerate(_continuous_audio_files(root, limit=limit))
+    ]
+
+
+def _continuous_preview_path(item: Dict[str, Any]) -> Path:
+    source = Path(item["source"])
+    preview_dir = settings.data_dir / "audio_preview"
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    start = item.get("start_ms")
+    end = item.get("end_ms")
+    suffix = f"_{start}_{end}" if start is not None and end is not None else ""
+    return preview_dir / f"{source.stem}{suffix}_{int(source.stat().st_mtime)}_preview.wav"
+
+
+def _ensure_browser_wav(
+    source_path: Path,
+    target_path: Path,
+    *,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+) -> Path:
+    if target_path.exists():
+        return target_path
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise HTTPException(status_code=500, detail="未找到 ffmpeg，无法生成浏览器可播放预览音频")
+    command = [ffmpeg, "-y"]
+    if start_ms is not None:
+        command.extend(["-ss", f"{start_ms / 1000:.3f}"])
+    command.extend(["-i", str(source_path)])
+    if start_ms is not None and end_ms is not None and end_ms > start_ms:
+        command.extend(["-t", f"{(end_ms - start_ms) / 1000:.3f}"])
+    command.extend(["-vn", "-ac", "1", "-ar", "16000", "-acodec", "pcm_s16le", str(target_path)])
+    try:
+        subprocess.run(
+            command,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.decode("utf-8", errors="ignore")
+        raise HTTPException(status_code=500, detail=f"音频预览转码失败: {stderr}") from exc
+    return target_path
+
+
+def _materialize_continuous_item_audio(item: Dict[str, Any]) -> Path:
+    return _ensure_browser_wav(
+        Path(item["source"]),
+        _continuous_preview_path(item),
+        start_ms=item.get("start_ms"),
+        end_ms=item.get("end_ms"),
+    )
+
+
+def _build_continuous_ais_alignment(
+    *,
+    index: int,
+    segments: List[AudioSegment],
+    events: List[Dict[str, Any]],
+) -> Dict[str, object]:
+    entities = [
+        entity
+        for segment in segments
+        for entity in getattr(segment, "entities", []) or []
+        if isinstance(entity, dict)
+    ]
+    ship_context = _best_ais_context_from_entities(entities)
+    if not ship_context:
+        named_ships = inspection_simulator.list_mock_ships(limit=15)
+        if named_ships:
+            ship_context = named_ships[index % len(named_ships)]
+    ship_context = ship_context or {}
+    lng = float(ship_context.get("lng") or 121.8842)
+    lat = float(ship_context.get("lat") or 29.9138)
+    confidence = 0.88 if ship_context.get("ship_name") else 0.42
+    if entities:
+        confidence = min(0.96, confidence + 0.06)
+    return {
+        "vhf_event_id": (events[0].get("event_id") if events else "") or f"continuous_{index}",
+        "matched_ship_id": ship_context.get("ship_id") or ship_context.get("mmsi") or f"sim_ship_{index}",
+        "ship_name": ship_context.get("ship_name") or f"模拟船舶{index + 1}",
+        "mmsi": ship_context.get("mmsi") or "",
+        "callsign": ship_context.get("callsign") or "",
+        "ship_type": ship_context.get("ship_type") or "待核验船舶",
+        "confidence_score": round(confidence, 2),
+        "time_offset_s": 0,
+        "spatial_distance_m": 120 + index * 35,
+        "position_label": ship_context.get("position_label") or "北仑山甚高频覆盖水域",
+        "sog_kn": ship_context.get("sog_kn"),
+        "heading_deg": ship_context.get("heading_deg") or ship_context.get("cog_deg"),
+        "lng": lng,
+        "lat": lat,
+        "route": [
+            [round(lng - 0.012, 6), round(lat - 0.006, 6)],
+            [round(lng, 6), round(lat, 6)],
+            [round(lng + 0.011, 6), round(lat + 0.007, 6)],
+        ],
+        "source": "simulated_ais_from_voice",
+    }
 
 
 @router.post("/demo/inspection-task")
@@ -919,11 +1257,47 @@ async def upload_stream_simulation(
     saved_path = storage.save_upload(file.file, file.filename or "upload.bin")
 
     def runner() -> None:
+        live_segments: List[AudioSegment] = []
+        live_events: List[Dict[str, object]] = []
+
+        def on_segment(
+            segment: AudioSegment,
+            segment_events: List[Any],
+            index: int,
+            total: int,
+        ) -> None:
+            live_segments.append(segment)
+            payloads = _enrich_event_payloads(
+                [event.to_dict() for event in segment_events],
+                [segment],
+            )
+            if not payloads:
+                fallback = _default_decision_payload(segment)
+                fallback["asr_text"] = segment.text
+                fallback["resolved_text"] = segment.resolved_text or segment.text
+                fallback["entities"] = segment.entities
+                fallback["ais_context"] = _best_ais_context_from_entities(segment.entities) or {}
+                payloads = [ais_risk_analyzer.enrich_event(fallback)]
+            live_events.extend(payloads)
+            task_manager.update(
+                task.id,
+                status="running",
+                segments=[item.to_dict() for item in live_segments],
+                events=live_events,
+                meta={
+                    "denoise_mode": denoise_mode.strip().lower(),
+                    "mode": "vad_incremental_replay",
+                    "completed_segments": index + 1,
+                    "total_segments": total,
+                },
+            )
+
         segments, events = stream_processor.process_file_stream(
             file_path=saved_path,
             channel_id=channel_id,
             transcript_override=transcript_override,
             enable_denoise=denoise_mode.strip().lower() == "on",
+            on_segment=on_segment,
         )
         event_payloads = _enrich_event_payloads([event.to_dict() for event in events], segments)
         persisted_events = _persist_decisions(
@@ -1302,6 +1676,22 @@ async def get_task(task_id: str) -> Dict[str, object]:
     if not task:
         raise HTTPException(status_code=404, detail="task not found")
     return task.to_dict()
+
+
+@router.post("/events")
+async def create_event(payload: Dict[str, Any] = Body(...)) -> Dict[str, object]:
+    event = dict(payload)
+    event_id = str(event.get("event_id") or event.get("id") or f"evt_{uuid.uuid4().hex[:12]}")
+    event["event_id"] = event_id
+    event["id"] = event_id
+    event.setdefault("source_type", "stream_replay")
+    event.setdefault("risk_level", "INFO")
+    event.setdefault("business_type", _decision_business_type(event))
+    event.setdefault("action_type", "manual_review")
+    event.setdefault("review_status", "archived")
+    event = _attach_high_risk_inspection(event)
+    event_store.append(event)
+    return event_store.get(event_id) or event
 
 
 @router.get("/events")

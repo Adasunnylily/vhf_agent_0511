@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import uuid
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from app.domain.models import AudioSegment, RiskEvent
 from app.services.asr import ASRRefiner, BaseASRAdapter
@@ -47,6 +47,9 @@ class StreamingAudioProcessor:
         channel_id: str,
         transcript_override: Optional[str] = None,
         enable_denoise: bool = False,
+        on_segment: Optional[
+            Callable[[AudioSegment, List[RiskEvent], int, int], None]
+        ] = None,
     ) -> Tuple[List[AudioSegment], List[RiskEvent]]:
         prepared = self.preprocessor.prepare(
             file_path=file_path,
@@ -145,7 +148,8 @@ class StreamingAudioProcessor:
                 },
             )
 
-            for event in self.risk_engine.evaluate(segment):
+            segment_events = self.risk_engine.evaluate(segment)
+            for event in segment_events:
                 self.storage.save_event(event)
                 events.append(event)
                 self.ws_manager.publish(
@@ -156,6 +160,9 @@ class StreamingAudioProcessor:
                         "event": event.to_dict(),
                     },
                 )
+
+            if on_segment is not None:
+                on_segment(segment, segment_events, index, len(detected))
 
             self._simulate_real_time(segment.duration_ms)
 

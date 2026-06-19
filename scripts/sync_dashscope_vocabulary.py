@@ -11,21 +11,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 
-def load_env(path: Path) -> None:
-    if not path.exists():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        raw = line.strip()
-        if not raw or raw.startswith("#") or "=" not in raw:
-            continue
-        key, value = raw.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip("'\"")
-        if key and key not in os.environ:
-            os.environ[key] = value
+from app.services.asr_prompts import load_project_env  # noqa: E402
 
-
-load_env(REPO_ROOT / ".env")
+load_project_env(REPO_ROOT / ".env")
 
 from app.services.asr_prompts import (  # noqa: E402
     build_dashscope_vocabulary_entries,

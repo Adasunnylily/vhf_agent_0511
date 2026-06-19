@@ -15,7 +15,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.services.asr import ASRResult, FunASRAdapter, detect_unexpected_language_marks, sanitize_asr_text  # noqa: E402
+from app.services.asr import (  # noqa: E402
+    ASRResult,
+    FunASRAdapter,
+    LocalQwenASRAdapter,
+    detect_unexpected_language_marks,
+    sanitize_asr_text,
+)
 from app.services.asr_prompts import (  # noqa: E402
     DEFAULT_ASR_EVAL_PROMPT,
     build_qwen_eval_prompt,
@@ -31,6 +37,25 @@ def resolve_eval_prompt() -> str:
 def read_csv(path: Path) -> List[Dict[str, str]]:
     with path.open("r", encoding="utf-8-sig", newline="") as file:
         return list(csv.DictReader(file))
+
+
+def normalize_manifest_rows(rows: List[Dict[str, str]], manifest_path: Path) -> List[Dict[str, str]]:
+    normalized: List[Dict[str, str]] = []
+    base_dir = manifest_path.resolve().parent
+    for index, row in enumerate(rows, start=1):
+        item = dict(row)
+        segment_id = (item.get("segment_id") or item.get("sample_id") or f"sample_{index:06d}").strip()
+        clip_path_raw = (item.get("clip_path") or item.get("audio_path") or "").strip()
+        if not clip_path_raw:
+            continue
+        clip_path = Path(clip_path_raw).expanduser()
+        if not clip_path.is_absolute():
+            repo_candidate = REPO_ROOT / clip_path
+            clip_path = repo_candidate if repo_candidate.exists() else base_dir / clip_path
+        item["segment_id"] = segment_id
+        item["clip_path"] = str(clip_path)
+        normalized.append(item)
+    return normalized
 
 
 def write_csv(path: Path, rows: List[Dict[str, object]]) -> None:
@@ -199,6 +224,37 @@ def run_qwen_asr_model(
             )
             outputs.append(make_result_row(row, spec, result, provider="qwen_asr"))
             print(f"{model_name} {index}/{len(rows)} {row['segment_id']} {result.text[:50]}", flush=True)
+        except Exception as exc:
+            if fail_fast:
+                raise
+            outputs.append(make_error_rows([row], spec, exc)[0])
+            print(f"{model_name} {index}/{len(rows)} {row['segment_id']} ERROR {exc}", flush=True)
+    return outputs
+
+
+def run_qwen_local_model(
+    spec: Dict[str, Any],
+    rows: List[Dict[str, str]],
+    device: str,
+    fail_fast: bool,
+) -> List[Dict[str, object]]:
+    adapter = LocalQwenASRAdapter(
+        model=str(spec.get("model") or "Qwen/Qwen3-ASR-0.6B"),
+        device_map=str(spec.get("device_map") or device),
+        dtype=str(spec.get("dtype") or "bfloat16"),
+        language=str(spec.get("language") or "Chinese"),
+        max_new_tokens=int(spec.get("max_new_tokens") or 256),
+        max_inference_batch_size=int(spec.get("max_inference_batch_size") or 8),
+        prompt=resolve_eval_prompt(),
+    )
+    model_name = str(spec["name"])
+    outputs: List[Dict[str, object]] = []
+    for index, row in enumerate(rows, start=1):
+        try:
+            result = adapter.transcribe(Path(row["clip_path"]))
+            outputs.append(make_result_row(row, spec, result, provider="qwen_local"))
+            latency = f" {result.final_latency_ms:.0f}ms" if result.final_latency_ms is not None else ""
+            print(f"{model_name} {index}/{len(rows)} {row['segment_id']}{latency} {result.text[:50]}", flush=True)
         except Exception as exc:
             if fail_fast:
                 raise
@@ -420,6 +476,8 @@ def run_model(
         return run_funasr_model(spec, rows, device, hub, batch_size_s, fail_fast)
     if provider == "qwen_asr":
         return run_qwen_asr_model(spec, rows, fail_fast)
+    if provider in {"qwen_local", "local_qwen", "qwen3_asr_local"}:
+        return run_qwen_local_model(spec, rows, device, fail_fast)
     if provider == "openai_audio":
         return run_openai_audio_model(spec, rows, fail_fast)
     if provider == "gemini_audio":
@@ -472,7 +530,7 @@ def main() -> None:
     args = parse_args()
     model_names = [item.strip() for item in args.models.split(",") if item.strip()] or None
     specs = load_model_specs(args.config, model_names)
-    rows = read_csv(args.vad_manifest)
+    rows = normalize_manifest_rows(read_csv(args.vad_manifest), args.vad_manifest)
     if args.limit > 0:
         rows = rows[: args.limit]
     if not rows:

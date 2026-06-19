@@ -198,7 +198,7 @@ class KeywordRiskEngine:
         ]
 
     def _match_group(self, lowered: str) -> Optional[Tuple[str, List[str], str, str, str, str, bool, bool]]:
-        for risk_level in ("L1", "L2", "L3", "AUTO", "MANUAL"):
+        for risk_level in ("L1", "L2", "L3", "MANUAL", "AUTO"):
             group = KEYWORD_GROUPS[risk_level]
             hits = [
                 keyword

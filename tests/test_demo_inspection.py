@@ -101,6 +101,25 @@ class DemoInspectionTests(unittest.TestCase):
         self.assertEqual(15, len(items))
         self.assertTrue(all(not str(item["ship_name"]).startswith("MMSI_") for item in items))
 
+    def test_nearby_ships_returns_named_targets_by_distance(self) -> None:
+        simulator = InspectionTaskSimulator(ws_manager=DummyWSManager(), playback_speed=1000.0)
+        simulator._ships = [
+            InspectionShip("risk", "高危船", 5000, 6.0, "杂货船", "", "", 121.88, 29.92),
+            InspectionShip("near", "附近船", 5000, 6.0, "杂货船", "", "", 121.881, 29.92),
+            InspectionShip("far", "远处船", 5000, 6.0, "杂货船", "", "", 122.1, 30.1),
+            InspectionShip("hidden", "MMSI_123456789", 5000, 6.0, "杂货船", "", "", 121.8805, 29.92),
+        ]
+
+        items = simulator.nearby_ships(
+            lng=121.88,
+            lat=29.92,
+            radius_m=1000,
+            exclude_ship_id="risk",
+        )
+
+        self.assertEqual(["附近船"], [item["ship_name"] for item in items])
+        self.assertLess(items[0]["distance_m"], 200)
+
 
 if __name__ == "__main__":
     unittest.main()
