@@ -509,21 +509,20 @@
     .mini-actions button, button.tiny { width: auto; min-height: 0; padding: 7px 10px; border-radius: 12px; font-size: 12px; }
     .stream-test-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
       gap: 10px;
       margin-top: 10px;
     }
     .stream-test-card {
       border-radius: 18px;
-      padding: 12px;
-      background: rgba(255,255,255,.12);
-      border: 1px solid rgba(125,211,252,.20);
+      padding: 14px;
+      background: rgba(248,252,255,.94);
+      border: 1px solid rgba(145,190,236,.62);
       display: grid;
-      gap: 8px;
-      color: #eaf3ff;
+      gap: 10px;
+      color: #173a61;
     }
-    .stream-test-card b { font-size: 13px; color: #fff; }
-    .stream-test-card span { color: rgba(234,243,255,.68); font-size: 12px; line-height: 1.45; }
+    .stream-test-card b { font-size: 14px; color: #102d4d; }
+    .stream-test-card span { color: #607995; font-size: 12px; line-height: 1.5; }
     .stream-test-card select,
     .stream-test-card button {
       min-height: 34px;
@@ -545,11 +544,45 @@
     .stream-metric {
       border-radius: 14px;
       padding: 8px;
-      background: rgba(4,18,40,.58);
-      border: 1px solid rgba(125,211,252,.14);
+      background: rgba(235,245,255,.92);
+      border: 1px solid rgba(145,190,236,.46);
     }
-    .stream-metric small { display: block; color: rgba(234,243,255,.58); font-size: 11px; }
-    .stream-metric strong { display: block; margin-top: 3px; color: #fff; font-size: 14px; }
+    .stream-metric small { display: block; color: #6b829d; font-size: 11px; }
+    .stream-metric strong { display: block; margin-top: 3px; color: #0754c9; font-size: 14px; }
+    .source-mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 5px;
+      border-radius: 16px;
+      background: rgba(225,238,252,.92);
+      border: 1px solid rgba(145,190,236,.46);
+    }
+    .source-mode-btn {
+      min-height: 42px;
+      border-radius: 12px;
+      color: #315474;
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+    }
+    .source-mode-btn.active {
+      color: #fff;
+      background: linear-gradient(135deg, #1677ff, #00a9e8);
+      box-shadow: 0 8px 20px rgba(22,119,255,.20);
+    }
+    .source-mode-panel { display: none; }
+    .source-mode-panel.active { display: grid; }
+    .source-mode-heading { display: grid; gap: 3px; }
+    .source-file-row {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .source-file-row input { min-width: 0; }
+    .source-runtime-summary { margin-top: 0; }
+    .legacy-controls { display: none !important; }
     .business-event-card {
       border-radius: 20px;
       padding: 14px;
@@ -1273,7 +1306,7 @@
 
       <section class="page voice-page streaming-agent active" id="voicePage">
         <section class="panel agent-map-panel">
-          <div class="panel-head"><h2>连续语音输入</h2><span class="pill green">实时守听</span></div>
+          <div class="panel-head"><h2>语音来源与实时转写</h2><span class="pill green">持续守听</span></div>
           <div class="agent-panel-body">
             <div class="stream-card voice-input-card">
               <div class="stream-head">
@@ -1307,68 +1340,75 @@
                 <div class="chunk-rail">
                   <div class="subtle">音频片段</div>
                   <div class="chunk-list" id="audioChunkList">
-                    <div class="chunk-item"><div class="chunk-dot"></div><div class="chunk-meta"><b>等待连续语音</b><span>点击“真实测试集守听”开始</span></div><small>--</small></div>
+                    <div class="chunk-item"><div class="chunk-dot"></div><div class="chunk-meta"><b>等待连续语音</b><span>选择长音频演示或现场麦克风</span></div><small>--</small></div>
                   </div>
                 </div>
               </div>
-              <div class="agent-source-grid">
-                <select id="inputMode">
-                  <option value="mic">现场麦克风</option>
-                  <option value="upload">上传录音</option>
-                  <option value="stream">模拟流式</option>
-                </select>
-                <input id="audioFile" type="file" accept="audio/*" />
-                <button id="runDemoBtn">开始识别</button>
-                <audio class="audio-player" id="audioPlayer" controls></audio>
-              </div>
-              <div class="mini-actions">
-                <button class="secondary" id="continuousDemoBtn">真实测试集守听</button>
-                <button class="secondary" id="riskDemoBtn">高危样例</button>
-                <button class="secondary" id="normalDemoBtn">常规样例</button>
+              <div class="source-mode-switch" aria-label="语音来源">
+                <button class="source-mode-btn active" id="replayModeBtn" type="button">长音频流式演示</button>
+                <button class="source-mode-btn" id="micModeBtn" type="button">现场麦克风守听</button>
               </div>
               <div class="stream-test-grid">
-                <div class="stream-test-card">
-                  <b>现场麦克风流式测试</b>
-                  <span id="liveMicStatus">待启动 · 每个 chunk 立即进入智能体链路</span>
+                <div class="stream-test-card source-mode-panel" id="micModePanel">
+                  <div class="source-mode-heading">
+                    <b>现场麦克风实时守听</b>
+                    <span>直接采集现场声音，持续发送短音频帧并增量显示识别结果。</span>
+                  </div>
+                  <span id="liveMicStatus">待启动 · 请允许浏览器使用麦克风</span>
                   <div class="stream-control-row">
                     <select id="liveChunkMs">
-                      <option value="500">500ms</option>
-                      <option value="1000" selected>1000ms</option>
-                      <option value="2000">2000ms</option>
+                      <option value="500">低延迟 500ms</option>
+                      <option value="1000" selected>稳定 1000ms</option>
+                      <option value="2000">清晰 2000ms</option>
                     </select>
-                    <button class="secondary" id="startLiveMicBtn">启动麦克风流</button>
-                    <button class="secondary" id="stopLiveMicBtn">停止</button>
+                    <button id="startLiveMicBtn">开始现场守听</button>
+                    <button class="secondary" id="stopLiveMicBtn">停止守听</button>
                   </div>
                   <div class="stream-metrics">
                     <div class="stream-metric"><small>片段数</small><strong id="streamChunkCount">0</strong></div>
-                    <div class="stream-metric"><small>最新延迟</small><strong id="latestLatency">--</strong></div>
                     <div class="stream-metric"><small>平均延迟</small><strong id="avgLatency">--</strong></div>
+                    <div class="stream-metric"><small>麦克风状态</small><strong>实时</strong></div>
                   </div>
                 </div>
-                <div class="stream-test-card">
-                  <b>长音频回放流式测试</b>
-                  <span id="replayStatus">选择长音频后按时间线切片，模拟真实甚高频守听</span>
-                  <div class="stream-control-row">
-                    <select id="replayChunkMs">
-                      <option value="1000" selected>1秒片段</option>
-                      <option value="2000">2秒片段</option>
-                      <option value="3000">3秒片段</option>
-                    </select>
+                <div class="stream-test-card source-mode-panel active" id="replayModePanel">
+                  <div class="source-mode-heading">
+                    <b>长音频模拟流式守听</b>
+                    <span>播放原音的同时，通过 WebSocket 持续返回文字并自动分类、处置和归档。</span>
+                  </div>
+                  <div class="source-file-row">
+                    <input id="audioFile" type="file" accept="audio/*" />
                     <select id="replaySpeed">
-                      <option value="1">1x</option>
-                      <option value="2" selected>2x</option>
-                      <option value="4">4x</option>
+                      <option value="1" selected>原速 1x</option>
+                      <option value="2">加速 2x</option>
+                      <option value="4">加速 4x</option>
                     </select>
-                    <button class="secondary" id="startReplayBtn">启动回放流</button>
+                  </div>
+                  <audio class="audio-player" id="audioPlayer" controls></audio>
+                  <span id="replayStatus">请选择长音频，然后开始流式演示</span>
+                  <div class="stream-control-row">
+                    <button id="startReplayBtn">开始流式演示</button>
                     <button class="secondary" id="pauseReplayBtn">暂停</button>
                     <button class="secondary" id="stopReplayBtn">停止</button>
                   </div>
                   <div class="stream-metrics">
                     <div class="stream-metric"><small>回放位置</small><strong id="replayPosition">00:00</strong></div>
-                    <div class="stream-metric"><small>处理积压</small><strong id="streamBacklog">0</strong></div>
-                    <div class="stream-metric"><small>当前状态</small><strong id="streamSourceStatus">待命</strong></div>
+                    <div class="stream-metric"><small>首字延迟</small><strong id="latestLatency">--</strong></div>
+                    <div class="stream-metric"><small>识别方式</small><strong>真流式</strong></div>
                   </div>
                 </div>
+              </div>
+              <div class="stream-metrics source-runtime-summary">
+                <div class="stream-metric"><small>当前语音来源</small><strong id="streamSourceStatus">待命</strong></div>
+                <div class="stream-metric"><small>处理积压</small><strong id="streamBacklog">0</strong></div>
+                <div class="stream-metric"><small>业务链路</small><strong>分析并归档</strong></div>
+              </div>
+              <div class="legacy-controls" aria-hidden="true">
+                <select id="inputMode"><option value="stream" selected>模拟流式</option><option value="mic">现场麦克风</option><option value="upload">上传录音</option></select>
+                <select id="replayChunkMs"><option value="1000" selected>1秒片段</option></select>
+                <button id="runDemoBtn" type="button">开始识别</button>
+                <button id="continuousDemoBtn" type="button">真实测试集守听</button>
+                <button id="riskDemoBtn" type="button">高危样例</button>
+                <button id="normalDemoBtn" type="button">常规样例</button>
               </div>
             </div>
 
@@ -1404,7 +1444,7 @@
         </section>
 
         <section class="panel agent-core-panel">
-          <div class="panel-head"><h2>智能体认知核心</h2><span class="pill">流式推理</span></div>
+          <div class="panel-head"><h2>实时分析与业务判断</h2><span class="pill">流式推理</span></div>
           <div class="agent-panel-body">
             <div class="agent-state-card agent-runtime-card">
               <div class="agent-core-meta">
@@ -1459,7 +1499,7 @@
         </section>
 
         <section class="panel agent-action-panel">
-          <div class="panel-head"><h2>分类与动作引擎</h2><span class="pill">动作队列</span></div>
+          <div class="panel-head"><h2>分类、处置与记录</h2><span class="pill">闭环执行</span></div>
           <div class="agent-panel-body">
             <div class="classification-streams">
               <div class="classification-stream" id="streamEmergency"><b>高危告警</b><strong id="riskLabel">否</strong><span>等待事件输入</span></div>
@@ -1747,8 +1787,30 @@
     function updateInputVisualMode(mode = $("inputMode")?.value || "stream") {
       const voicePage = $("voicePage");
       if (!voicePage) return;
-      voicePage.classList.toggle("mic-visual", mode === "mic");
-      voicePage.classList.toggle("stream-visual", mode !== "mic");
+      const normalizedMode = mode === "mic" ? "mic" : "stream";
+      if ($("inputMode")) $("inputMode").value = normalizedMode;
+      voicePage.classList.toggle("mic-visual", normalizedMode === "mic");
+      voicePage.classList.toggle("stream-visual", normalizedMode === "stream");
+      $("micModePanel")?.classList.toggle("active", normalizedMode === "mic");
+      $("replayModePanel")?.classList.toggle("active", normalizedMode === "stream");
+      $("micModeBtn")?.classList.toggle("active", normalizedMode === "mic");
+      $("replayModeBtn")?.classList.toggle("active", normalizedMode === "stream");
+      if (!state.streaming.activeSource && $("listenTitle")) {
+        $("listenTitle").textContent = normalizedMode === "mic"
+          ? "麦克风已就绪，等待开始守听"
+          : "长音频已就绪，等待流式回放";
+      }
+    }
+    async function selectStreamingSourceMode(mode) {
+      const normalizedMode = mode === "mic" ? "mic" : "stream";
+      if ($("inputMode")) $("inputMode").value = normalizedMode;
+      if (normalizedMode === "mic") {
+        stopLongAudioReplay();
+      } else if (state.mic?.active) {
+        await stopLiveMicStream();
+      }
+      updateInputVisualMode(normalizedMode);
+      renderStreamingStatus();
     }
     function toast(message, error = false) {
       $("toast").textContent = message;
@@ -1959,7 +2021,7 @@
     }
     function renderAudioChunks() {
       const chunks = state.audioChunks.length ? state.audioChunks : [
-        { chunk_id: "placeholder", filename: "等待连续语音", timestamp: "--", status: "等待", confidence: "--", asr_text: "点击“真实测试集守听”开始" },
+        { chunk_id: "placeholder", filename: "等待连续语音", timestamp: "--", status: "等待", confidence: "--", asr_text: "选择长音频演示或现场麦克风" },
       ];
       $("audioChunkList").innerHTML = chunks.map((chunk) => `
         <div class="chunk-item ${chunk.chunk_id === state.selectedAgentEvent?.source_chunk_id ? "active" : ""}" data-chunk-id="${chunk.chunk_id}">
@@ -3515,7 +3577,7 @@
       throw new Error("长音频守听任务等待超时");
     }
     async function startLongAudioReplay(file) {
-      if (!file) throw new Error("请先在上传录音处选择一段长音频");
+      if (!file) throw new Error("请先选择一段长音频");
       await stopLiveMicStream();
       updateInputVisualMode("stream");
       const chunkSizeMs = Number($("replayChunkMs")?.value || 1000);
@@ -4215,6 +4277,8 @@
 
     document.querySelectorAll(".nav-btn").forEach((btn) => btn.addEventListener("click", () => setPage(btn.dataset.page)));
     $("inputMode").addEventListener("change", () => updateInputVisualMode($("inputMode").value));
+    $("replayModeBtn").addEventListener("click", () => selectStreamingSourceMode("stream").catch((error) => toast(error.message, true)));
+    $("micModeBtn").addEventListener("click", () => selectStreamingSourceMode("mic").catch((error) => toast(error.message, true)));
     $("runDemoBtn").addEventListener("click", async () => { try { $("inputMode").value === "mic" ? await toggleMic() : await runFileRecognition(); } catch (error) { toast(`识别失败：${error.message}`, true); } });
     $("micBtn").addEventListener("click", toggleMic);
     $("startLiveMicBtn").addEventListener("click", () => startLiveMicStream().catch((error) => toast(`麦克风流启动失败：${error.message}`, true)));
