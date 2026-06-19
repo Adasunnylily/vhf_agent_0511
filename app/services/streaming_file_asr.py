@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass
 from http import HTTPStatus
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.config import settings
 from app.services.asr_prompts import ensure_dashscope_api_key_in_env
@@ -215,6 +215,8 @@ def run_dashscope_streaming_file(
     audio_path: Path,
     *,
     adapter: DashScopeParaformerASRAdapter,
+    on_partial: Optional[Callable[[str, bool, Dict[str, Any]], None]] = None,
+    playback_speed: float = 1.0,
 ) -> ASRResult:
     try:
         from dashscope.audio.asr import Recognition, RecognitionCallback, RecognitionResult
@@ -255,7 +257,10 @@ def run_dashscope_streaming_file(
                 if self.first_text_ts is None:
                     self.first_text_ts = time.perf_counter()
                 self.latest_text = text
-                if RecognitionResult.is_sentence_end(row):
+                is_final = RecognitionResult.is_sentence_end(row)
+                if on_partial is not None:
+                    on_partial(text, is_final, row)
+                if is_final:
                     self.sentences.append(
                         {
                             "text": text,
@@ -293,7 +298,7 @@ def run_dashscope_streaming_file(
     try:
         for chunk in pcm_chunks:
             recognition.send_audio_frame(chunk)
-            time.sleep(chunk_ms / 1000)
+            time.sleep(chunk_ms / 1000 / max(0.1, playback_speed))
     finally:
         recognition.stop()
 

@@ -3439,6 +3439,27 @@
         const replay = state.streaming.replay;
         if (!replay || replay.taskId !== taskId) return null;
         const task = await request(`/api/tasks/${taskId}`);
+        const partialText = String(task.meta?.cumulative_text || task.meta?.partial_text || "").trim();
+        if (partialText && partialText !== replay.lastPartialText) {
+          replay.lastPartialText = partialText;
+          $("asrText").textContent = partialText;
+          $("asrStatus").textContent = "WebSocket 实时听写";
+          receivePartialAsr({
+            chunkId: `partial_${taskId}`,
+            sourceType: "long_audio",
+            durationMs: Math.max(100, (replay.audio.currentTime || 0) * 1000),
+            startTime: 0,
+            endTime: (replay.audio.currentTime || 0) * 1000,
+          }, partialText);
+          if (task.meta?.early_risk_term && replay.earlyRiskTerm !== task.meta.early_risk_term) {
+            replay.earlyRiskTerm = task.meta.early_risk_term;
+            appendGlobalTimeline({
+              time: nowLabel(),
+              title: "partial文本触发高危预警",
+              detail: `命中：${task.meta.early_risk_term}`,
+            });
+          }
+        }
         const segments = task.segments || [];
         const visibleUntilMs = replay.audio.ended
           ? Number.POSITIVE_INFINITY
@@ -3494,6 +3515,9 @@
         processedSegmentIds: new Set(),
         transcripts: [],
         lastEndMs: null,
+        lastPartialText: "",
+        earlyRiskTerm: "",
+        trueStreaming: false,
       };
       resetVoiceWorkflow("长音频回放流式测试已启动...");
       $("replayStatus").textContent = `回放中 · ${file.name} · chunk=${chunkSizeMs}ms · ${speed}x`;
@@ -3508,10 +3532,22 @@
         $("replayPosition").textContent = formatDuration(positionMs / 1000);
         setLevel(Math.min(1, 0.28 + (Math.sin(positionMs / 800) + 1) * 0.22).toFixed(2));
       }, Math.max(250, chunkSizeMs / speed));
-      const payload = await request("/api/stream/upload", {
-        method: "POST",
-        body: form({ file, channel_id: channelId(), denoise_mode: "off" }),
-      });
+      let payload;
+      try {
+        payload = await request("/api/streaming/replay", {
+          method: "POST",
+          body: form({ file, channel_id: channelId(), playback_speed: speed }),
+        });
+        state.streaming.replay.trueStreaming = true;
+        $("replayStatus").textContent = `WebSocket 真流式回放已启动 · ${file.name} · ${speed}x`;
+      } catch (streamError) {
+        payload = await request("/api/stream/upload", {
+          method: "POST",
+          body: form({ file, channel_id: channelId(), denoise_mode: "off" }),
+        });
+        $("replayStatus").textContent = `当前模型不支持 partial，已降级为 VAD 段级增量识别 · ${file.name}`;
+        appendGlobalTimeline({ time: nowLabel(), title: "流式模式降级", detail: streamError.message });
+      }
       state.streaming.replay.taskId = payload.task_id;
       pollLongReplayTask(payload.task_id).catch((error) => {
         $("replayStatus").textContent = `真实流式识别失败：${error.message}`;

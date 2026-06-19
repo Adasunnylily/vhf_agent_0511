@@ -33,10 +33,12 @@ from app.main import (
     ws_manager,
 )
 from app.services.asr_compare import list_asr_compare_options
+from app.services.asr import DashScopeParaformerASRAdapter
 from app.services.ais_risk_analyzer import AISRiskAnalyzer
 from app.services.demo_inspection import InspectionShip
 from app.services.maritime_keywords import extract_maritime_keywords
-from app.services.risk_engine import KeywordRiskEngine
+from app.services.risk_engine import KEYWORD_GROUPS, KeywordRiskEngine
+from app.services.streaming_file_asr import run_dashscope_streaming_file
 from app.services.vhf_dialogue import build_vhf_dialogue_review, postprocess_vhf_dialogue
 
 router = APIRouter(prefix="/api")
@@ -1390,6 +1392,145 @@ async def upload_true_streaming(
             if settings.asr_provider == "qwen_api"
             else "paraformer_streaming"
         ),
+    }
+
+
+@router.post("/streaming/replay")
+async def upload_websocket_streaming_replay(
+    file: UploadFile = File(...),
+    channel_id: str = Form("vhf_demo_01"),
+    playback_speed: float = Form(1.0),
+) -> Dict[str, str]:
+    if not isinstance(shared_asr, DashScopeParaformerASRAdapter):
+        raise HTTPException(
+            status_code=400,
+            detail="当前 ASR Provider 不支持 DashScope WebSocket partial 流式回放。",
+        )
+    task = task_manager.create(filename=file.filename or "stream.wav", channel_id=channel_id)
+    saved_path = storage.save_upload(file.file, file.filename or "stream.wav")
+
+    def runner() -> None:
+        prepared = preprocessor.prepare(file_path=saved_path, enable_denoise=False)
+        processed_path = Path(prepared.processed_path) if prepared.processed_path else saved_path
+        partial_state: Dict[str, Any] = {"finalized": [], "latest": ""}
+
+        def on_partial(text: str, is_final: bool, row: Dict[str, Any]) -> None:
+            if is_final:
+                if not partial_state["finalized"] or partial_state["finalized"][-1] != text:
+                    partial_state["finalized"].append(text)
+                partial_state["latest"] = ""
+            else:
+                partial_state["latest"] = text
+            pieces = [*partial_state["finalized"]]
+            if partial_state["latest"]:
+                pieces.append(partial_state["latest"])
+            cumulative_text = "，".join(piece for piece in pieces if piece)
+            high_risk_term = next(
+                (
+                    keyword
+                    for keyword in KEYWORD_GROUPS["L1"]["keywords"]  # type: ignore[index]
+                    if str(keyword).lower() in cumulative_text.lower()
+                ),
+                "",
+            )
+            task_manager.update(
+                task.id,
+                status="running",
+                segments=[],
+                events=[],
+                meta={
+                    "mode": "dashscope_websocket_partial",
+                    "partial_text": text,
+                    "cumulative_text": cumulative_text,
+                    "partial_is_final": is_final,
+                    "early_risk_term": high_risk_term,
+                    "row": row,
+                },
+            )
+
+        result = run_dashscope_streaming_file(
+            processed_path,
+            adapter=shared_asr,
+            on_partial=on_partial,
+            playback_speed=max(0.1, min(playback_speed, 4.0)),
+        )
+        sentence_rows = list(result.sentences or [])
+        if not sentence_rows:
+            sentence_rows = [
+                {
+                    "text": result.text,
+                    "begin_time": 0,
+                    "end_time": int(result.audio_duration_ms or 0),
+                }
+            ]
+
+        segments: List[AudioSegment] = []
+        events: List[Any] = []
+        cursor_ms = 0
+        for index, sentence in enumerate(sentence_rows):
+            text = str(sentence.get("text") or "").strip()
+            if not text:
+                continue
+            start_ms = int(float(sentence.get("begin_time") or sentence.get("start_time") or cursor_ms))
+            end_ms = int(float(sentence.get("end_time") or max(start_ms + 1, cursor_ms)))
+            if end_ms <= start_ms:
+                end_ms = start_ms + 1000
+            cursor_ms = end_ms
+            resolution = entity_resolver.resolve(text)
+            dialogue = postprocess_vhf_dialogue(
+                resolution.resolved_text,
+                asr_sentences=[sentence],
+                entity_candidates=[candidate.to_dict() for candidate in resolution.candidates],
+            )
+            segment = AudioSegment(
+                id=f"seg_{uuid.uuid4().hex[:12]}",
+                channel_id=channel_id,
+                file_path=str(processed_path),
+                clip_path=str(processed_path),
+                start_ms=start_ms,
+                end_ms=end_ms,
+                duration_ms=end_ms - start_ms,
+                text=text,
+                confidence=result.confidence,
+                keywords=_extract_keywords(dialogue.resolved_text),
+                engine=result.engine,
+                resolved_text=dialogue.resolved_text,
+                entities=[candidate.to_dict() for candidate in resolution.candidates],
+                asr_sentences=[sentence],
+            )
+            segments.append(segment)
+            events.extend(mic_risk_engine.evaluate(segment))
+
+        event_payloads = _enrich_event_payloads([event.to_dict() for event in events], segments)
+        persisted_events = _persist_decisions(
+            source_type="stream_replay",
+            audio_path=str(processed_path),
+            segments=segments,
+            events=event_payloads,
+        )
+        task_manager.update(
+            task.id,
+            status="completed",
+            segments=[segment.to_dict() for segment in segments],
+            events=persisted_events,
+            meta={
+                "mode": "dashscope_websocket_partial",
+                "partial_text": result.text,
+                "cumulative_text": result.text,
+                "partial_is_final": True,
+                "ttft_ms": result.ttft_ms,
+                "final_latency_ms": result.final_latency_ms,
+                "audio_duration_ms": result.audio_duration_ms,
+                "chunk_count": result.chunk_count,
+            },
+        )
+
+    task_manager.run_async(task.id, runner)
+    return {
+        "task_id": task.id,
+        "status": "queued",
+        "channel_id": channel_id,
+        "mode": "dashscope_websocket_partial",
     }
 
 
