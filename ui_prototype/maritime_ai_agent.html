@@ -1452,7 +1452,10 @@
             <div class="stream-card">
               <div class="stream-head">
                 <h3>实时草稿转写</h3>
-                <span class="pill" id="decisionStatus">监听中</span>
+                <div class="mini-actions">
+                  <span class="pill" id="decisionStatus">监听中</span>
+                  <button class="secondary" id="clearVoiceWorkspaceBtn" type="button">清空本次测试</button>
+                </div>
               </div>
               <div class="text-box agent-transcript" id="asrText" contenteditable="true">等待语音输入</div>
               <div class="entity-grid">
@@ -1805,6 +1808,8 @@
         latencies: [],
         chunkSeq: 0,
         replay: null,
+        runToken: 0,
+        partialTextBySource: {},
       },
     };
     const fallbackShips = [
@@ -1855,6 +1860,14 @@
       }
       updateInputVisualMode(normalizedMode);
       renderStreamingStatus();
+    }
+    function beginStreamingRun(source) {
+      state.streaming.runToken += 1;
+      state.streaming.activeSource = source;
+      state.streaming.queue = [];
+      state.streaming.activeRequests = 0;
+      state.streaming.partialTextBySource = {};
+      return state.streaming.runToken;
     }
     function toast(message, error = false) {
       $("toast").textContent = message;
@@ -1922,7 +1935,17 @@
         suggested_action: event.suggested_action || event.broadcast_text || "",
         executed_action: event.executed_action || "",
         raw: event,
+        dedupe_key: event.dedupe_key || "",
       };
+      if (entry.dedupe_key) {
+        const existingIndex = state.agentEvents.findIndex((item) => item.dedupe_key === entry.dedupe_key);
+        if (existingIndex >= 0) {
+          state.agentEvents = state.agentEvents.map((item, index) => index === existingIndex ? entry : item).slice(-120);
+          state.selectedAgentEvent = entry;
+          renderStreamingAgentConsole();
+          return entry;
+        }
+      }
       state.agentEvents = [...state.agentEvents, entry].slice(-120);
       state.selectedAgentEvent = entry;
       renderStreamingAgentConsole();
@@ -2005,7 +2028,12 @@
       renderBusinessEventArchive();
     }
     function renderAgentThinkingTrace() {
-      const events = state.agentEvents.slice(-12);
+      const visibleStages = new Set([
+        "speech_detected", "partial_asr", "asr_completed", "utterance_finalized",
+        "intent_classified", "risk_scored", "early_risk_detected", "decision_triggered",
+        "action_executed", "event_refining", "event_refined", "archive",
+      ]);
+      const events = state.agentEvents.filter((event) => visibleStages.has(event.stage)).slice(-10);
       if (!events.length) {
         $("reasoningTrace").innerHTML = `
           <span>[步骤 1] 等待甚高频语音信号</span>
@@ -2017,11 +2045,15 @@
         return;
       }
       $("reasoningTrace").innerHTML = events.map((event, index) => `
-        <span class="${event.event_id === state.selectedAgentEvent?.event_id ? "active" : ""}" data-event-id="${event.event_id}">[步骤 ${index + 1}] ${event.title} · ${event.detail || event.intent || ""}</span>
+        <span class="${event.event_id === state.selectedAgentEvent?.event_id ? "active" : ""}" data-event-id="${event.event_id}">[步骤 ${index + 1}] ${event.title} · ${traceDetail(event)}</span>
       `).join("");
       document.querySelectorAll("#reasoningTrace [data-event-id]").forEach((row) => {
         row.addEventListener("click", () => openAgentInspector(row.dataset.eventId));
       });
+    }
+    function traceDetail(event) {
+      const text = String(event.detail || event.intent || "").replace(/\s+/g, " ").trim();
+      return text.length > 72 ? `${text.slice(0, 72)}…` : text;
     }
     function renderClassificationStreams() {
       const cfg = [
@@ -2093,8 +2125,9 @@
     function setEventState(nextState, detail = "") {
       state.eventState = nextState;
       if ($("businessEventState")) $("businessEventState").textContent = nextState;
-      appendAgentEvent({ stage: nextState.toLowerCase(), title: `状态：${nextState}`, detail });
-      appendGlobalTimeline({ time: nowLabel(), title: `状态切换 ${nextState}`, detail });
+      if (nextState !== "UTTERANCE_STREAMING") {
+        appendGlobalTimeline({ time: nowLabel(), title: `状态切换 ${nextState}`, detail });
+      }
     }
     function extractShipFromText(text = "") {
       const known = [...new Set([
@@ -2129,6 +2162,7 @@
         aisContext: {},
         inspectionContext: {},
         autoReplySpoken: false,
+        runToken: state.streaming.runToken,
       };
       if (chunk) event.audioChunks.push(chunk);
       state.activeBusinessEvent = event;
@@ -2208,7 +2242,19 @@
       const event = ensureBusinessEvent(chunk, text);
       setEventState("UTTERANCE_STREAMING", text);
       triggerEarlyRiskIfNeeded(event, text);
-      appendAgentEvent({ stage: "partial_asr", title: "partial ASR", detail: text, asr_text: text, chunk_id: chunk.chunkId, intent: event.intent, risk_score: event.riskScore.toFixed(2) });
+      const previous = state.streaming.partialTextBySource[chunk.chunkId] || "";
+      const delta = text.startsWith(previous) ? text.slice(previous.length).trim() : text;
+      state.streaming.partialTextBySource[chunk.chunkId] = text;
+      appendAgentEvent({
+        stage: "partial_asr",
+        title: "实时听写中",
+        detail: delta || text.slice(-36),
+        asr_text: text,
+        chunk_id: chunk.chunkId,
+        intent: event.intent,
+        risk_score: event.riskScore.toFixed(2),
+        dedupe_key: `partial:${chunk.chunkId}`,
+      });
       renderStreamingAgentConsole();
     }
     function handleFinalUtterance(chunk, text, payload = {}) {
@@ -2309,6 +2355,7 @@
             confidence: 0.85,
           }),
         });
+        if (event.runToken !== state.streaming.runToken) return;
         const decision = refinement.event || {};
         const classification = classifyDecisionPayload({ event: decision }, refinement.resolved_text || "");
         if (event.riskLevel !== "L1") {
@@ -2343,6 +2390,7 @@
         });
         appendGlobalTimeline({ time: nowLabel(), title: "事件精修完成", detail: `${decision.business_type || "other_business"} · ${decision.summary || "已重新分类"}` });
       } catch (error) {
+        if (event.runToken !== state.streaming.runToken) return;
         if ($("refinementStatus")) $("refinementStatus").textContent = "精修降级";
         $("refinedAsrText").textContent = event.utterances.map((item) => item.text).join("\n") || "无有效文本";
         appendGlobalTimeline({ time: nowLabel(), title: "事件精修降级", detail: `${error.message} · 使用实时结果归档` });
@@ -2571,9 +2619,11 @@
       state.actionQueue = [];
       state.globalTimeline = [];
       state.selectedAgentEvent = null;
+      state.streaming.partialTextBySource = {};
       state.lastContinuousCount = 0;
       state.eventState = "IDLE_LISTENING";
       state.activeBusinessEvent = null;
+      state.businessEvents = [];
       clearTimeout(state.eventCloseTimer);
       renderStreamingAgentConsole();
       resetAgentRuntime();
@@ -3336,34 +3386,6 @@
       renderStreamingStatus();
       return { totalMs, uploadMs };
     }
-    const mockAsrSamples = [
-      { text: "宁波舟山交管，港顺177叫。", intent: "other_business", risk: 0.26, ship: "港顺177", auto: false },
-      { text: "交管晚上好，港顺177由北向南进入四号警戒区，去马峙锚地，向你报备。", intent: "other_business", risk: 0.46, ship: "港顺177", auto: false },
-      { text: "宁波交管，锦龙228接码头通知，今早晨不抛锚了，直接进去。", intent: "routine_report", risk: 0.18, ship: "锦龙228", auto: true },
-      { text: "交管晚上好，宁远梅山作业完毕，申请离泊。", intent: "departure_request", risk: 0.68, ship: "宁远梅山", auto: false },
-      { text: "交管，前方船速突然下降，请求协助避让。", intent: "other_business", risk: 0.56, ship: "待确认船舶", auto: false },
-      { text: "交管，我船机舱冒烟，需要立即协助。", intent: "emergency_risk", risk: 0.92, ship: "待确认船舶", auto: false },
-    ];
-    function mockAsrForChunk(chunk) {
-      const sample = mockAsrSamples[chunk.index % mockAsrSamples.length];
-      return {
-        status: "mocked",
-        text: sample.text,
-        resolved_text: sample.text,
-        cumulative_text: `${$("asrText").textContent === "等待语音输入" ? "" : $("asrText").textContent}\n${sample.text}`.trim(),
-        dialogue_review_text: `[${sample.ship === "待确认船舶" ? "待确认船方" : sample.ship}] ${sample.text}`,
-        confidence: "mock",
-        events: [{
-          business_type: sample.intent,
-          risk_level: sample.risk >= 0.85 ? "L1" : sample.risk >= 0.4 ? "L2" : "INFO",
-          confidence: sample.risk.toFixed(2),
-          is_auto_reply: sample.auto,
-          requires_human_review: !sample.auto,
-          summary: sample.risk >= 0.85 ? "高危关键词触发" : sample.auto ? "常规报告可自动回复" : "需持续监听或人工复核",
-          ais_context: { ship_name: sample.ship },
-        }],
-      };
-    }
     function chunkEventFromPayload(payload, chunk) {
       const event = chooseEvent(payload.events || []) || {};
       const intent = event.business_type || event.intent || "other_business";
@@ -3377,9 +3399,15 @@
       };
     }
     function applyChunkAsrResult(chunk, payload, source = "backend") {
+      if (chunk.runToken !== state.streaming.runToken) return;
       chunk.asrReturnedAt = performance.now();
       const routedPayload = chunkEventFromPayload(payload, chunk);
-      const text = routedPayload.text || mockAsrForChunk(chunk).text;
+      const text = routedPayload.text;
+      if (!text) {
+        appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "未识别到语音", confidence: "--", summary: "后端未返回有效文本" });
+        renderStreamingAgentConsole();
+        return;
+      }
       handleFinalUtterance(chunk, text, {
         ...payload,
         decisionEvent: routedPayload.event,
@@ -3387,23 +3415,23 @@
       });
       if (routedPayload.event?.ais_context) showAis(routedPayload.event.ais_context);
       applyInspectionContext(routedPayload.event || {});
-      chunk.status = source === "mock" ? "asr_partial" : "asr_final";
+      chunk.status = "asr_final";
       chunk.asr_text = text;
-      chunk.confidence = source === "mock" ? "mock" : (payload.confidence || routedPayload.event.confidence || "0.82");
+      chunk.confidence = payload.confidence || routedPayload.event.confidence || "0.82";
       appendAudioChunk({
         chunk_id: chunk.chunkId,
         index: chunk.index,
         filename: chunk.filename,
         timestamp: nowLabel(),
-        status: source === "mock" ? "模拟识别" : "识别完成",
+        status: "识别完成",
         confidence: chunk.confidence,
         asr_text: text,
         matched_ship: routedPayload.event?.ais_context?.ship_name || "",
-        summary: source === "mock" ? "后端未及时返回，使用前端模拟 ASR 保持流式演示。" : "后端短片段 ASR 返回。",
+        summary: "后端短片段 ASR 返回。",
       });
       $("asrText").textContent = payload.cumulative_text || `${$("asrText").textContent === "等待语音输入" ? "" : $("asrText").textContent}\n${text}`.trim();
       if (payload.dialogue_review_text) $("dialogueEdit").textContent = payload.dialogue_review_text;
-      $("asrStatus").textContent = source === "mock" ? "模拟听写" : "实时听写";
+      $("asrStatus").textContent = "实时听写";
       $("intentText").textContent = intentLabel(routedPayload.intent);
       $("shipText").textContent = routedPayload.event?.ais_context?.ship_name || $("shipText").textContent || "待匹配";
       $("copilotRiskScore").textContent = routedPayload.risk.toFixed(2);
@@ -3421,11 +3449,11 @@
         auto_reply_allowed: routedPayload.autoReplyAllowed,
       });
       state.actionQueue = [...state.actionQueue.slice(-7), action];
+      const businessEventId = state.activeBusinessEvent?.eventId || chunk.chunkId;
       [
-        ["asr_completed", source === "mock" ? "模拟ASR返回" : "ASR返回", text],
+        ["asr_completed", "语音识别完成", text],
         ["intent_classified", "业务意图分类", intentLabel(routedPayload.intent)],
         ["risk_scored", "风险评分", `风险 ${routedPayload.risk.toFixed(2)}`],
-        ["ais_matched", "AIS候选关联", routedPayload.event?.ais_context?.ship_name || "待匹配"],
         ["decision_triggered", "策略分流", classification === "autoReply" ? "自动回复" : classification === "humanReview" ? "人工复核" : classification === "emergency" ? "高危告警" : "持续监听"],
         ["action_executed", "动作队列更新", action.action],
       ].forEach(([stage, title, detail]) => appendAgentEvent({
@@ -3441,13 +3469,15 @@
         decision_reason: action.trigger,
         suggested_action: action.suggested_action,
         executed_action: stage === "action_executed" ? action.action : "",
+        dedupe_key: `${stage}:${businessEventId}`,
       }));
-      appendGlobalTimeline({ time: nowLabel(), title: source === "mock" ? "模拟ASR更新" : "ASR听写更新", detail: text });
+      appendGlobalTimeline({ time: nowLabel(), title: "ASR听写更新", detail: text });
       recordChunkLatency(chunk);
       renderStreamingAgentConsole();
       setFlow(2);
     }
     async function processAudioChunk(chunk) {
+      if (chunk.runToken !== state.streaming.runToken) return;
       appendAudioChunk({
         chunk_id: chunk.chunkId,
         index: chunk.index,
@@ -3463,14 +3493,10 @@
         title: "捕获音频片段",
         detail: `${chunk.sourceType === "mic" ? "现场麦克风" : "长音频回放"} · ${chunk.durationMs}ms`,
         chunk_id: chunk.chunkId,
+        dedupe_key: `speech:${chunk.runToken}`,
       });
       appendGlobalTimeline({ time: nowLabel(), title: "音频片段捕获", detail: chunk.filename });
       setEventState("SPEECH_DETECTED", chunk.filename);
-      setTimeout(() => {
-        const sample = mockAsrForChunk(chunk);
-        const partial = sample.text.slice(0, Math.min(sample.text.length, 18));
-        receivePartialAsr(chunk, partial);
-      }, 260);
       chunk.uploadStartedAt = performance.now();
       appendAudioChunk({
         chunk_id: chunk.chunkId,
@@ -3482,40 +3508,36 @@
         summary: "正在进入短片段 ASR / Agent 推理链路",
       });
       renderStreamingStatus();
-      let usedFallback = false;
-      const fallbackTimer = setTimeout(() => {
-        if (chunk.status === "asr_final") return;
-        usedFallback = true;
-        applyChunkAsrResult(chunk, mockAsrForChunk(chunk), "mock");
-      }, 1200);
       try {
         if (!chunk.blob || chunk.sourceType !== "mic" || !state.mic?.sessionId) {
-          await new Promise((resolve) => setTimeout(resolve, 260));
-          if (!usedFallback) applyChunkAsrResult(chunk, mockAsrForChunk(chunk), "mock");
+          appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "无有效音频", confidence: "--", summary: "未发送至后端" });
           return;
         }
+        const micSessionId = state.mic.sessionId;
         const payload = await request("/api/mic/chunk", {
           method: "POST",
           body: form({
             file: new File([chunk.blob], `stream_${chunk.index}.webm`, { type: chunk.blob.type || "audio/webm" }),
-            session_id: state.mic.sessionId,
+            session_id: micSessionId,
             channel_id: channelId(),
             seq: chunk.index,
             cumulative: false,
           }),
         });
-        clearTimeout(fallbackTimer);
+        if (chunk.runToken !== state.streaming.runToken || !state.mic?.active || state.mic.sessionId !== micSessionId) return;
         if (payload.status === "skipped") {
           chunk.status = "failed";
           appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "跳过空片", confidence: "--", summary: payload.reason || "空音频" });
           renderStreamingAgentConsole();
           return;
         }
-        applyChunkAsrResult(chunk, payload, usedFallback ? "backend_late" : "backend");
+        applyChunkAsrResult(chunk, payload, "backend");
       } catch (error) {
-        clearTimeout(fallbackTimer);
-        if (!usedFallback) applyChunkAsrResult(chunk, mockAsrForChunk(chunk), "mock");
+        if (chunk.runToken !== state.streaming.runToken) return;
+        chunk.status = "failed";
+        appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "识别失败", confidence: "--", summary: error.message });
         appendGlobalTimeline({ time: nowLabel(), title: "短片段ASR失败", detail: error.message });
+        renderStreamingAgentConsole();
       }
     }
     function enqueueAudioChunk(chunk) {
@@ -3526,6 +3548,7 @@
     function drainAudioChunkQueue() {
       while (state.streaming.activeRequests < state.streaming.maxConcurrent && state.streaming.queue.length) {
         const chunk = state.streaming.queue.shift();
+        if (chunk.runToken !== state.streaming.runToken) continue;
         state.streaming.activeRequests += 1;
         processAudioChunk(chunk)
           .finally(() => {
@@ -3549,6 +3572,7 @@
         captureStartedAt: performance.now() - durationMs,
         captureEndedAt: performance.now(),
         filename: `${sourceType === "mic" ? "麦克风" : "长音频"}片段 ${index + 1}`,
+        runToken: state.streaming.runToken,
       };
     }
     function handleMicChunk(blob) {
@@ -3564,17 +3588,25 @@
       updateInputVisualMode("mic");
       if (state.mic) await stopLiveMicStream();
       stopLongAudioReplay();
+      const runToken = beginStreamingRun("现场麦克风");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (runToken !== state.streaming.runToken) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       const result = await request("/api/mic/start", { method: "POST", body: form({ channel_id: channelId(), denoise_mode: "off" }) });
+      if (runToken !== state.streaming.runToken) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       const archiveParts = [];
       const mimeType = bestMicMime();
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       const chunkMs = Math.max(500, Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 1000));
-      state.streaming.activeSource = "现场麦克风";
       state.streaming.chunkSeq = 0;
       state.streaming.queue = [];
       state.streaming.latencies = [];
-      state.mic = { active: true, stream, sessionId: result.session_id, seq: 0, archiveRecorder: recorder, archiveParts, sendChain: Promise.resolve(), liveTimer: null };
+      state.mic = { active: true, stream, sessionId: result.session_id, seq: 0, archiveRecorder: recorder, archiveParts, sendChain: Promise.resolve(), liveTimer: null, runToken };
       recorder.ondataavailable = (event) => {
         if (!event.data.size) return;
         archiveParts.push(event.data);
@@ -3595,6 +3627,7 @@
     }
     async function stopLiveMicStream() {
       if (!state.mic) return;
+      state.streaming.queue = [];
       state.mic.active = false;
       if (state.mic.archiveRecorder?.state !== "inactive") state.mic.archiveRecorder.stop();
       state.mic.stream?.getTracks().forEach((track) => track.stop());
@@ -3704,8 +3737,9 @@
     async function pollLongReplayTask(taskId) {
       for (let attempt = 0; attempt < 1800; attempt += 1) {
         const replay = state.streaming.replay;
-        if (!replay || replay.taskId !== taskId) return null;
+        if (!replay || replay.taskId !== taskId || replay.runToken !== state.streaming.runToken) return null;
         const task = await request(`/api/tasks/${taskId}`);
+        if (state.streaming.replay !== replay || replay.runToken !== state.streaming.runToken) return null;
         const partialText = String(task.meta?.cumulative_text || task.meta?.partial_text || "").trim();
         if (task.meta?.ttft_ms && $("latestLatency")) {
           $("latestLatency").textContent = `${Math.round(Number(task.meta.ttft_ms))}ms`;
@@ -3768,7 +3802,9 @@
       const serverDemo = Boolean(options.serverDemo);
       if (!file && !serverDemo) throw new Error("请先选择一段长音频");
       await stopLiveMicStream();
+      stopLongAudioReplay();
       updateInputVisualMode("stream");
+      const runToken = beginStreamingRun("长音频回放");
       const chunkSizeMs = Number($("replayChunkMs")?.value || 1000);
       const speed = Number($("replaySpeed")?.value || 1);
       const audio = $("audioPlayer");
@@ -3782,7 +3818,6 @@
         if (Number.isFinite(audio.duration) && audio.duration > 0) return resolve();
         audio.onloadedmetadata = () => resolve();
       });
-      state.streaming.activeSource = "长音频回放";
       state.streaming.chunkSeq = 0;
       state.streaming.queue = [];
       state.streaming.latencies = [];
@@ -3803,6 +3838,7 @@
         lastPartialText: "",
         earlyRiskTerm: "",
         trueStreaming: false,
+        runToken,
       };
       resetVoiceWorkflow("长音频回放流式测试已启动...");
       $("replayStatus").textContent = `回放中 · ${fileName} · ${speed}x`;
@@ -3860,6 +3896,7 @@
     function stopLongAudioReplay() {
       const replay = state.streaming.replay;
       if (!replay) return;
+      state.streaming.queue = [];
       clearInterval(replay.timer);
       replay.audio.pause();
       state.streaming.replay = null;
@@ -3867,6 +3904,29 @@
       $("replayStatus").textContent = "回放已停止";
       setLevel(.35);
       renderStreamingStatus();
+    }
+    async function clearVoiceWorkspace() {
+      if (state.mic) await stopLiveMicStream();
+      stopLongAudioReplay();
+      state.streaming.runToken += 1;
+      state.streaming.queue = [];
+      state.streaming.activeRequests = 0;
+      state.streaming.activeSource = "";
+      state.businessEvents = [];
+      state.activeBusinessEvent = null;
+      clearTimeout(state.eventCloseTimer);
+      const audio = $("audioPlayer");
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      $("replayPosition").textContent = "00:00";
+      $("latestLatency").textContent = "--";
+      $("avgLatency").textContent = "--";
+      $("streamChunkCount").textContent = "0";
+      resetVoiceWorkflow("等待新的语音输入");
+      setAgent("待命");
+      renderStreamingStatus();
+      toast("本次测试工作区已清空，事件中心历史未删除");
     }
     async function sendMicBlob(blob, cumulative = false) {
       handleMicChunk(blob);
@@ -4498,6 +4558,7 @@
     $("startReplayBtn").addEventListener("click", () => startLongAudioReplay($("audioFile").files[0]).catch((error) => toast(`长音频回放失败：${error.message}`, true)));
     $("pauseReplayBtn").addEventListener("click", pauseLongAudioReplay);
     $("stopReplayBtn").addEventListener("click", stopLongAudioReplay);
+    $("clearVoiceWorkspaceBtn").addEventListener("click", () => clearVoiceWorkspace().catch((error) => toast(`清空失败：${error.message}`, true)));
     $("approveEventBtn").addEventListener("click", () => {
       if (!state.activeBusinessEvent) return toast("当前没有待批准业务事件", true);
       addBusinessAction(state.activeBusinessEvent, { action: "人工批准", status: "已批准", trigger: "值班员", confidence: "人工", time: nowLabel(), suggested_action: "允许执行并播报" });
