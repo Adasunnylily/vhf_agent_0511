@@ -32,6 +32,8 @@ class Settings:
         )
     )
     asr_provider: str = os.getenv("VHF_ASR_PROVIDER", "dashscope_paraformer")
+    mic_asr_provider: str = os.getenv("VHF_MIC_ASR_PROVIDER", os.getenv("VHF_ASR_PROVIDER", "dashscope_paraformer"))
+    mic_asr_model: str = os.getenv("VHF_MIC_ASR_MODEL", os.getenv("VHF_ASR_MODEL", "paraformer-v2"))
     dashscope_asr_api_key_env: str = os.getenv("VHF_DASHSCOPE_API_KEY_ENV", "DASHSCOPE_API_KEY")
     asr_diarization_enabled: bool = os.getenv("VHF_ASR_DIARIZATION_ENABLED", "1") == "1"
     asr_speaker_count: int = int(os.getenv("VHF_ASR_SPEAKER_COUNT", "2"))

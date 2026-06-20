@@ -28,6 +28,7 @@ from app.main import (
     realtime_stream_processor,
     scenario_simulator,
     shared_asr,
+    shared_mic_asr,
     shared_asr_refiner,
     storage,
     stream_processor,
@@ -1829,7 +1830,7 @@ async def push_mic_chunk(
             "size": file_size,
         }
     denoise_enabled = str(session.get("denoise_mode", "off")) == "on"
-    if settings.asr_provider == "qwen_api":
+    if settings.mic_asr_provider == "qwen_api":
         # Qwen API accepts compressed audio directly; skip ffmpeg to reduce latency and avoid chunk decode failures.
         processed_path = saved_path
     else:
@@ -1839,7 +1840,7 @@ async def push_mic_chunk(
         )
         processed_path = Path(prepared.processed_path) if prepared.processed_path else saved_path
     try:
-        result = shared_asr.transcribe(file_path=processed_path)
+        result = shared_mic_asr.transcribe(file_path=processed_path)
         result = shared_asr_refiner.refine(
             processed_path,
             result,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from dataclasses import replace
 from pathlib import Path
 
 from fastapi import FastAPI, Response
@@ -44,6 +45,9 @@ streaming_chunk_size = [
     if part.strip()
 ]
 shared_asr = create_asr_adapter(settings)
+shared_mic_asr = create_asr_adapter(
+    replace(settings, asr_provider=settings.mic_asr_provider, asr_model=settings.mic_asr_model)
+)
 shared_asr_refiner = create_asr_refiner(settings)
 shared_streaming_asr = FunASRStreamingAdapter(
     model=settings.streaming_model,
@@ -858,6 +862,8 @@ async def healthz() -> dict:
         "service": settings.project_name,
         "asr_provider": settings.asr_provider,
         "asr_model": settings.asr_model,
+        "mic_asr_provider": settings.mic_asr_provider,
+        "mic_asr_model": settings.mic_asr_model,
         "asr_diarization_enabled": settings.asr_diarization_enabled,
         "asr_speaker_count": settings.asr_speaker_count,
         "dashscope_api_key_env": settings.dashscope_asr_api_key_env,
