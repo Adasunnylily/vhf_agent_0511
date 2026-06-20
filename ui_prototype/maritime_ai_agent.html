@@ -1305,7 +1305,7 @@
   <main class="app">
     <aside class="rail">
       <div class="brand">
-        <div class="logo">智</div>
+        <div class="logo">听</div>
         <div><b>海事交管智能体</b><span>海事智能体</span></div>
       </div>
       <nav class="nav">
@@ -1326,8 +1326,7 @@
     <section class="workspace">
       <header class="topbar">
         <div class="runtime-title">
-          <small>海事智能体运行中枢</small>
-          <h1 id="pageTitle">自主海事甚高频智能体控制中心</h1>
+          <h1 id="pageTitle">海事VHF语音监测智能体</h1>
         </div>
         <div class="right">
           <div class="runtime-states">
@@ -2597,7 +2596,7 @@
 
     function setPage(page) {
       const map = { voice: "voicePage", inspection: "inspectionPage", monitor: "monitorPage", events: "eventsPage", knowledge: "knowledgePage", settings: "settingsPage" };
-      const titles = { voice: "自主海事甚高频智能体控制中心", inspection: "点验界面", monitor: "船舶监控", events: "事件中心", knowledge: "知识库", settings: "设置中心" };
+      const titles = { voice: "海事VHF语音监测智能体", inspection: "点验界面", monitor: "船舶监控", events: "事件中心", knowledge: "知识库", settings: "设置中心" };
       document.querySelectorAll(".nav-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.page === page));
       document.querySelectorAll(".page").forEach((item) => item.classList.remove("active"));
       $(map[page] || "voicePage").classList.add("active");
