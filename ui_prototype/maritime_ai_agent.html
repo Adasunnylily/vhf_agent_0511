@@ -2186,7 +2186,15 @@
       if (decisionEvent.inspection_context) event.inspectionContext = decisionEvent.inspection_context;
       const ship = extractShipFromText(text);
       if (ship) event.shipName = ship;
-      event.utterances.push({ text, chunkId: chunk.chunkId, time: Date.now(), confidence: payload.confidence || "0.82" });
+      event.utterances.push({
+        text,
+        chunkId: chunk.chunkId,
+        taskId: chunk.taskId || "",
+        startMs: Number(chunk.startTime || 0),
+        endMs: Number(chunk.endTime || 0),
+        time: Date.now(),
+        confidence: payload.confidence || "0.82",
+      });
       event.intent = event.riskLevel === "L1" ? "emergency" : classification.intent;
       event.riskLevel = event.riskLevel === "L1" ? "L1" : classification.riskLevel;
       event.riskScore = Math.max(event.riskScore || 0, classification.riskScore);
@@ -2245,18 +2253,19 @@
     }
     async function refineAndArchiveBusinessEvent(event) {
       try {
-        const startMs = event.audioChunks[0]?.startTime || 0;
-        const endMs = event.audioChunks.at(-1)?.endTime || startMs;
+        const startMs = event.utterances[0]?.startMs || 0;
+        const endMs = event.utterances.at(-1)?.endMs || startMs;
         const refinement = await request("/api/streaming/refine-event", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             channel_id: channelId(),
+            task_id: event.utterances[0]?.taskId || "",
             asr_text: event.utterances.map((item) => item.text).join("\n"),
-            utterances: event.utterances.map((item, index) => ({
+            utterances: event.utterances.map((item) => ({
               text: item.text,
-              start_ms: event.audioChunks[index]?.startTime || startMs,
-              end_ms: event.audioChunks[index]?.endTime || endMs,
+              start_ms: item.startMs,
+              end_ms: item.endMs,
             })),
             start_ms: startMs,
             end_ms: endMs,
@@ -2342,8 +2351,8 @@
           evidence: [`事件闭合原因: ${event.closeReason}`],
           ais_context: event.aisContext || {},
           inspection_context: event.inspectionContext || {},
-          start_ms: event.audioChunks[0]?.startTime || 0,
-          end_ms: event.audioChunks.at(-1)?.endTime || 0,
+          start_ms: event.utterances[0]?.startMs || 0,
+          end_ms: event.utterances.at(-1)?.endMs || 0,
           segment_ids: event.audioChunks.map((item) => item.chunkId),
         }),
       });
@@ -3606,6 +3615,7 @@
       });
       chunk.filename = `实时句 ${index + 1} · ${formatDuration(startMs / 1000)}-${formatDuration(endMs / 1000)}`;
       chunk.audio_url = replay.audio.src;
+      chunk.taskId = task.id;
       replay.transcripts.push(utterance.resolved_text || utterance.text || "");
       if (utterance.dialogue_review_text) replay.dialogueTurns.push(utterance.dialogue_review_text);
       applyChunkAsrResult(chunk, {

@@ -35,7 +35,8 @@ from app.main import (
     ws_manager,
 )
 from app.services.asr_compare import list_asr_compare_options
-from app.services.asr import DashScopeParaformerASRAdapter
+from app.services.asr import ASRResult, DashScopeParaformerASRAdapter
+from app.services.audio_utils import slice_wav_segment
 from app.services.ais_risk_analyzer import AISRiskAnalyzer
 from app.services.demo_inspection import InspectionShip
 from app.services.maritime_keywords import extract_maritime_keywords
@@ -1512,6 +1513,7 @@ async def upload_websocket_streaming_replay(
                     "partial_is_final": is_final,
                     "partial_count": partial_state["count"],
                     "finalized_utterances": list(partial_state["utterances"]),
+                    "processed_path": str(processed_path),
                     "ttft_ms": partial_state["ttft_ms"],
                     "early_risk_term": high_risk_term,
                     "row": row,
@@ -1590,6 +1592,7 @@ async def upload_websocket_streaming_replay(
                 "partial_is_final": True,
                 "partial_count": partial_state["count"],
                 "finalized_utterances": list(partial_state["utterances"]),
+                "processed_path": str(processed_path),
                 "ttft_ms": result.ttft_ms,
                 "final_latency_ms": result.final_latency_ms,
                 "audio_duration_ms": result.audio_duration_ms,
@@ -1679,6 +1682,30 @@ async def refine_streaming_business_event(
                 }
             )
 
+    refinement_engine = "text_only"
+    task_id = str(payload.get("task_id") or "").strip()
+    start_ms = int(payload.get("start_ms") or 0)
+    end_ms = int(payload.get("end_ms") or 0)
+    task = task_manager.get(task_id) if task_id else None
+    processed_path = Path(str((task.meta if task else {}).get("processed_path") or ""))
+    if processed_path.is_file() and end_ms > start_ms:
+        clip_path = storage.allocate_clip_path(".wav")
+        slice_wav_segment(processed_path, clip_path, start_ms, end_ms)
+        base_result = ASRResult(
+            text=raw_text,
+            confidence=float(payload.get("confidence") or 0.85),
+            engine="dashscope_stream_event",
+            sentences=asr_sentences,
+        )
+        refined_asr = shared_asr_refiner.refine(
+            clip_path,
+            base_result,
+            duration_ms=end_ms - start_ms,
+        )
+        if refined_asr.text.strip():
+            raw_text = refined_asr.text.strip()
+            refinement_engine = refined_asr.engine
+
     resolution = entity_resolver.resolve(raw_text)
     candidates = [candidate.to_dict() for candidate in resolution.candidates]
     dialogue = postprocess_vhf_dialogue(
@@ -1693,9 +1720,9 @@ async def refine_streaming_business_event(
         channel_id=channel_id,
         file_path=str(payload.get("audio_path") or ""),
         clip_path=None,
-        start_ms=int(payload.get("start_ms") or 0),
-        end_ms=int(payload.get("end_ms") or 0),
-        duration_ms=max(0, int(payload.get("end_ms") or 0) - int(payload.get("start_ms") or 0)),
+        start_ms=start_ms,
+        end_ms=end_ms,
+        duration_ms=max(0, end_ms - start_ms),
         text=raw_text,
         confidence=float(payload.get("confidence") or 0.85),
         keywords=_extract_keywords(dialogue.resolved_text),
@@ -1716,6 +1743,7 @@ async def refine_streaming_business_event(
         "dialogue_review_text": dialogue.dialogue_review_text,
         "event": decision,
         "refinement": {
+            "asr_engine": refinement_engine,
             "dialogue_mode": os.getenv("VHF_DIALOGUE_MODE", "rules"),
             "decision_mode": os.getenv("VHF_DECISION_MODE", "rules"),
         },
