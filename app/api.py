@@ -6,6 +6,7 @@ import re
 import csv
 import io
 import json
+import os
 import shutil
 import subprocess
 import time
@@ -44,6 +45,7 @@ from app.services.vhf_dialogue import build_vhf_dialogue_review, postprocess_vhf
 
 router = APIRouter(prefix="/api")
 mic_risk_engine = KeywordRiskEngine()
+stream_rule_risk_engine = KeywordRiskEngine(decision_mode="rules")
 ais_risk_analyzer = AISRiskAnalyzer()
 mic_sessions: Dict[str, Dict[str, Any]] = {}
 mic_lock = threading.Lock()
@@ -1416,6 +1418,7 @@ async def upload_websocket_streaming_replay(
         stream_started_at = time.perf_counter()
         partial_state: Dict[str, Any] = {
             "finalized": [],
+            "utterances": [],
             "latest": "",
             "count": 0,
             "ttft_ms": None,
@@ -1431,6 +1434,57 @@ async def upload_websocket_streaming_replay(
             if is_final:
                 if not partial_state["finalized"] or partial_state["finalized"][-1] != text:
                     partial_state["finalized"].append(text)
+                    sentence = {
+                        "text": text,
+                        "speaker_id": row.get("speaker_id", row.get("speaker")),
+                        "begin_time": row.get("begin_time", row.get("start_time")),
+                        "end_time": row.get("end_time"),
+                    }
+                    start_ms = int(float(sentence.get("begin_time") or 0))
+                    end_ms = int(float(sentence.get("end_time") or start_ms + 1000))
+                    if end_ms <= start_ms:
+                        end_ms = start_ms + 1000
+                    resolution = entity_resolver.resolve(text)
+                    resolved_text = resolution.resolved_text
+                    segment = AudioSegment(
+                        id=f"stream_utt_{len(partial_state['utterances']):04d}",
+                        channel_id=channel_id,
+                        file_path=str(processed_path),
+                        clip_path=str(processed_path),
+                        start_ms=start_ms,
+                        end_ms=end_ms,
+                        duration_ms=end_ms - start_ms,
+                        text=text,
+                        confidence=0.85,
+                        keywords=_extract_keywords(resolved_text),
+                        engine="dashscope_stream_partial",
+                        resolved_text=resolved_text,
+                        entities=[candidate.to_dict() for candidate in resolution.candidates],
+                        asr_sentences=[sentence],
+                    )
+                    rule_events = stream_rule_risk_engine.evaluate(segment)
+                    event_payloads = _enrich_event_payloads(
+                        [event.to_dict() for event in rule_events],
+                        [segment],
+                    )
+                    decision = event_payloads[0] if event_payloads else _default_decision_payload(segment)
+                    decision["business_type"] = _decision_business_type(decision)
+                    partial_state["utterances"].append(
+                        {
+                            "utterance_id": segment.id,
+                            "start_ms": start_ms,
+                            "end_ms": end_ms,
+                            "text": text,
+                            "resolved_text": resolved_text,
+                            "dialogue_review_text": build_vhf_dialogue_review(
+                                resolved_text,
+                                asr_sentences=[sentence],
+                                map_speaker_roles=True,
+                            ),
+                            "confidence": segment.confidence,
+                            "event": decision,
+                        }
+                    )
                 partial_state["latest"] = ""
             else:
                 partial_state["latest"] = text
@@ -1457,6 +1511,7 @@ async def upload_websocket_streaming_replay(
                     "cumulative_text": cumulative_text,
                     "partial_is_final": is_final,
                     "partial_count": partial_state["count"],
+                    "finalized_utterances": list(partial_state["utterances"]),
                     "ttft_ms": partial_state["ttft_ms"],
                     "early_risk_term": high_risk_term,
                     "row": row,
@@ -1534,6 +1589,7 @@ async def upload_websocket_streaming_replay(
                 "cumulative_text": result.text,
                 "partial_is_final": True,
                 "partial_count": partial_state["count"],
+                "finalized_utterances": list(partial_state["utterances"]),
                 "ttft_ms": result.ttft_ms,
                 "final_latency_ms": result.final_latency_ms,
                 "audio_duration_ms": result.audio_duration_ms,
@@ -1547,6 +1603,122 @@ async def upload_websocket_streaming_replay(
         "status": "queued",
         "channel_id": channel_id,
         "mode": "dashscope_websocket_partial",
+    }
+
+
+def _long_audio_demo_path() -> Optional[Path]:
+    configured = os.getenv("VHF_LONG_AUDIO_DEMO_FILE", "").strip()
+    candidates = [Path(configured)] if configured else []
+    candidates.append(
+        Path("test_data_0614")
+        / "音频分类_打乱拼接"
+        / "shuffled_concat.wav"
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.resolve()
+    matches = list(Path("test_data_0614").glob("**/shuffled_concat.wav"))
+    return matches[0].resolve() if matches else None
+
+
+@router.get("/streaming/replay/demo-info")
+async def websocket_streaming_demo_info() -> Dict[str, object]:
+    path = _long_audio_demo_path()
+    return {
+        "available": path is not None,
+        "filename": path.name if path else "",
+        "size_bytes": path.stat().st_size if path else 0,
+    }
+
+
+@router.get("/streaming/replay/demo-audio")
+async def websocket_streaming_demo_audio() -> FileResponse:
+    path = _long_audio_demo_path()
+    if path is None:
+        raise HTTPException(status_code=404, detail="服务器演示长音频不存在")
+    return FileResponse(path, media_type="audio/wav", filename=path.name)
+
+
+@router.post("/streaming/replay/demo")
+async def start_websocket_streaming_demo(
+    channel_id: str = Form("vhf_demo_01"),
+    playback_speed: float = Form(1.0),
+) -> Dict[str, str]:
+    path = _long_audio_demo_path()
+    if path is None:
+        raise HTTPException(status_code=404, detail="服务器演示长音频不存在")
+    with path.open("rb") as source:
+        upload = UploadFile(filename=path.name, file=source)
+        return await upload_websocket_streaming_replay(
+            file=upload,
+            channel_id=channel_id,
+            playback_speed=playback_speed,
+        )
+
+
+@router.post("/streaming/refine-event")
+async def refine_streaming_business_event(
+    payload: Dict[str, Any] = Body(...),
+) -> Dict[str, object]:
+    raw_text = str(payload.get("asr_text") or "").strip()
+    if not raw_text:
+        raise HTTPException(status_code=400, detail="缺少待精修的ASR文本")
+    channel_id = str(payload.get("channel_id") or settings.default_channel_id)
+    utterances = payload.get("utterances")
+    asr_sentences = []
+    if isinstance(utterances, list):
+        for item in utterances:
+            if not isinstance(item, dict) or not str(item.get("text") or "").strip():
+                continue
+            asr_sentences.append(
+                {
+                    "text": str(item.get("text") or "").strip(),
+                    "speaker_id": item.get("speaker_id"),
+                    "begin_time": item.get("start_ms"),
+                    "end_time": item.get("end_ms"),
+                }
+            )
+
+    resolution = entity_resolver.resolve(raw_text)
+    candidates = [candidate.to_dict() for candidate in resolution.candidates]
+    dialogue = postprocess_vhf_dialogue(
+        resolution.resolved_text,
+        asr_sentences=asr_sentences or None,
+        sentence_resolver=lambda text: entity_resolver.resolve(text).resolved_text,
+        map_speaker_roles=True,
+        entity_candidates=candidates,
+    )
+    segment = AudioSegment(
+        id=f"refined_{uuid.uuid4().hex[:12]}",
+        channel_id=channel_id,
+        file_path=str(payload.get("audio_path") or ""),
+        clip_path=None,
+        start_ms=int(payload.get("start_ms") or 0),
+        end_ms=int(payload.get("end_ms") or 0),
+        duration_ms=max(0, int(payload.get("end_ms") or 0) - int(payload.get("start_ms") or 0)),
+        text=raw_text,
+        confidence=float(payload.get("confidence") or 0.85),
+        keywords=_extract_keywords(dialogue.resolved_text),
+        engine="stream_event_refinement",
+        resolved_text=dialogue.resolved_text,
+        entities=candidates,
+        asr_sentences=asr_sentences,
+    )
+    evaluated = mic_risk_engine.evaluate(segment)
+    event_payloads = _enrich_event_payloads(
+        [event.to_dict() for event in evaluated],
+        [segment],
+    )
+    decision = event_payloads[0] if event_payloads else _default_decision_payload(segment)
+    decision["business_type"] = _decision_business_type(decision)
+    return {
+        "resolved_text": dialogue.resolved_text,
+        "dialogue_review_text": dialogue.dialogue_review_text,
+        "event": decision,
+        "refinement": {
+            "dialogue_mode": os.getenv("VHF_DIALOGUE_MODE", "rules"),
+            "decision_mode": os.getenv("VHF_DECISION_MODE", "rules"),
+        },
     }
 
 

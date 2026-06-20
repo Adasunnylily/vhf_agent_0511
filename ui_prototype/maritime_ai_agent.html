@@ -581,6 +581,16 @@
       align-items: center;
     }
     .source-file-row input { min-width: 0; }
+    .server-demo-btn { width: 100%; min-height: 40px !important; }
+    .source-divider {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #7a90a8;
+      font-size: 11px;
+    }
+    .source-divider::before,
+    .source-divider::after { content: ""; flex: 1; height: 1px; background: rgba(145,190,236,.42); }
     .source-runtime-summary { margin-top: 0; }
     .legacy-controls { display: none !important; }
     .business-event-card {
@@ -1375,6 +1385,8 @@
                     <b>长音频模拟流式守听</b>
                     <span>播放原音的同时，通过 WebSocket 持续返回文字并自动分类、处置和归档。</span>
                   </div>
+                  <button class="server-demo-btn" id="serverReplayBtn">直接播放服务器演示长音频（推荐）</button>
+                  <div class="source-divider">或选择本地音频（大文件需要先上传）</div>
                   <div class="source-file-row">
                     <input id="audioFile" type="file" accept="audio/*" />
                     <select id="replaySpeed">
@@ -2225,14 +2237,75 @@
       event.closeReason = reason;
       event.exportedAudioUrl = event.audioChunks.find((chunk) => chunk.audio_url)?.audio_url || "chunks://collected";
       setEventState("EVENT_CLOSED", reason);
+      state.activeBusinessEvent = null;
+      appendAgentEvent({ stage: "event_refining", title: "事件结束后精修", detail: "正在重建说话人轮次并重新分类", intent: event.intent, risk_score: event.riskScore.toFixed(2) });
+      appendGlobalTimeline({ time: nowLabel(), title: "业务事件结束", detail: `${reason} · 进入说话人和分类精修` });
+      refineAndArchiveBusinessEvent(event);
+      renderStreamingAgentConsole();
+    }
+    async function refineAndArchiveBusinessEvent(event) {
+      try {
+        const startMs = event.audioChunks[0]?.startTime || 0;
+        const endMs = event.audioChunks.at(-1)?.endTime || startMs;
+        const refinement = await request("/api/streaming/refine-event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            channel_id: channelId(),
+            asr_text: event.utterances.map((item) => item.text).join("\n"),
+            utterances: event.utterances.map((item, index) => ({
+              text: item.text,
+              start_ms: event.audioChunks[index]?.startTime || startMs,
+              end_ms: event.audioChunks[index]?.endTime || endMs,
+            })),
+            start_ms: startMs,
+            end_ms: endMs,
+            confidence: 0.85,
+          }),
+        });
+        const decision = refinement.event || {};
+        const classification = classifyDecisionPayload({ event: decision }, refinement.resolved_text || "");
+        if (event.riskLevel !== "L1") {
+          event.intent = classification.intent;
+          event.riskLevel = classification.riskLevel;
+          event.riskScore = classification.riskScore;
+        }
+        event.resolvedText = refinement.resolved_text || event.summary;
+        event.dialogueReviewText = refinement.dialogue_review_text || "";
+        event.summary = event.resolvedText.slice(0, 220);
+        event.refinement = refinement.refinement || {};
+        if (event.dialogueReviewText) $("dialogueEdit").textContent = event.dialogueReviewText;
+        if (event.resolvedText) $("asrText").textContent = event.resolvedText;
+        routeClassification({
+          intent: decision.business_type || "other_business",
+          risk_score: event.riskScore,
+          auto_reply_allowed: event.intent === "auto_reply",
+          title: event.shipName || "精修业务事件",
+          summary: decision.summary || event.summary,
+          time: nowLabel(),
+        });
+        appendAgentEvent({
+          stage: "event_refined",
+          title: "说话人和分类精修完成",
+          detail: `${event.dialogueReviewText || event.resolvedText}\n处置：${intentLabel(decision.business_type || "other_business")}`,
+          asr_text: event.resolvedText,
+          intent: decision.business_type || "other_business",
+          risk_score: event.riskScore.toFixed(2),
+          decision_reason: decision.summary || "事件结束后精修",
+        });
+        appendGlobalTimeline({ time: nowLabel(), title: "事件精修完成", detail: `${decision.business_type || "other_business"} · ${decision.summary || "已重新分类"}` });
+      } catch (error) {
+        appendGlobalTimeline({ time: nowLabel(), title: "事件精修降级", detail: `${error.message} · 使用实时结果归档` });
+      }
       event.status = "ARCHIVED";
       state.businessEvents = [event, ...state.businessEvents].slice(0, 30);
-      state.activeBusinessEvent = null;
-      setEventState("ARCHIVED", `${event.eventId} 已归档`);
-      appendGlobalTimeline({ time: nowLabel(), title: "业务事件归档", detail: event.summary || reason });
-      archiveBusinessEvent(event).catch((error) => {
+      if (!state.activeBusinessEvent) setEventState("ARCHIVED", `${event.eventId} 已归档`);
+      appendGlobalTimeline({ time: nowLabel(), title: "业务事件归档", detail: event.summary || event.closeReason });
+      try {
+        await archiveBusinessEvent(event);
+      } catch (error) {
         appendGlobalTimeline({ time: nowLabel(), title: "事件持久化失败", detail: error.message });
-      });
+      }
       renderStreamingAgentConsole();
     }
     async function archiveBusinessEvent(event) {
@@ -2261,7 +2334,8 @@
           action_type: actionType,
           review_status: event.intent === "auto_reply" ? "broadcasted" : event.intent === "monitoring_only" ? "archived" : "pending",
           asr_text: event.utterances.map((item) => item.text).join("\n"),
-          resolved_text: event.utterances.map((item) => item.text).join("\n"),
+          resolved_text: event.resolvedText || event.utterances.map((item) => item.text).join("\n"),
+          dialogue_review_text: event.dialogueReviewText || "",
           summary: event.summary,
           suggestion: event.actions.at(-1)?.suggested_action || "",
           broadcast_text: event.intent === "auto_reply" ? $("replyText").textContent : "",
@@ -3237,7 +3311,7 @@
       handleFinalUtterance(chunk, text, {
         ...payload,
         decisionEvent: routedPayload.event,
-        suppressAutoClose: chunk.sourceType === "long_audio",
+        suppressAutoClose: payload.suppressAutoClose ?? chunk.sourceType === "long_audio",
       });
       if (routedPayload.event?.ais_context) showAis(routedPayload.event.ais_context);
       applyInspectionContext(routedPayload.event || {});
@@ -3519,6 +3593,41 @@
         closeBusinessEvent("检测到业务结束语");
       }
     }
+    function ingestFinalizedReplayUtterance(task, utterance, index) {
+      const replay = state.streaming.replay;
+      if (!replay || replay.processedUtteranceIds.has(utterance.utterance_id)) return;
+      const startMs = Number(utterance.start_ms || 0);
+      const endMs = Number(utterance.end_ms || startMs + 1000);
+      const chunk = makeStreamingChunk({
+        sourceType: "long_audio",
+        durationMs: Math.max(0, endMs - startMs),
+        startTime: startMs,
+        endTime: endMs,
+      });
+      chunk.filename = `实时句 ${index + 1} · ${formatDuration(startMs / 1000)}-${formatDuration(endMs / 1000)}`;
+      chunk.audio_url = replay.audio.src;
+      replay.transcripts.push(utterance.resolved_text || utterance.text || "");
+      if (utterance.dialogue_review_text) replay.dialogueTurns.push(utterance.dialogue_review_text);
+      applyChunkAsrResult(chunk, {
+        text: utterance.text || "",
+        resolved_text: utterance.resolved_text || utterance.text || "",
+        cumulative_text: String(task.meta?.cumulative_text || replay.transcripts.filter(Boolean).join("\n")),
+        dialogue_review_text: replay.dialogueTurns.filter(Boolean).join("\n"),
+        confidence: utterance.confidence || "0.85",
+        events: [utterance.event || {}],
+        suppressAutoClose: false,
+      }, "backend");
+      replay.processedUtteranceIds.add(utterance.utterance_id);
+      appendAgentEvent({
+        stage: "utterance_finalized",
+        title: "最终句确认",
+        detail: utterance.resolved_text || utterance.text || "",
+        chunk_id: chunk.chunkId,
+        asr_text: utterance.text || "",
+        intent: utterance.event?.business_type || "other_business",
+        risk_score: utterance.event?.confidence || "0.85",
+      });
+    }
     async function pollLongReplayTask(taskId) {
       for (let attempt = 0; attempt < 1800; attempt += 1) {
         const replay = state.streaming.replay;
@@ -3549,19 +3658,25 @@
           }
         }
         const segments = task.segments || [];
+        const finalizedUtterances = task.meta?.finalized_utterances || [];
+        finalizedUtterances.forEach((utterance, index) => ingestFinalizedReplayUtterance(task, utterance, index));
         const visibleUntilMs = replay.audio.ended
           ? Number.POSITIVE_INFINITY
           : Math.max(1500, (replay.audio.currentTime || 0) * 1000 + 1500);
-        segments.forEach((segment, index) => {
-          if (Number(segment.start_ms || 0) <= visibleUntilMs) ingestLongReplaySegment(task, segment, index);
-        });
+        if (!replay.trueStreaming || !replay.processedUtteranceIds.size) {
+          segments.forEach((segment, index) => {
+            if (Number(segment.start_ms || 0) <= visibleUntilMs) ingestLongReplaySegment(task, segment, index);
+          });
+        }
         const completed = Number(task.meta?.completed_segments || segments.length);
         const total = Number(task.meta?.total_segments || segments.length || 0);
         const ttftLabel = task.meta?.ttft_ms ? ` · 首字 ${Math.round(Number(task.meta.ttft_ms))}ms` : "";
         const partialLabel = task.meta?.partial_count ? ` · partial ${task.meta.partial_count}次` : "";
-        $("replayStatus").textContent = `${task.status === "completed" ? "后端识别完成" : "真实流式识别中"} · 已识别 ${completed}/${total || "?"} 段 · 已展示 ${replay.processedSegmentIds.size} 段${ttftLabel}${partialLabel}`;
+        const displayedCount = replay.trueStreaming ? replay.processedUtteranceIds.size : replay.processedSegmentIds.size;
+        $("replayStatus").textContent = `${task.status === "completed" ? "后端识别完成" : "真实流式识别中"} · 已确认 ${displayedCount} 句${ttftLabel}${partialLabel}`;
         if (task.status === "failed") throw new Error(task.error || "长音频流式识别失败");
-        if (task.status === "completed" && replay.processedSegmentIds.size >= segments.length) {
+        const outputDisplayed = replay.trueStreaming || replay.processedSegmentIds.size >= segments.length;
+        if (task.status === "completed" && outputDisplayed) {
           if (state.activeBusinessEvent) closeBusinessEvent("长音频识别完成");
           clearInterval(replay.timer);
           state.streaming.activeSource = "";
@@ -3576,14 +3691,18 @@
       }
       throw new Error("长音频守听任务等待超时");
     }
-    async function startLongAudioReplay(file) {
-      if (!file) throw new Error("请先选择一段长音频");
+    async function startLongAudioReplay(file, options = {}) {
+      const serverDemo = Boolean(options.serverDemo);
+      if (!file && !serverDemo) throw new Error("请先选择一段长音频");
       await stopLiveMicStream();
       updateInputVisualMode("stream");
       const chunkSizeMs = Number($("replayChunkMs")?.value || 1000);
       const speed = Number($("replaySpeed")?.value || 1);
       const audio = $("audioPlayer");
-      audio.src = URL.createObjectURL(file);
+      const fileName = serverDemo ? "服务器演示长音频" : file.name;
+      audio.src = serverDemo
+        ? `${API_BASE}/api/streaming/replay/demo-audio`
+        : URL.createObjectURL(file);
       audio.controls = true;
       audio.playbackRate = speed;
       await new Promise((resolve) => {
@@ -3596,6 +3715,7 @@
       state.streaming.latencies = [];
       state.streaming.replay = {
         file,
+        serverDemo,
         audio,
         chunkSizeMs,
         speed,
@@ -3603,14 +3723,16 @@
         paused: false,
         taskId: "",
         processedSegmentIds: new Set(),
+        processedUtteranceIds: new Set(),
         transcripts: [],
+        dialogueTurns: [],
         lastEndMs: null,
         lastPartialText: "",
         earlyRiskTerm: "",
         trueStreaming: false,
       };
       resetVoiceWorkflow("长音频回放流式测试已启动...");
-      $("replayStatus").textContent = `回放中 · ${file.name} · chunk=${chunkSizeMs}ms · ${speed}x`;
+      $("replayStatus").textContent = `回放中 · ${fileName} · ${speed}x`;
       $("asrStatus").textContent = "长音频回放";
       setAgent("回放守听中");
       setLevel(.45);
@@ -3624,18 +3746,21 @@
       }, Math.max(250, chunkSizeMs / speed));
       let payload;
       try {
-        payload = await request("/api/streaming/replay", {
+        payload = await request(serverDemo ? "/api/streaming/replay/demo" : "/api/streaming/replay", {
           method: "POST",
-          body: form({ file, channel_id: channelId(), playback_speed: speed }),
+          body: serverDemo
+            ? form({ channel_id: channelId(), playback_speed: speed })
+            : form({ file, channel_id: channelId(), playback_speed: speed }),
         });
         state.streaming.replay.trueStreaming = true;
-        $("replayStatus").textContent = `WebSocket 真流式回放已启动 · ${file.name} · ${speed}x`;
+        $("replayStatus").textContent = `WebSocket 真流式回放已启动 · ${fileName} · ${speed}x`;
       } catch (streamError) {
+        if (serverDemo) throw streamError;
         payload = await request("/api/stream/upload", {
           method: "POST",
           body: form({ file, channel_id: channelId(), denoise_mode: "off" }),
         });
-        $("replayStatus").textContent = `当前模型不支持 partial，已降级为 VAD 段级增量识别 · ${file.name}`;
+        $("replayStatus").textContent = `当前模型不支持 partial，已降级为 VAD 段级增量识别 · ${fileName}`;
         appendGlobalTimeline({ time: nowLabel(), title: "流式模式降级", detail: streamError.message });
       }
       state.streaming.replay.taskId = payload.task_id;
@@ -4283,6 +4408,7 @@
     $("micBtn").addEventListener("click", toggleMic);
     $("startLiveMicBtn").addEventListener("click", () => startLiveMicStream().catch((error) => toast(`麦克风流启动失败：${error.message}`, true)));
     $("stopLiveMicBtn").addEventListener("click", () => stopLiveMicStream().catch((error) => toast(`麦克风流停止失败：${error.message}`, true)));
+    $("serverReplayBtn").addEventListener("click", () => startLongAudioReplay(null, { serverDemo: true }).catch((error) => toast(`服务器演示启动失败：${error.message}`, true)));
     $("startReplayBtn").addEventListener("click", () => startLongAudioReplay($("audioFile").files[0]).catch((error) => toast(`长音频回放失败：${error.message}`, true)));
     $("pauseReplayBtn").addEventListener("click", pauseLongAudioReplay);
     $("stopReplayBtn").addEventListener("click", stopLongAudioReplay);
