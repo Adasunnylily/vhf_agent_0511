@@ -37,7 +37,7 @@ from app.main import (
 )
 from app.services.asr_compare import list_asr_compare_options
 from app.services.asr import ASRResult, DashScopeParaformerASRAdapter
-from app.services.audio_utils import slice_wav_segment
+from app.services.audio_utils import pcm_rms, slice_wav_segment, write_pcm_wav
 from app.services.ais_risk_analyzer import AISRiskAnalyzer
 from app.services.demo_inspection import InspectionShip
 from app.services.maritime_keywords import extract_maritime_keywords
@@ -1764,6 +1764,106 @@ def _is_informative_text(text: str) -> bool:
     return bool(re.search(r"[\u4e00-\u9fffA-Za-z0-9]", cleaned))
 
 
+def _recognize_mic_utterance(
+    *,
+    session_id: str,
+    channel_id: str,
+    seq: int,
+    pcm_bytes: bytes,
+    sample_rate: int,
+    is_final: bool,
+) -> Dict[str, object]:
+    duration_ms = round(len(pcm_bytes) / 2 / sample_rate * 1000)
+    suffix = "final" if is_final else "partial"
+    wav_path = settings.normalized_dir / f"{session_id}_{seq}_{suffix}.wav"
+    write_pcm_wav(wav_path, pcm_bytes, sample_rate)
+    result = shared_mic_asr.transcribe(file_path=wav_path)
+    result = shared_asr_refiner.refine(wav_path, result, duration_ms=duration_ms)
+    text = result.text.strip()
+    if not _is_informative_text(text):
+        return {
+            "session_id": session_id,
+            "seq": seq,
+            "status": "skipped",
+            "reason": "uninformative_text",
+            "text": text,
+        }
+
+    resolution = entity_resolver.resolve(text)
+    dialogue_result = postprocess_vhf_dialogue(
+        resolution.resolved_text,
+        asr_sentences=result.sentences if result.sentences else None,
+        sentence_resolver=(
+            lambda sentence: entity_resolver.resolve(sentence).resolved_text
+            if result.sentences
+            else None
+        ),
+        map_speaker_roles=bool(result.sentences),
+        entity_candidates=[candidate.to_dict() for candidate in resolution.candidates],
+    )
+    text_for_rules = dialogue_result.resolved_text
+    with mic_lock:
+        session = mic_sessions.get(session_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail="mic session not found")
+        finalized_texts = list(session.get("texts", []))
+        if is_final:
+            finalized_texts.append(text)
+            session["texts"] = finalized_texts
+            session["chunk_count"] = int(session.get("chunk_count", 0)) + 1
+        cumulative_text = "\n".join(finalized_texts + ([] if is_final else [text])).strip()
+
+    decision_payloads: List[Dict[str, object]] = []
+    if is_final:
+        start_ms = max(0, int(session.get("pcm_total_ms", 0)) - duration_ms)
+        segment = AudioSegment(
+            id=f"{session_id}_{seq}",
+            channel_id=channel_id,
+            file_path=str(wav_path),
+            clip_path=str(wav_path),
+            start_ms=start_ms,
+            end_ms=start_ms + duration_ms,
+            duration_ms=duration_ms,
+            text=text,
+            confidence=result.confidence,
+            keywords=_extract_keywords(text_for_rules),
+            engine=result.engine,
+            resolved_text=text_for_rules,
+            entities=[candidate.to_dict() for candidate in resolution.candidates],
+            asr_sentences=result.sentences,
+            asr_emotion_tags=list(result.emotion_tags or []),
+            asr_event_tags=list(result.event_tags or []),
+        )
+        events = mic_risk_engine.evaluate(segment)
+        event_payloads = _enrich_event_payloads([event.to_dict() for event in events], [segment])
+        decision_payloads = _persist_decisions(
+            source_type="mic_stream",
+            audio_path=str(wav_path),
+            segments=[segment],
+            events=event_payloads,
+        )
+        with mic_lock:
+            session = mic_sessions.get(session_id)
+            if session is not None and decision_payloads:
+                session_events = session.get("events", [])
+                session_events.extend(decision_payloads)
+                session["events"] = session_events
+
+    return {
+        "session_id": session_id,
+        "seq": seq,
+        "status": "final" if is_final else "partial",
+        "text": text,
+        "resolved_text": text_for_rules,
+        "cumulative_text": cumulative_text,
+        "dialogue_review_text": dialogue_result.dialogue_review_text,
+        "confidence": result.confidence,
+        "engine": result.engine,
+        "duration_ms": duration_ms,
+        "events": decision_payloads,
+    }
+
+
 def _as_segment_payload(item: Any, index: int) -> Dict[str, object]:
     if hasattr(item, "to_dict"):
         return item.to_dict()
@@ -1788,6 +1888,13 @@ async def start_mic_stream(
             "texts": [],
             "chunk_count": 0,
             "events": [],
+            "pcm_buffer": bytearray(),
+            "pcm_has_speech": False,
+            "pcm_silence_ms": 0,
+            "pcm_total_ms": 0,
+            "pcm_last_preview_ms": 0,
+            "pcm_idle_ms": 0,
+            "pcm_had_final": False,
         }
     ws_manager.publish(
         channel_id,
@@ -1799,6 +1906,94 @@ async def start_mic_stream(
         },
     )
     return {"session_id": session_id, "channel_id": channel_id, "status": "running"}
+
+
+@router.post("/mic/pcm")
+async def push_mic_pcm(
+    file: UploadFile = File(...),
+    session_id: str = Form(...),
+    channel_id: str = Form("vhf_demo_01"),
+    seq: int = Form(0),
+    sample_rate: int = Form(16000),
+    preview_window_ms: int = Form(3000),
+    vad_silence_ms: int = Form(900),
+    vad_rms_threshold: float = Form(350.0),
+) -> Dict[str, object]:
+    pcm_bytes = await file.read()
+    if len(pcm_bytes) < 320:
+        return {"session_id": session_id, "seq": seq, "status": "skipped", "reason": "pcm_frame_too_small"}
+    sample_rate = max(8000, min(48000, int(sample_rate)))
+    frame_ms = max(1, round(len(pcm_bytes) / 2 / sample_rate * 1000))
+    rms = pcm_rms(pcm_bytes)
+    is_speech = rms >= max(1.0, vad_rms_threshold)
+
+    with mic_lock:
+        session = mic_sessions.get(session_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail="mic session not found")
+        session["pcm_total_ms"] = int(session.get("pcm_total_ms", 0)) + frame_ms
+        buffer = session.setdefault("pcm_buffer", bytearray())
+        has_speech = bool(session.get("pcm_has_speech", False))
+        if is_speech:
+            buffer.extend(pcm_bytes)
+            session["pcm_has_speech"] = True
+            session["pcm_silence_ms"] = 0
+            session["pcm_idle_ms"] = 0
+            has_speech = True
+        elif has_speech:
+            buffer.extend(pcm_bytes)
+            session["pcm_silence_ms"] = int(session.get("pcm_silence_ms", 0)) + frame_ms
+        elif bool(session.get("pcm_had_final", False)):
+            session["pcm_idle_ms"] = int(session.get("pcm_idle_ms", 0)) + frame_ms
+            if int(session["pcm_idle_ms"]) >= 5000:
+                session["pcm_idle_ms"] = 0
+                session["pcm_had_final"] = False
+                return {
+                    "session_id": session_id,
+                    "seq": seq,
+                    "status": "event_end",
+                    "reason": "acoustic_silence_5s",
+                }
+
+        utterance_ms = round(len(buffer) / 2 / sample_rate * 1000)
+        silence_ms = int(session.get("pcm_silence_ms", 0))
+        last_preview_ms = int(session.get("pcm_last_preview_ms", 0))
+        is_final = has_speech and silence_ms >= max(400, vad_silence_ms)
+        preview_due = (
+            has_speech
+            and not is_final
+            and utterance_ms >= max(1500, preview_window_ms)
+            and utterance_ms - last_preview_ms >= max(1500, preview_window_ms)
+        )
+        if not is_final and not preview_due:
+            return {
+                "session_id": session_id,
+                "seq": seq,
+                "status": "buffering",
+                "speech_detected": has_speech,
+                "rms": round(rms, 1),
+                "utterance_ms": utterance_ms,
+                "silence_ms": silence_ms,
+            }
+        utterance_bytes = bytes(buffer)
+        if is_final:
+            session["pcm_buffer"] = bytearray()
+            session["pcm_has_speech"] = False
+            session["pcm_silence_ms"] = 0
+            session["pcm_last_preview_ms"] = 0
+            session["pcm_had_final"] = True
+            session["pcm_idle_ms"] = 0
+        else:
+            session["pcm_last_preview_ms"] = utterance_ms
+
+    return _recognize_mic_utterance(
+        session_id=session_id,
+        channel_id=channel_id,
+        seq=seq,
+        pcm_bytes=utterance_bytes,
+        sample_rate=sample_rate,
+        is_final=is_final,
+    )
 
 
 @router.post("/mic/chunk")
@@ -1998,10 +2193,25 @@ async def stop_mic_stream(
     session_id: str = Form(...),
 ) -> Dict[str, object]:
     with mic_lock:
-        session = mic_sessions.pop(session_id, None)
+        session = mic_sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="mic session not found")
     channel_id = str(session.get("channel_id", "vhf_demo_01"))
+    pending_pcm = bytes(session.get("pcm_buffer", b""))
+    if bool(session.get("pcm_has_speech")) and len(pending_pcm) >= 16000:
+        try:
+            _recognize_mic_utterance(
+                session_id=session_id,
+                channel_id=channel_id,
+                seq=int(session.get("chunk_count", 0)) + 1,
+                pcm_bytes=pending_pcm,
+                sample_rate=16000,
+                is_final=True,
+            )
+        except Exception as exc:
+            session["stop_finalize_error"] = str(exc)
+    with mic_lock:
+        session = mic_sessions.pop(session_id, session)
     summary_text = "\n".join(session.get("texts", [])).strip()
     events = session.get("events", [])
     ws_manager.publish(
@@ -2025,6 +2235,7 @@ async def stop_mic_stream(
         "skipped_count": int(session.get("skipped_count", 0)),
         "text": summary_text,
         "events": events,
+        "finalize_error": session.get("stop_finalize_error", ""),
     }
 
 

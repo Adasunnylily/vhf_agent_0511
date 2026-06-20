@@ -1387,14 +1387,14 @@
                 <div class="stream-test-card source-mode-panel" id="micModePanel">
                   <div class="source-mode-heading">
                     <b>现场麦克风实时守听</b>
-                    <span>直接采集现场声音，持续发送短音频帧并增量显示识别结果。</span>
+                    <span>连续采集16k PCM音频帧，后端按声学静默形成完整话轮。</span>
                   </div>
                   <span id="liveMicStatus">待启动 · 请允许浏览器使用麦克风</span>
                   <div class="stream-control-row">
                     <select id="liveChunkMs">
-                      <option value="2000">快速 2000ms</option>
-                      <option value="3000" selected>推荐 3000ms</option>
-                      <option value="5000">清晰 5000ms</option>
+                      <option value="2000">2秒临时预览</option>
+                      <option value="3000" selected>3秒临时预览</option>
+                      <option value="5000">5秒临时预览</option>
                     </select>
                     <button id="startLiveMicBtn">开始现场守听</button>
                     <button class="secondary" id="stopLiveMicBtn">停止守听</button>
@@ -3361,26 +3361,57 @@
       if (window.MediaRecorder && MediaRecorder.isTypeSupported("audio/webm")) return "audio/webm";
       return "";
     }
-    function startMicWindowRecorder(mic) {
-      if (!mic?.active || state.mic !== mic) return;
-      const parts = [];
-      const recorder = mic.mimeType
-        ? new MediaRecorder(mic.stream, { mimeType: mic.mimeType })
-        : new MediaRecorder(mic.stream);
-      mic.chunkRecorder = recorder;
-      recorder.ondataavailable = (event) => {
-        if (event.data.size) parts.push(event.data);
-      };
-      recorder.onstop = () => {
-        if (mic.active && state.mic === mic && parts.length) {
-          handleMicChunk(new Blob(parts, { type: recorder.mimeType || "audio/webm" }));
+    function downsampleAudio(input, inputRate, outputRate = 16000) {
+      if (inputRate === outputRate) return input;
+      const ratio = inputRate / outputRate;
+      const output = new Float32Array(Math.max(1, Math.round(input.length / ratio)));
+      for (let index = 0; index < output.length; index += 1) {
+        const start = Math.floor(index * ratio);
+        const end = Math.min(input.length, Math.max(start + 1, Math.floor((index + 1) * ratio)));
+        let sum = 0;
+        for (let sourceIndex = start; sourceIndex < end; sourceIndex += 1) sum += input[sourceIndex];
+        output[index] = sum / Math.max(1, end - start);
+      }
+      return output;
+    }
+    function pcm16Blob(samples) {
+      const buffer = new ArrayBuffer(samples.length * 2);
+      const view = new DataView(buffer);
+      samples.forEach((sample, index) => view.setInt16(index * 2, sample, true));
+      return new Blob([buffer], { type: "application/octet-stream" });
+    }
+    function beginPcmCapture(stream, mic) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) throw new Error("当前浏览器不支持PCM音频采集");
+      const ctx = new AudioCtx();
+      const source = ctx.createMediaStreamSource(stream);
+      const processor = ctx.createScriptProcessor(4096, 1, 1);
+      const mute = ctx.createGain();
+      mute.gain.value = 0;
+      mic.audioCtx = ctx;
+      mic.pcmSource = source;
+      mic.pcmProcessor = processor;
+      mic.pcmPending = [];
+      mic.pcmFrameSamples = 8000;
+      processor.onaudioprocess = (event) => {
+        if (!mic.active || state.mic !== mic) return;
+        const input = event.inputBuffer.getChannelData(0);
+        const downsampled = downsampleAudio(input, ctx.sampleRate, 16000);
+        let levelSum = 0;
+        for (const value of downsampled) {
+          const clipped = Math.max(-1, Math.min(1, value));
+          levelSum += clipped * clipped;
+          mic.pcmPending.push(clipped < 0 ? Math.round(clipped * 32768) : Math.round(clipped * 32767));
         }
-        if (mic.active && state.mic === mic) startMicWindowRecorder(mic);
+        setLevel(Math.min(1, Math.max(.12, Math.sqrt(levelSum / Math.max(1, downsampled.length)) * 5)).toFixed(2));
+        while (mic.pcmPending.length >= mic.pcmFrameSamples) {
+          const frame = mic.pcmPending.splice(0, mic.pcmFrameSamples);
+          handleMicPcmFrame(frame);
+        }
       };
-      recorder.start();
-      mic.chunkTimer = setTimeout(() => {
-        if (recorder.state !== "inactive") recorder.stop();
-      }, mic.chunkMs);
+      source.connect(processor);
+      processor.connect(mute);
+      mute.connect(ctx.destination);
     }
     function formatDuration(seconds) {
       const total = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -3448,7 +3479,7 @@
         confidence: chunk.confidence,
         asr_text: text,
         matched_ship: routedPayload.event?.ais_context?.ship_name || "",
-        summary: "后端短片段 ASR 返回。",
+        summary: "后端完整话轮 ASR 返回，已触发一次分类。",
       });
       $("asrText").textContent = payload.cumulative_text || `${$("asrText").textContent === "等待语音输入" ? "" : $("asrText").textContent}\n${text}`.trim();
       if (payload.dialogue_review_text) $("dialogueEdit").textContent = payload.dialogue_review_text;
@@ -3456,26 +3487,19 @@
       $("intentText").textContent = intentLabel(routedPayload.intent);
       $("shipText").textContent = routedPayload.event?.ais_context?.ship_name || $("shipText").textContent || "待匹配";
       $("copilotRiskScore").textContent = routedPayload.risk.toFixed(2);
-      const classification = routeClassification({
-        intent: routedPayload.intent,
-        risk_score: routedPayload.risk,
-        auto_reply_allowed: routedPayload.autoReplyAllowed,
-        title: `${chunk.filename} · ${source === "mock" ? "模拟ASR" : "真实ASR"}`,
-        summary: text,
-        time: nowLabel(),
-      });
-      const action = createActionFromPolicy({
-        intent: routedPayload.intent,
-        risk_score: routedPayload.risk,
-        auto_reply_allowed: routedPayload.autoReplyAllowed,
-      });
-      state.actionQueue = [...state.actionQueue.slice(-7), action];
       const businessEventId = state.activeBusinessEvent?.eventId || chunk.chunkId;
+      const eventIntent = state.activeBusinessEvent?.intent || routedPayload.intent;
+      const eventRisk = Number(state.activeBusinessEvent?.riskScore ?? routedPayload.risk);
+      const action = state.activeBusinessEvent?.actions.at(-1) || createActionFromPolicy({
+        intent: routedPayload.intent,
+        risk_score: routedPayload.risk,
+        auto_reply_allowed: routedPayload.autoReplyAllowed,
+      });
       [
         ["asr_completed", "语音识别完成", text],
-        ["intent_classified", "业务意图分类", intentLabel(routedPayload.intent)],
-        ["risk_scored", "风险评分", `风险 ${routedPayload.risk.toFixed(2)}`],
-        ["decision_triggered", "策略分流", classification === "autoReply" ? "自动回复" : classification === "humanReview" ? "人工复核" : classification === "emergency" ? "高危告警" : "持续监听"],
+        ["intent_classified", "业务意图分类", intentLabel(eventIntent)],
+        ["risk_scored", "风险评分", `风险 ${eventRisk.toFixed(2)}`],
+        ["decision_triggered", "策略分流", action.action],
         ["action_executed", "动作队列更新", action.action],
       ].forEach(([stage, title, detail]) => appendAgentEvent({
         stage,
@@ -3484,8 +3508,8 @@
         chunk_id: chunk.chunkId,
         asr_text: text,
         asr_confidence: chunk.confidence,
-        intent: routedPayload.intent,
-        risk_score: routedPayload.risk.toFixed(2),
+        intent: eventIntent,
+        risk_score: eventRisk.toFixed(2),
         matched_ship: routedPayload.event?.ais_context?.ship_name || "待匹配",
         decision_reason: action.trigger,
         suggested_action: action.suggested_action,
@@ -3535,14 +3559,18 @@
           return;
         }
         const micSessionId = state.mic.sessionId;
-        const payload = await request("/api/mic/chunk", {
+        const isPcm = chunk.format === "pcm_s16le";
+        const payload = await request(isPcm ? "/api/mic/pcm" : "/api/mic/chunk", {
           method: "POST",
           body: form({
-            file: new File([chunk.blob], `stream_${chunk.index}.webm`, { type: chunk.blob.type || "audio/webm" }),
+            file: new File([chunk.blob], `stream_${chunk.index}.${isPcm ? "pcm" : "webm"}`, { type: chunk.blob.type || "application/octet-stream" }),
             session_id: micSessionId,
             channel_id: channelId(),
             seq: chunk.index,
             cumulative: false,
+            sample_rate: 16000,
+            preview_window_ms: Number($("liveChunkMs")?.value || 3000),
+            vad_silence_ms: 900,
           }),
         });
         if (chunk.runToken !== state.streaming.runToken || !state.mic?.active || state.mic.sessionId !== micSessionId) return;
@@ -3552,6 +3580,31 @@
           renderStreamingAgentConsole();
           return;
         }
+        if (payload.status === "buffering") {
+          appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: payload.speech_detected ? "话轮累积中" : "监听静音", confidence: "--", summary: `RMS ${payload.rms || 0} · 已累积 ${payload.utterance_ms || 0}ms` });
+          renderStreamingAgentConsole();
+          return;
+        }
+        if (payload.status === "event_end") {
+          clearTimeout(state.eventCloseTimer);
+          if (state.activeBusinessEvent) closeBusinessEvent("声学静默超过5秒");
+          appendGlobalTimeline({ time: nowLabel(), title: "通信事件结束", detail: "连续5秒未检测到语音，事件已闭合归档" });
+          renderStreamingAgentConsole();
+          return;
+        }
+        if (payload.status === "partial") {
+          chunk.asrReturnedAt = performance.now();
+          chunk.status = "asr_partial";
+          chunk.asr_text = payload.resolved_text || payload.text || "";
+          $("asrText").textContent = payload.cumulative_text || chunk.asr_text;
+          $("asrStatus").textContent = "临时转写";
+          receivePartialAsr(chunk, chunk.asr_text);
+          appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "临时转写", confidence: payload.confidence || "--", asr_text: chunk.asr_text, summary: "当前话轮尚未结束，不触发分类归档" });
+          recordChunkLatency(chunk);
+          renderStreamingAgentConsole();
+          return;
+        }
+        if (isPcm && payload.status === "final") payload.suppressAutoClose = true;
         applyChunkAsrResult(chunk, payload, "backend");
       } catch (error) {
         if (chunk.runToken !== state.streaming.runToken) return;
@@ -3579,7 +3632,7 @@
           });
       }
     }
-    function makeStreamingChunk({ sourceType, blob = null, durationMs, startTime = 0, endTime = 0 }) {
+    function makeStreamingChunk({ sourceType, blob = null, durationMs, startTime = 0, endTime = 0, format = "" }) {
       const index = state.streaming.chunkSeq++;
       return {
         chunkId: `${sourceType}_${Date.now()}_${index}`,
@@ -3594,6 +3647,7 @@
         captureEndedAt: performance.now(),
         filename: `${sourceType === "mic" ? "麦克风" : "长音频"}片段 ${index + 1}`,
         runToken: state.streaming.runToken,
+        format,
       };
     }
     function handleMicChunk(blob) {
@@ -3601,6 +3655,17 @@
       const intervalMs = Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 3000);
       enqueueAudioChunk(makeStreamingChunk({ sourceType: "mic", blob, durationMs: intervalMs }));
       if ($("liveMicStatus")) $("liveMicStatus").textContent = `采集中 · chunk=${intervalMs}ms · 已捕获 ${state.streaming.chunkSeq} 段`;
+    }
+    function handleMicPcmFrame(samples) {
+      if (!state.mic?.active || !samples?.length) return;
+      const durationMs = Math.round(samples.length / 16000 * 1000);
+      enqueueAudioChunk(makeStreamingChunk({
+        sourceType: "mic",
+        blob: pcm16Blob(samples),
+        durationMs,
+        format: "pcm_s16le",
+      }));
+      if ($("liveMicStatus")) $("liveMicStatus").textContent = `PCM采集中 · 500ms/帧 · 已发送 ${state.streaming.chunkSeq} 帧`;
     }
     async function startLiveMicStream() {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -3623,7 +3688,7 @@
       const archiveParts = [];
       const mimeType = bestMicMime();
       const archiveRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      const chunkMs = Math.max(2000, Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 3000));
+      const previewWindowMs = Math.max(2000, Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 3000));
       state.streaming.chunkSeq = 0;
       state.streaming.queue = [];
       state.streaming.latencies = [];
@@ -3634,10 +3699,8 @@
         seq: 0,
         archiveRecorder,
         archiveParts,
-        chunkRecorder: null,
-        chunkTimer: null,
-        chunkMs,
         mimeType,
+        previewWindowMs,
         runToken,
       };
       archiveRecorder.ondataavailable = (event) => {
@@ -3649,20 +3712,19 @@
       resetVoiceWorkflow("现场麦克风流式测试已启动...");
       $("listenTitle").textContent = "现场麦克风流式接入中...";
       $("asrStatus").textContent = "麦克风流";
-      $("liveMicStatus").textContent = `运行中 · chunk=${chunkMs}ms`;
+      $("liveMicStatus").textContent = `运行中 · PCM 500ms/帧 · ${previewWindowMs}ms预览`;
       setAgent("监听中");
-      beginAmplitude(stream);
       startTimer();
       archiveRecorder.start();
-      startMicWindowRecorder(state.mic);
+      beginPcmCapture(stream, state.mic);
       renderStreamingStatus();
     }
     async function stopLiveMicStream() {
       if (!state.mic) return;
       state.streaming.queue = [];
       state.mic.active = false;
-      clearTimeout(state.mic.chunkTimer);
-      if (state.mic.chunkRecorder?.state !== "inactive") state.mic.chunkRecorder.stop();
+      state.mic.pcmProcessor?.disconnect();
+      state.mic.pcmSource?.disconnect();
       if (state.mic.archiveRecorder?.state !== "inactive") state.mic.archiveRecorder.stop();
       state.mic.stream?.getTracks().forEach((track) => track.stop());
       if (state.mic.audioCtx) state.mic.audioCtx.close();
@@ -3677,6 +3739,7 @@
       try {
         const result = await request("/api/mic/stop", { method: "POST", body: form({ session_id: sessionId }) });
         if (result.text) $("asrText").textContent = result.text;
+        if (state.activeBusinessEvent) closeBusinessEvent("人工停止守听");
         await loadEvents();
       } catch (error) {
         appendGlobalTimeline({ time: nowLabel(), title: "麦克风停止同步失败", detail: error.message });

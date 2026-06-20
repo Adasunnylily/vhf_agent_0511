@@ -2,7 +2,25 @@ from __future__ import annotations
 
 import contextlib
 import wave
+from array import array
 from pathlib import Path
+
+
+def pcm_rms(pcm_bytes: bytes) -> float:
+    samples = array("h")
+    samples.frombytes(pcm_bytes[: len(pcm_bytes) - len(pcm_bytes) % 2])
+    if not samples:
+        return 0.0
+    return (sum(int(sample) * int(sample) for sample in samples) / len(samples)) ** 0.5
+
+
+def write_pcm_wav(path: Path, pcm_bytes: bytes, sample_rate: int = 16000) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm_bytes)
 
 
 def slice_wav_segment(
