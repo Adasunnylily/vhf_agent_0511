@@ -808,6 +808,7 @@ def create_asr_adapter(settings: Any) -> BaseASRAdapter:
             base_url=settings.qwen_asr_base_url,
             timeout_s=settings.qwen_asr_timeout_s,
             prompt=settings.qwen_asr_prompt,
+            hotwords_path=getattr(settings, "asr_hotwords_path", None),
         )
     if provider in {"qwen_local", "local_qwen", "qwen3_asr_local"}:
         return LocalQwenASRAdapter(

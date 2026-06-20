@@ -1392,9 +1392,9 @@
                   <span id="liveMicStatus">待启动 · 请允许浏览器使用麦克风</span>
                   <div class="stream-control-row">
                     <select id="liveChunkMs">
-                      <option value="500">低延迟 500ms</option>
-                      <option value="1000" selected>稳定 1000ms</option>
-                      <option value="2000">清晰 2000ms</option>
+                      <option value="2000">快速 2000ms</option>
+                      <option value="3000" selected>推荐 3000ms</option>
+                      <option value="5000">清晰 5000ms</option>
                     </select>
                     <button id="startLiveMicBtn">开始现场守听</button>
                     <button class="secondary" id="stopLiveMicBtn">停止守听</button>
@@ -3361,6 +3361,27 @@
       if (window.MediaRecorder && MediaRecorder.isTypeSupported("audio/webm")) return "audio/webm";
       return "";
     }
+    function startMicWindowRecorder(mic) {
+      if (!mic?.active || state.mic !== mic) return;
+      const parts = [];
+      const recorder = mic.mimeType
+        ? new MediaRecorder(mic.stream, { mimeType: mic.mimeType })
+        : new MediaRecorder(mic.stream);
+      mic.chunkRecorder = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) parts.push(event.data);
+      };
+      recorder.onstop = () => {
+        if (mic.active && state.mic === mic && parts.length) {
+          handleMicChunk(new Blob(parts, { type: recorder.mimeType || "audio/webm" }));
+        }
+        if (mic.active && state.mic === mic) startMicWindowRecorder(mic);
+      };
+      recorder.start();
+      mic.chunkTimer = setTimeout(() => {
+        if (recorder.state !== "inactive") recorder.stop();
+      }, mic.chunkMs);
+    }
     function formatDuration(seconds) {
       const total = Math.max(0, Math.floor(Number(seconds) || 0));
       const min = String(Math.floor(total / 60)).padStart(2, "0");
@@ -3577,7 +3598,7 @@
     }
     function handleMicChunk(blob) {
       if (!state.mic?.active || blob.size < 1024) return;
-      const intervalMs = Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 1000);
+      const intervalMs = Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 3000);
       enqueueAudioChunk(makeStreamingChunk({ sourceType: "mic", blob, durationMs: intervalMs }));
       if ($("liveMicStatus")) $("liveMicStatus").textContent = `采集中 · chunk=${intervalMs}ms · 已捕获 ${state.streaming.chunkSeq} 段`;
     }
@@ -3601,19 +3622,29 @@
       }
       const archiveParts = [];
       const mimeType = bestMicMime();
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      const chunkMs = Math.max(500, Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 1000));
+      const archiveRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      const chunkMs = Math.max(2000, Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 3000));
       state.streaming.chunkSeq = 0;
       state.streaming.queue = [];
       state.streaming.latencies = [];
-      state.mic = { active: true, stream, sessionId: result.session_id, seq: 0, archiveRecorder: recorder, archiveParts, sendChain: Promise.resolve(), liveTimer: null, runToken };
-      recorder.ondataavailable = (event) => {
-        if (!event.data.size) return;
-        archiveParts.push(event.data);
-        handleMicChunk(event.data);
+      state.mic = {
+        active: true,
+        stream,
+        sessionId: result.session_id,
+        seq: 0,
+        archiveRecorder,
+        archiveParts,
+        chunkRecorder: null,
+        chunkTimer: null,
+        chunkMs,
+        mimeType,
+        runToken,
       };
-      recorder.onstop = () => {
-        if (archiveParts.length) $("audioPlayer").src = URL.createObjectURL(new Blob(archiveParts, { type: recorder.mimeType || "audio/webm" }));
+      archiveRecorder.ondataavailable = (event) => {
+        if (event.data.size) archiveParts.push(event.data);
+      };
+      archiveRecorder.onstop = () => {
+        if (archiveParts.length) $("audioPlayer").src = URL.createObjectURL(new Blob(archiveParts, { type: archiveRecorder.mimeType || "audio/webm" }));
       };
       resetVoiceWorkflow("现场麦克风流式测试已启动...");
       $("listenTitle").textContent = "现场麦克风流式接入中...";
@@ -3622,13 +3653,16 @@
       setAgent("监听中");
       beginAmplitude(stream);
       startTimer();
-      recorder.start(chunkMs);
+      archiveRecorder.start();
+      startMicWindowRecorder(state.mic);
       renderStreamingStatus();
     }
     async function stopLiveMicStream() {
       if (!state.mic) return;
       state.streaming.queue = [];
       state.mic.active = false;
+      clearTimeout(state.mic.chunkTimer);
+      if (state.mic.chunkRecorder?.state !== "inactive") state.mic.chunkRecorder.stop();
       if (state.mic.archiveRecorder?.state !== "inactive") state.mic.archiveRecorder.stop();
       state.mic.stream?.getTracks().forEach((track) => track.stop());
       if (state.mic.audioCtx) state.mic.audioCtx.close();

@@ -1,6 +1,8 @@
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 
-from app.services.asr import format_diarized_text, load_hotword_lines
+from app.services.asr import QwenASRAdapter, create_asr_adapter, format_diarized_text, load_hotword_lines
 from app.services.vhf_dialogue import build_vhf_dialogue_review
 
 
@@ -45,11 +47,26 @@ class DashScopeASRAdapterTests(unittest.TestCase):
         self.assertIn("说话人1：锦华662报告。", result.dialogue_review_text)
 
     def test_load_hotword_lines(self) -> None:
-        from pathlib import Path
-
         path = Path("data/hotwords/nbzh_hotwords.txt")
         words = load_hotword_lines(path, limit=5)
         self.assertGreaterEqual(len(words), 1)
+
+    def test_qwen_adapter_receives_domain_hotwords_path(self) -> None:
+        hotwords_path = Path("data/hotwords/nbzh_hotwords.txt")
+        adapter = create_asr_adapter(
+            SimpleNamespace(
+                asr_provider="qwen_api",
+                asr_model="qwen3-asr-flash",
+                qwen_asr_api_key_env="DASHSCOPE_API_KEY",
+                qwen_asr_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                qwen_asr_timeout_s=120,
+                qwen_asr_prompt="VHF test",
+                asr_hotwords_path=hotwords_path,
+            )
+        )
+
+        self.assertIsInstance(adapter, QwenASRAdapter)
+        self.assertEqual(hotwords_path, adapter.hotwords_path)
 
 
 if __name__ == "__main__":
