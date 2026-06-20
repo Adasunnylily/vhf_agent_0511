@@ -2216,18 +2216,18 @@
         addBusinessAction(event, { action: "监听归档", status: "已记录", trigger: "一般通信", confidence: event.riskScore.toFixed(2), time: nowLabel(), suggested_action: "持续守听" });
       }
       if (!payload.suppressAutoClose) {
-        if (/(完毕|收到|结束|保持守听|再会|谢谢交管|好的谢谢)/.test(text)) {
-          scheduleBusinessEventClosure("检测到结束语");
+        if (/(报告完毕|收到|结束|保持守听|再会|注意安全|谢谢交管|谢谢老师|好的谢谢)/.test(text)) {
+          scheduleBusinessEventClosure("检测到结束语", 1500);
         } else {
           scheduleBusinessEventClosure("静默超时");
         }
       }
       renderStreamingAgentConsole();
     }
-    function scheduleBusinessEventClosure(reason) {
+    function scheduleBusinessEventClosure(reason, delayMs = 5000) {
       clearTimeout(state.eventCloseTimer);
       setEventState("WAITING_FOR_MORE_SPEECH", reason);
-      state.eventCloseTimer = setTimeout(() => closeBusinessEvent(reason), 5000);
+      state.eventCloseTimer = setTimeout(() => closeBusinessEvent(reason), delayMs);
     }
     function closeBusinessEvent(reason = "人工或静默闭合") {
       const event = state.activeBusinessEvent;
