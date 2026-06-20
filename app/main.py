@@ -846,6 +846,12 @@ async def favicon() -> Response:
 
 @app.get("/healthz")
 async def healthz() -> dict:
+    from app.services.asr_prompts import resolve_dashscope_vocabulary_id, resolve_paraformer_model
+
+    vocabulary_model = resolve_paraformer_model(settings.asr_model or "paraformer-v2")
+    vocabulary_id = settings.asr_vocabulary_id or resolve_dashscope_vocabulary_id(
+        target_model=vocabulary_model
+    )
     return {
         "status": "ok",
         "service": settings.project_name,
@@ -864,6 +870,8 @@ async def healthz() -> dict:
         "stream_simulation_speed": settings.stream_simulation_speed,
         "streaming_model": settings.streaming_model,
         "streaming_chunk_size": settings.streaming_chunk_size,
+        "asr_vocabulary_model": vocabulary_model,
+        "asr_vocabulary_active": bool(vocabulary_id),
     }
 
 

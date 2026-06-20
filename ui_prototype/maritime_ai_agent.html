@@ -1215,11 +1215,37 @@
     }
     .stream-card.dark .reasoning-log span.active { color: #ffffff; }
     #dialogueEdit,
+    #refinedAsrText,
     #continuousDialogues {
       max-height: 164px;
       overflow: auto;
       font-size: 13px;
       line-height: 1.65;
+      white-space: pre-wrap;
+    }
+    .refinement-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 12px;
+      color: #183a60;
+    }
+    .event-boundary-hint {
+      display: block;
+      margin: 7px 0;
+      color: #60738a;
+      line-height: 1.5;
+    }
+    #refinedAsrText { min-height: 88px; background: #eef6ff; }
+    .archive-dialogue {
+      margin-top: 8px;
+      padding: 9px 10px;
+      border-radius: 12px;
+      background: #eef6ff;
+      color: #24415f;
+      white-space: pre-wrap;
+      line-height: 1.55;
     }
     #continuousDialogues {
       min-height: 150px;
@@ -1426,7 +1452,7 @@
 
             <div class="stream-card">
               <div class="stream-head">
-                <h3>实时语音转写流</h3>
+                <h3>实时草稿转写</h3>
                 <span class="pill" id="decisionStatus">监听中</span>
               </div>
               <div class="text-box agent-transcript" id="asrText" contenteditable="true">等待语音输入</div>
@@ -1482,7 +1508,13 @@
                 <span>[步骤 4] 等待船位信息关联</span>
                 <span>[步骤 5] 暂未触发处置动作</span>
               </div>
-              <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">等待语音识别后生成对话轮次复核模板</div>
+              <div class="refinement-head">
+                <b>事件结束后精修</b>
+                <span class="pill" id="refinementStatus">等待事件闭合</span>
+              </div>
+              <small class="event-boundary-hint">划分依据：结束语后1.5秒、连续静默5秒、切换到新船舶或人工关闭。</small>
+              <div class="dialogue-box text-box" id="refinedAsrText">精修后的完整文本将在这里显示，不覆盖上方实时草稿。</div>
+              <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">精修后将在这里显示 [交管] / [船方] 对话轮次，可人工修改后保存。</div>
               <div class="dialogue-box text-box" id="continuousDialogues">连续守听结果将在这里按对话片段滚动展示。</div>
             </div>
 
@@ -1753,6 +1785,7 @@
       mic: null,
       areaMode: "rect",
       areaGeometry: [],
+      currentGeometryDirty: false,
       activeAreas: [],
       savedAreas: [],
       map: null,
@@ -2065,7 +2098,11 @@
       appendGlobalTimeline({ time: nowLabel(), title: `状态切换 ${nextState}`, detail });
     }
     function extractShipFromText(text = "") {
-      const known = ["锦龙228", "锦龙008", "锦华662", "中国银川", "港顺177", "宁远梅山", "货轮876", "湘远15"];
+      const known = [...new Set([
+        ...state.ships.map((ship) => ship.ship_name),
+        ...fallbackShips.map((ship) => ship.ship_name),
+        "锦龙228", "港顺177", "宁远梅山", "货轮876", "湘远15",
+      ].filter(Boolean))].sort((a, b) => b.length - a.length);
       const hit = known.find((name) => text.includes(name));
       if (hit) return hit;
       const match = text.match(/([\u4e00-\u9fa5A-Za-z]{1,6}\d{2,4})/);
@@ -2108,7 +2145,7 @@
         event.shipName = ship || "";
         return event;
       }
-      if (ship && active.shipName && ship !== active.shipName && active.utterances.length >= 2) {
+      if (ship && active.shipName && ship !== active.shipName && active.utterances.length >= 1) {
         closeBusinessEvent("检测到新船名，自动闭合上一业务事件");
         const event = createBusinessEvent(chunk.sourceType, chunk);
         event.shipName = ship;
@@ -2252,6 +2289,7 @@
       renderStreamingAgentConsole();
     }
     async function refineAndArchiveBusinessEvent(event) {
+      if ($("refinementStatus")) $("refinementStatus").textContent = "精修中";
       try {
         const startMs = event.utterances[0]?.startMs || 0;
         const endMs = event.utterances.at(-1)?.endMs || startMs;
@@ -2281,10 +2319,12 @@
         }
         event.resolvedText = refinement.resolved_text || event.summary;
         event.dialogueReviewText = refinement.dialogue_review_text || "";
+        event.roleDialogueText = formatRoleDialogueForDisplay(event.dialogueReviewText);
         event.summary = event.resolvedText.slice(0, 220);
         event.refinement = refinement.refinement || {};
-        if (event.dialogueReviewText) $("dialogueEdit").textContent = event.dialogueReviewText;
-        if (event.resolvedText) $("asrText").textContent = event.resolvedText;
+        if (event.roleDialogueText) $("dialogueEdit").textContent = event.roleDialogueText;
+        if (event.resolvedText) $("refinedAsrText").textContent = event.resolvedText;
+        if ($("refinementStatus")) $("refinementStatus").textContent = "精修完成";
         routeClassification({
           intent: decision.business_type || "other_business",
           risk_score: event.riskScore,
@@ -2304,6 +2344,8 @@
         });
         appendGlobalTimeline({ time: nowLabel(), title: "事件精修完成", detail: `${decision.business_type || "other_business"} · ${decision.summary || "已重新分类"}` });
       } catch (error) {
+        if ($("refinementStatus")) $("refinementStatus").textContent = "精修降级";
+        $("refinedAsrText").textContent = event.utterances.map((item) => item.text).join("\n") || "无有效文本";
         appendGlobalTimeline({ time: nowLabel(), title: "事件精修降级", detail: `${error.message} · 使用实时结果归档` });
       }
       event.status = "ARCHIVED";
@@ -2316,6 +2358,25 @@
         appendGlobalTimeline({ time: nowLabel(), title: "事件持久化失败", detail: error.message });
       }
       renderStreamingAgentConsole();
+    }
+    function formatRoleDialogueForDisplay(dialogueText = "") {
+      const turns = String(dialogueText).split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+        const cleaned = line.replace(/^[-*\s]+|\*\*/g, "");
+        const match = cleaned.match(/^(?:\[([^\]]+)\]|([^：:]{1,30}))\s*[：:]\s*(.+)$/);
+        if (!match) return { speaker: "待确认", text: cleaned };
+        return { speaker: (match[1] || match[2] || "待确认").trim(), text: match[3].trim() };
+      });
+      const isShore = (speaker) => /(交管|VTS|岸台|中心)/i.test(speaker);
+      const isUnknown = (speaker) => /(待确认|未知|speaker)/i.test(speaker);
+      const shipSpeakers = [...new Set(turns.map((turn) => turn.speaker).filter((speaker) => !isShore(speaker) && !isUnknown(speaker)))];
+      const shipLabels = new Map(shipSpeakers.map((speaker, index) => [
+        speaker,
+        shipSpeakers.length <= 1 ? "船方" : `船方${index + 1}`,
+      ]));
+      return turns.map((turn) => {
+        const label = isShore(turn.speaker) ? "交管" : shipLabels.get(turn.speaker) || "待确认";
+        return `[${label}]：${turn.text}`;
+      }).join("\n");
     }
     async function archiveBusinessEvent(event) {
       const businessType = event.intent === "emergency"
@@ -2374,7 +2435,8 @@
         <div class="archive-item">
           <b>${event.shipName || "待确认船舶"} · ${event.intent} · ${event.riskLevel}</b>
           ${event.summary || "无摘要"}<br/>
-          ${new Date(event.startTime).toLocaleTimeString()} - ${event.endTime ? new Date(event.endTime).toLocaleTimeString() : "--"} · ${event.closeReason || "已闭合"} · 音频：${event.exportedAudioUrl || "chunk refs"}
+          ${new Date(event.startTime).toLocaleTimeString()} - ${event.endTime ? new Date(event.endTime).toLocaleTimeString() : "--"} · 划分依据：${event.closeReason || "已闭合"} · 音频：${event.exportedAudioUrl || "chunk refs"}
+          ${event.roleDialogueText ? `<div class="archive-dialogue">${event.roleDialogueText}</div>` : ""}
         </div>
       `).join("") : '<div class="archive-item"><b>暂无闭合事件</b>持续守听后，闭合业务事件会自动进入这里。</div>';
     }
@@ -2489,7 +2551,9 @@
       $("intentEdit").value = "other_business";
       $("shipEdit").value = "";
       $("aisEdit").value = "";
-      $("dialogueEdit").textContent = "等待语音识别后生成对话轮次复核模板";
+      $("refinedAsrText").textContent = "精修后的完整文本将在这里显示，不覆盖上方实时草稿。";
+      $("dialogueEdit").textContent = "精修后将在这里显示 [交管] / [船方] 对话轮次，可人工修改后保存。";
+      $("refinementStatus").textContent = "等待事件闭合";
       $("continuousDialogues").textContent = "连续守听结果将在这里按对话片段滚动展示。";
       $("aisText").textContent = "未关联";
       $("aisRuntimeText").textContent = "待匹配";
@@ -4046,6 +4110,7 @@
             $("lineBuffer").value = area.line_buffer_m || 500;
             state.areaMode = area.geometry_type;
             state.areaGeometry = (area.geometry || []).map((p) => [Number(p[0]), Number(p[1])]);
+            state.currentGeometryDirty = false;
             document.querySelectorAll(".area-mode").forEach((item) => item.classList.toggle("active", item.dataset.areaMode === state.areaMode));
             $("areaHint").textContent = `当前：${state.areaMode === "rect" ? "框选区域" : state.areaMode === "line" ? "过线点验" : "自定义区域"}（已载入：${area.area_name}）`;
             renderArea();
@@ -4072,7 +4137,8 @@
       try {
         const items = await collectMatchedShips();
         renderMatched(items);
-        toast(`已命中 ${items.length} 艘船舶${state.activeAreas.length ? "（多区域汇总）" : ""}`);
+        const sourceLabel = state.currentGeometryDirty ? "当前绘制范围" : state.activeAreas.length ? "多区域汇总" : "当前范围";
+        toast(`${sourceLabel}已命中 ${items.length} 艘船舶`);
       } catch (error) { toast(`筛选失败：${error.message}`, true); }
     }
     function localShipCandidates() {
@@ -4119,6 +4185,7 @@
       for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
         const xi = Number(points[i][0]), yi = Number(points[i][1]);
         const xj = Number(points[j][0]), yj = Number(points[j][1]);
+        if (pointToSegmentDistance(x, y, xi, yi, xj, yj) <= 1e-9) return true;
         if (((yi > y) !== (yj > y)) && x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-12) + xi) inside = !inside;
       }
       return inside;
@@ -4127,7 +4194,7 @@
       return localShipCandidates().filter((ship) => localMatchesGeometry(ship, geometry));
     }
     async function collectMatchedShips() {
-      const active = state.activeAreas.length ? state.activeAreas : null;
+      const active = state.activeAreas.length && !state.currentGeometryDirty ? state.activeAreas : null;
       if (!active) {
         let items = [];
         try {
@@ -4184,7 +4251,7 @@
     async function broadcastInspection() {
       try {
         setAgent("正在生成点验通知");
-        const active = state.activeAreas.length ? state.activeAreas : null;
+        const active = state.activeAreas.length && !state.currentGeometryDirty ? state.activeAreas : null;
         let taskId = "";
         let localNotices = [];
         if (!active) {
@@ -4273,6 +4340,7 @@
       addAreaLngLat(mapPoint(event));
     }
     function addAreaLngLat(point) {
+      state.currentGeometryDirty = true;
       if (state.areaMode === "rect") {
         state.areaGeometry = state.areaGeometry.length >= 2 ? [point] : [...state.areaGeometry, point];
         if (state.areaGeometry.length === 2) {
@@ -4450,11 +4518,12 @@
     $("filterBtn").addEventListener("click", filterShips);
     $("broadcastBtn").addEventListener("click", broadcastInspection);
     $("map").addEventListener("click", addAreaPoint);
-    $("clearAreaBtn").addEventListener("click", () => { state.areaGeometry = []; state.activeAreas = []; renderArea(); renderAreaList(); toast("已清除当前绘制区域"); });
+    $("clearAreaBtn").addEventListener("click", () => { state.areaGeometry = []; state.activeAreas = []; state.currentGeometryDirty = false; renderArea(); renderAreaList(); toast("已清除当前绘制区域"); });
     $("saveAreaBtn").addEventListener("click", saveArea);
     document.querySelectorAll(".area-mode").forEach((button) => button.addEventListener("click", () => {
       state.areaMode = button.dataset.areaMode;
       state.areaGeometry = [];
+      state.currentGeometryDirty = false;
       document.querySelectorAll(".area-mode").forEach((item) => item.classList.toggle("active", item === button));
       $("areaHint").textContent = `当前：${button.textContent}，请在地图上点击落点`;
       renderArea();

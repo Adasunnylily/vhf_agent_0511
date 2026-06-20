@@ -495,6 +495,8 @@ class InspectionTaskSimulator:
         for current in points:
             x1, y1 = previous
             x2, y2 = current
+            if InspectionTaskSimulator._point_on_segment(x, y, x1, y1, x2, y2):
+                return True
             intersects = ((y1 > y) != (y2 > y)) and (
                 x < (x2 - x1) * (y - y1) / ((y2 - y1) or 1e-12) + x1
             )
@@ -502,6 +504,24 @@ class InspectionTaskSimulator:
                 inside = not inside
             previous = current
         return inside
+
+    @staticmethod
+    def _point_on_segment(
+        x: float,
+        y: float,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        tolerance: float = 1e-9,
+    ) -> bool:
+        cross = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1)
+        if abs(cross) > tolerance:
+            return False
+        return (
+            min(x1, x2) - tolerance <= x <= max(x1, x2) + tolerance
+            and min(y1, y2) - tolerance <= y <= max(y1, y2) + tolerance
+        )
 
     def _load_or_init_ships(self) -> List[InspectionShip]:
         self.data_dir.mkdir(parents=True, exist_ok=True)

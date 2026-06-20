@@ -55,6 +55,34 @@ class DemoInspectionTests(unittest.TestCase):
 
         self.assertIn("锦华662", [ship.ship_name for ship in matched])
 
+    def test_polygon_includes_ship_on_boundary(self) -> None:
+        simulator = InspectionTaskSimulator(ws_manager=DummyWSManager(), playback_speed=1000.0)
+        simulator._ships = [
+            InspectionShip(
+                "boundary",
+                "边界测试船",
+                5000,
+                6.0,
+                "杂货船",
+                "",
+                "",
+                121.88,
+                29.92,
+            )
+        ]
+
+        matched = simulator.filter_ships(
+            area_name="",
+            min_draft_m=0,
+            min_tonnage_t=0,
+            area_geometry=(
+                '{"type":"polygon","points":['
+                '[121.87,29.91],[121.88,29.92],[121.89,29.91],[121.87,29.91]]}'
+            ),
+        )
+
+        self.assertEqual(["边界测试船"], [ship.ship_name for ship in matched])
+
     def test_specific_ship_ids_bypass_area_name_filter(self) -> None:
         simulator = InspectionTaskSimulator(ws_manager=DummyWSManager(), playback_speed=1000.0)
 
