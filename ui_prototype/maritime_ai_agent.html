@@ -4193,13 +4193,22 @@
     function localFilterByGeometry(geometry) {
       return localShipCandidates().filter((ship) => localMatchesGeometry(ship, geometry));
     }
+    function visibleInspectionShips(items = []) {
+      const visibleShips = state.ships.length ? state.ships : fallbackShips;
+      const visibleIds = new Set(visibleShips.map((ship) => ship.ship_id));
+      return items.filter((ship) => (
+        visibleIds.has(ship.ship_id)
+        && ship.ship_name
+        && !String(ship.ship_name).startsWith("MMSI_")
+      ));
+    }
     async function collectMatchedShips() {
       const active = state.activeAreas.length && !state.currentGeometryDirty ? state.activeAreas : null;
       if (!active) {
         let items = [];
         try {
           const payload = await request("/api/inspection/filter", { method: "POST", body: inspectionForm() });
-          items = payload.items || [];
+          items = visibleInspectionShips(payload.items || []);
         } catch (error) {
           items = [];
         }
@@ -4222,7 +4231,7 @@
               area_geometry: JSON.stringify({ type: area.geometry_type, points: area.geometry || [], line_buffer_m: area.line_buffer_m || Number($("lineBuffer").value) || 500 }),
             }),
           });
-          items = payload.items || [];
+          items = visibleInspectionShips(payload.items || []);
         } catch (error) {
           items = [];
         }
