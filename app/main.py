@@ -848,10 +848,11 @@ async def favicon() -> Response:
 async def healthz() -> dict:
     from app.services.asr_prompts import resolve_dashscope_vocabulary_id, resolve_paraformer_model
 
-    vocabulary_model = resolve_paraformer_model(settings.asr_model or "paraformer-v2")
-    vocabulary_id = settings.asr_vocabulary_id or resolve_dashscope_vocabulary_id(
-        target_model=vocabulary_model
-    )
+    uses_paraformer_vocabulary = settings.asr_provider in {"dashscope_paraformer", "paraformer_v2"}
+    vocabulary_model = resolve_paraformer_model(settings.asr_model or "paraformer-v2") if uses_paraformer_vocabulary else ""
+    vocabulary_id = (
+        settings.asr_vocabulary_id or resolve_dashscope_vocabulary_id(target_model=vocabulary_model)
+    ) if uses_paraformer_vocabulary else ""
     return {
         "status": "ok",
         "service": settings.project_name,
