@@ -1108,24 +1108,6 @@
       place-items: center;
       min-height: 260px;
     }
-    .agent-runtime-card {
-      min-height: 112px;
-      place-items: stretch;
-      align-content: center;
-      gap: 14px;
-      background:
-        radial-gradient(circle at 16% 18%, rgba(22,119,255,.14), transparent 36%),
-        linear-gradient(145deg, rgba(255,255,255,.94), rgba(238,247,255,.80));
-    }
-    .agent-runtime-card .agent-core-meta {
-      text-align: left;
-      margin-top: 0;
-    }
-    .agent-runtime-card .agent-core-meta b { font-size: 20px; }
-    .agent-runtime-card .runtime-states {
-      justify-content: flex-start;
-      flex-wrap: wrap;
-    }
     .agent-orb {
       position: relative;
       width: 148px;
@@ -1867,6 +1849,18 @@
       if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
       return response.json();
     }
+    async function requestWithTimeout(path, options = {}, timeoutMs = 8000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await request(path, { ...options, signal: controller.signal });
+      } catch (error) {
+        if (error?.name === "AbortError") throw new Error(`请求超过${Math.round(timeoutMs / 1000)}秒，已自动降级`);
+        throw error;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
     function form(values) {
       const data = new FormData();
       Object.entries(values).forEach(([key, value]) => data.append(key, value));
@@ -2207,6 +2201,9 @@
       const hit = terms.find((term) => text.toLowerCase().includes(term.toLowerCase()));
       return { isHighRisk: Boolean(hit), term: hit || "" };
     }
+    function isEventClosingText(text = "") {
+      return /(报告完毕|通话结束|保持守听|再会|注意安全|收到交管|收到.*谢谢|谢谢交管|谢谢老师|好的谢谢|谢谢[。.!！]?)/.test(text);
+    }
     function addBusinessAction(event, action) {
       if (!event.actions.some((item) => item.action === action.action && item.trigger === action.trigger)) {
         event.actions.push(action);
@@ -2301,18 +2298,14 @@
       } else if (event.intent === "auto_reply") {
         const reply = `${event.shipName || "相关船舶"}，收到，请保持甚高频守听，注意航道通航安全。`;
         $("replyText").textContent = reply;
-        addBusinessAction(event, { action: "自动VHF回复", status: "已播报", trigger: "常规报告", confidence: event.riskScore.toFixed(2), time: nowLabel(), suggested_action: reply });
-        if (!event.autoReplySpoken) {
-          event.autoReplySpoken = true;
-          speakText(reply);
-        }
+        addBusinessAction(event, { action: "待确认播报", status: "需人工点击播报", trigger: "常规报告", confidence: event.riskScore.toFixed(2), time: nowLabel(), suggested_action: reply });
       } else if (event.intent === "human_approval") {
         addBusinessAction(event, { action: "等待人工批准", status: "待审批", trigger: "申请类业务", confidence: event.riskScore.toFixed(2), time: nowLabel(), suggested_action: "值班员确认后回复" });
       } else {
         addBusinessAction(event, { action: "监听归档", status: "已记录", trigger: "一般通信", confidence: event.riskScore.toFixed(2), time: nowLabel(), suggested_action: "持续守听" });
       }
       if (!payload.suppressAutoClose) {
-        if (/(报告完毕|收到|结束|保持守听|再会|注意安全|谢谢交管|谢谢老师|好的谢谢)/.test(text)) {
+        if (isEventClosingText(text)) {
           scheduleBusinessEventClosure("检测到结束语", 1500);
         } else {
           scheduleBusinessEventClosure("静默超时");
@@ -2344,7 +2337,7 @@
       try {
         const startMs = event.utterances[0]?.startMs || 0;
         const endMs = event.utterances.at(-1)?.endMs || startMs;
-        const refinement = await request("/api/streaming/refine-event", {
+        const refinement = await requestWithTimeout("/api/streaming/refine-event", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -2360,7 +2353,7 @@
             end_ms: endMs,
             confidence: 0.85,
           }),
-        });
+        }, 30000);
         if (event.runToken !== state.streaming.runToken) return;
         const decision = refinement.event || {};
         const classification = classifyDecisionPayload({ event: decision }, refinement.resolved_text || "");
@@ -2374,7 +2367,7 @@
         event.roleDialogueText = formatRoleDialogueForDisplay(event.dialogueReviewText);
         event.summary = event.resolvedText.slice(0, 220);
         event.refinement = refinement.refinement || {};
-        const isCurrentWorkspace = !state.activeBusinessEvent || state.activeBusinessEvent.eventId === event.eventId;
+        const isCurrentWorkspace = !state.activeBusinessEvent || event.sourceType === "long_audio" || state.activeBusinessEvent.eventId === event.eventId;
         const finalAction = createActionFromPolicy({
           intent: decision.business_type || "other_business",
           risk_score: event.riskScore,
@@ -2397,10 +2390,9 @@
           if (event.intent === "auto_reply") {
             const reply = decision.broadcast_text || `${event.shipName || "相关船舶"}，收到，请保持甚高频守听，注意航行安全。`;
             $("replyText").textContent = reply;
-            if (!event.autoReplySpoken) {
-              event.autoReplySpoken = true;
-              speakText(reply);
-            }
+            finalAction.action = "待确认播报";
+            finalAction.status = "需人工点击播报";
+            finalAction.suggested_action = reply;
           }
           appendAgentEvent({
             stage: "event_refined",
@@ -2415,9 +2407,56 @@
         appendGlobalTimeline({ time: nowLabel(), title: "事件精修完成", detail: `${decision.business_type || "other_business"} · ${decision.summary || "已重新分类"}` });
       } catch (error) {
         if (event.runToken !== state.streaming.runToken) return;
-        if ($("refinementStatus")) $("refinementStatus").textContent = "精修降级";
-        $("refinedAsrText").textContent = event.utterances.map((item) => item.text).join("\n") || "无有效文本";
-        appendGlobalTimeline({ time: nowLabel(), title: "事件精修降级", detail: `${error.message} · 使用实时结果归档` });
+        const fallbackText = event.utterances.map((item) => item.text).join("\n") || "无有效文本";
+        const fallback = classifyUtterance(fallbackText);
+        event.intent = event.riskLevel === "L1" ? "emergency" : fallback.intent;
+        event.riskLevel = event.riskLevel === "L1" ? "L1" : fallback.riskLevel;
+        event.riskScore = Math.max(event.riskScore || 0, fallback.riskScore);
+        event.resolvedText = fallbackText;
+        event.dialogueReviewText = buildFallbackDialogueText(event.utterances);
+        event.roleDialogueText = event.dialogueReviewText;
+        event.summary = fallbackText.slice(0, 220);
+        if ($("refinementStatus")) $("refinementStatus").textContent = "快速归档";
+        $("refinedAsrText").textContent = fallbackText;
+        if (event.roleDialogueText) $("dialogueEdit").textContent = event.roleDialogueText;
+        const businessType = event.intent === "emergency"
+          ? "emergency_risk"
+          : event.intent === "auto_reply"
+            ? "routine_report"
+            : event.intent === "human_approval"
+              ? "departure_request"
+              : "other_business";
+        routeClassification({
+          intent: businessType,
+          risk_score: event.riskScore,
+          auto_reply_allowed: event.intent === "auto_reply",
+          title: event.shipName || "快速归档事件",
+          summary: event.summary,
+          time: nowLabel(),
+        });
+        const finalAction = createActionFromPolicy({
+          intent: businessType,
+          risk_score: event.riskScore,
+          auto_reply_allowed: event.intent === "auto_reply",
+        });
+        if (event.intent === "auto_reply") {
+          finalAction.action = "待确认播报";
+          finalAction.status = "需人工点击播报";
+          finalAction.suggested_action = `${event.shipName || "相关船舶"}，收到，请保持甚高频守听，注意航行安全。`;
+          $("replyText").textContent = finalAction.suggested_action;
+        }
+        if (!event.actions.some((item) => item.action === finalAction.action)) event.actions.push(finalAction);
+        state.actionQueue = [...state.actionQueue.slice(-7), finalAction];
+        appendAgentEvent({
+          stage: "event_refined",
+          title: "快速分类归档完成",
+          detail: `${event.roleDialogueText || event.resolvedText}\n处置：${intentLabel(businessType)}`,
+          asr_text: event.resolvedText,
+          intent: businessType,
+          risk_score: event.riskScore.toFixed(2),
+          decision_reason: `${error.message} · 使用实时话轮规则分类`,
+        });
+        appendGlobalTimeline({ time: nowLabel(), title: "事件快速归档", detail: `${intentLabel(businessType)} · ${error.message}` });
       }
       event.status = "ARCHIVED";
       state.businessEvents = [event, ...state.businessEvents].slice(0, 30);
@@ -2448,6 +2487,16 @@
         const label = isShore(turn.speaker) ? "交管" : shipLabels.get(turn.speaker) || "待确认";
         return `[${label}]：${turn.text}`;
       }).join("\n");
+    }
+    function buildFallbackDialogueText(utterances = []) {
+      const rows = utterances
+        .map((item) => String(item?.text || "").trim())
+        .filter(Boolean)
+        .map((text) => {
+          const speaker = /(交管|VTS|请讲|保持守听|收到)/.test(text) && !extractShipFromText(text) ? "交管" : "待确认";
+          return `[${speaker}]：${text}`;
+        });
+      return rows.join("\n");
     }
     async function archiveBusinessEvent(event) {
       const businessType = event.intent === "emergency"
@@ -2490,26 +2539,38 @@
       });
     }
     function renderActiveBusinessEvent() {
-      const event = state.activeBusinessEvent;
-      if ($("businessEventState")) $("businessEventState").textContent = state.eventState;
+      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
+      const latestAction = event?.actions?.at(-1);
+      if ($("businessEventState")) $("businessEventState").textContent = state.activeBusinessEvent ? state.eventState : (event ? "最近归档事件" : state.eventState);
       $("activeEventIdText").textContent = event?.eventId || "暂无";
       $("activeEventShip").textContent = event?.shipName || "待确认";
-      $("activeEventIntent").textContent = event?.intent || "待识别";
+      $("activeEventIntent").textContent = event ? readableEventIntent(event) : "待识别";
       $("activeEventRisk").textContent = event?.riskLevel || "INFO";
       $("activeEventUtterances").textContent = String(event?.utterances?.length || 0);
-      $("activeEventAction").textContent = event?.actions?.at(-1)?.action || "等待";
+      $("activeEventAction").textContent = latestAction ? `${latestAction.action} · ${latestAction.status || "待处理"}` : "等待";
     }
     function renderBusinessEventArchive() {
       const list = $("businessEventArchive");
       if (!list) return;
       list.innerHTML = state.businessEvents.length ? state.businessEvents.map((event) => `
         <div class="archive-item">
-          <b>${event.shipName || "待确认船舶"} · ${event.intent} · ${event.riskLevel}</b>
+          <b>${event.shipName || "待确认船舶"} · ${readableEventIntent(event)} · ${event.riskLevel}</b>
           ${event.summary || "无摘要"}<br/>
-          ${new Date(event.startTime).toLocaleTimeString()} - ${event.endTime ? new Date(event.endTime).toLocaleTimeString() : "--"} · 划分依据：${event.closeReason || "已闭合"} · 音频：${event.exportedAudioUrl || "chunk refs"}
+          动作：${event.actions?.at(-1)?.action || "监听归档"} · ${event.actions?.at(-1)?.status || "已记录"}<br/>
+          ${new Date(event.startTime).toLocaleTimeString()} - ${event.endTime ? new Date(event.endTime).toLocaleTimeString() : "--"} · 划分依据：${event.closeReason || "已闭合"}
           ${event.roleDialogueText ? `<div class="archive-dialogue">${event.roleDialogueText}</div>` : ""}
         </div>
       `).join("") : '<div class="archive-item"><b>暂无闭合事件</b>持续守听后，闭合业务事件会自动进入这里。</div>';
+    }
+    function readableEventIntent(event) {
+      const businessType = event?.intent === "emergency"
+        ? "emergency_risk"
+        : event?.intent === "auto_reply"
+          ? "routine_report"
+          : event?.intent === "human_approval"
+            ? "departure_request"
+            : event?.business_type || event?.intent || "other_business";
+      return intentLabel(businessType);
     }
     function renderAgentInspector() {
       const event = state.selectedAgentEvent;
@@ -3621,8 +3682,12 @@
           return;
         }
         if (payload.status === "buffering") {
-          appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: payload.speech_detected ? "话轮累积中" : "监听静音", confidence: "--", summary: `RMS ${payload.rms || 0} · 已累积 ${payload.utterance_ms || 0}ms` });
-          renderStreamingAgentConsole();
+          if ($("liveMicStatus")) {
+            $("liveMicStatus").textContent = payload.speech_detected
+              ? `话轮累积中 · ${payload.utterance_ms || 0}ms · RMS ${payload.rms || 0}`
+              : `监听静音 · RMS ${payload.rms || 0}`;
+          }
+          renderStreamingStatus();
           return;
         }
         if (payload.status === "event_end") {
@@ -3835,7 +3900,7 @@
       }, "backend");
       replay.processedSegmentIds.add(segment.id);
       replay.lastEndMs = endMs;
-      if (/(再会|报告完毕|通话结束|保持守听)/.test(segment.resolved_text || segment.text || "")) {
+      if (isEventClosingText(segment.resolved_text || segment.text || "")) {
         closeBusinessEvent("检测到业务结束语");
       }
     }
@@ -3879,7 +3944,7 @@
         intent: utterance.event?.business_type || "other_business",
         risk_score: utterance.event?.confidence || "0.85",
       });
-      if (/(再会|报告完毕|通话结束|保持守听)/.test(utterance.resolved_text || utterance.text || "")) {
+      if (isEventClosingText(utterance.resolved_text || utterance.text || "")) {
         closeBusinessEvent("检测到业务结束语");
       }
     }
@@ -4004,17 +4069,6 @@
       }, Math.max(250, chunkSizeMs / speed));
       let payload;
       try {
-        payload = await request(serverDemo ? "/api/streaming/replay/quality-demo" : "/api/stream/upload", {
-          method: "POST",
-          body: serverDemo
-            ? form({ channel_id: channelId() })
-            : form({ file, channel_id: channelId(), denoise_mode: "off", asr_mode: "quality" }),
-        });
-        state.streaming.replay.trueStreaming = false;
-        if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen准实时";
-        $("replayStatus").textContent = `Qwen高精度准实时守听已启动 · ${fileName} · ${speed}x`;
-        appendGlobalTimeline({ time: nowLabel(), title: "识别链路", detail: "Qwen3-ASR + VAD话轮 + 事件结束后精修" });
-      } catch (qualityError) {
         payload = await request(serverDemo ? "/api/streaming/replay/demo" : "/api/streaming/replay", {
           method: "POST",
           body: serverDemo
@@ -4023,8 +4077,19 @@
         });
         state.streaming.replay.trueStreaming = true;
         if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Paraformer真流式";
-        $("replayStatus").textContent = `Qwen链路失败，已降级为Paraformer WebSocket · ${fileName}`;
-        appendGlobalTimeline({ time: nowLabel(), title: "识别模式降级", detail: qualityError.message });
+        $("replayStatus").textContent = `Paraformer WebSocket 真流式守听已启动 · ${fileName} · ${speed}x`;
+        appendGlobalTimeline({ time: nowLabel(), title: "识别链路", detail: "Paraformer partial + VAD话轮 + 事件结束后精修" });
+      } catch (streamError) {
+        payload = await request(serverDemo ? "/api/streaming/replay/quality-demo" : "/api/stream/upload", {
+          method: "POST",
+          body: serverDemo
+            ? form({ channel_id: channelId() })
+            : form({ file, channel_id: channelId(), denoise_mode: "off", asr_mode: "quality" }),
+        });
+        state.streaming.replay.trueStreaming = false;
+        if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen准实时";
+        $("replayStatus").textContent = `真流式不可用，已降级为Qwen高精度准实时 · ${fileName}`;
+        appendGlobalTimeline({ time: nowLabel(), title: "识别模式降级", detail: streamError.message });
       }
       state.streaming.replay.taskId = payload.task_id;
       pollLongReplayTask(payload.task_id).catch((error) => {

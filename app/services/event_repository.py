@@ -126,6 +126,13 @@ class SQLiteEventRepository:
             connection.execute("DELETE FROM review_feedback WHERE event_id = ?", (event_id,))
         return cursor.rowcount > 0
 
+    def clear(self, *, include_feedback: bool = True) -> int:
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute("DELETE FROM events")
+            if include_feedback:
+                connection.execute("DELETE FROM review_feedback")
+        return cursor.rowcount
+
     def save_feedback(self, event_id: str, payload: Dict[str, object]) -> Dict[str, object]:
         feedback = dict(payload)
         feedback.setdefault("feedback_id", f"feedback_{uuid.uuid4().hex[:12]}")

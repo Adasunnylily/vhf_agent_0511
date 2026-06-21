@@ -1,10 +1,21 @@
+import os
 import unittest
 
-from app.services.llm_dialogue import LLMDialogueRefinement
+from app.services.llm_dialogue import LLMDialogueRefinement, LLMDialogueRefiner
 from app.services.vhf_dialogue import postprocess_vhf_dialogue
 
 
 class VHFDialogueTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._legacy_rule_repair = os.environ.get("VHF_DIALOGUE_LEGACY_RULE_REPAIR")
+        os.environ["VHF_DIALOGUE_LEGACY_RULE_REPAIR"] = "1"
+
+    def tearDown(self) -> None:
+        if self._legacy_rule_repair is None:
+            os.environ.pop("VHF_DIALOGUE_LEGACY_RULE_REPAIR", None)
+        else:
+            os.environ["VHF_DIALOGUE_LEGACY_RULE_REPAIR"] = self._legacy_rule_repair
+
     def test_repairs_xiangyuan_15_dialogue(self) -> None:
         raw = "宁波交管现在159，请讲。交管，中午好，现在幺五靠左，大榭集装箱码头一号泊位向您报告。收到，散会。"
 
@@ -78,6 +89,44 @@ class VHFDialogueTests(unittest.TestCase):
 
         self.assertEqual(result.resolved_text, "宁波交管，湘远15叫。请讲。")
         self.assertIn("湘远15：宁波交管，湘远15叫。", result.dialogue_review_text)
+
+    def test_llm_dialogue_refiner_receives_domain_hotwords(self) -> None:
+        os.environ["VHF_DIALOGUE_LEGACY_RULE_REPAIR"] = "0"
+
+        class FakeRefiner:
+            def __init__(self) -> None:
+                self.kwargs = {}
+
+            def refine(self, **kwargs):  # type: ignore[no-untyped-def]
+                self.kwargs = kwargs
+                return LLMDialogueRefinement(
+                    corrected_text="宁波交管，锦龙228叫。请讲。",
+                    dialogue_review_text="锦龙228：宁波交管，锦龙228叫。\n宁波交管：请讲。",
+                    payload={"confidence": 0.95},
+                )
+
+        refiner = FakeRefiner()
+        result = postprocess_vhf_dialogue(
+            "宁波交管，锦龙二二八叫，请讲。",
+            dialogue_refiner=refiner,  # type: ignore[arg-type]
+            domain_hotwords=["锦龙228", "宁波交管", "请讲"],
+        )
+
+        self.assertEqual(result.resolved_text, "宁波交管，锦龙228叫。请讲。")
+        self.assertIn("锦龙228", refiner.kwargs["domain_hotwords"])
+
+    def test_llm_dialogue_refiner_loads_grouped_hotwords(self) -> None:
+        refiner = LLMDialogueRefiner(
+            hotwords_path="data/hotwords/nbzh_hotwords_llm.json",
+            hotwords_limit=5,
+        )
+
+        hotwords = refiner._load_domain_hotwords()  # pylint: disable=protected-access
+
+        self.assertIn("vessels", hotwords)
+        self.assertIn("locations_and_waters", hotwords)
+        self.assertIn("锦龙228", hotwords["vessels"])
+        self.assertLessEqual(len(hotwords["vessels"]), 5)
 
     def test_paraformer_diarization_uses_role_mapping_rules(self) -> None:
         result = postprocess_vhf_dialogue(

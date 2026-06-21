@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
@@ -27,6 +28,8 @@ def postprocess_vhf_dialogue(
     map_speaker_roles: bool = False,
     entity_candidates: Optional[List[Dict[str, object]]] = None,
     dialogue_refiner: Optional[LLMDialogueRefiner] = None,
+    use_llm_refiner: bool = True,
+    domain_hotwords: Optional[List[str]] = None,
 ) -> VHFDialogueResult:
     source_text = original_text or text
     resolved = repair_vhf_text(text)
@@ -38,17 +41,19 @@ def postprocess_vhf_dialogue(
         asr_sentences=dialogue_sentences,
         map_speaker_roles=map_speaker_roles,
     )
-    refiner = dialogue_refiner or LLMDialogueRefiner()
-    refinement = refiner.refine(
-        original_text=source_text,
-        rule_resolved_text=resolved,
-        rule_dialogue_review_text=dialogue_review_text,
-        entity_candidates=entity_candidates,
-        asr_sentences=dialogue_sentences,
-    )
-    if refinement is not None:
-        resolved = refinement.corrected_text
-        dialogue_review_text = refinement.dialogue_review_text
+    if use_llm_refiner:
+        refiner = dialogue_refiner or LLMDialogueRefiner()
+        refinement = refiner.refine(
+            original_text=source_text,
+            rule_resolved_text=resolved,
+            rule_dialogue_review_text=dialogue_review_text,
+            entity_candidates=entity_candidates,
+            asr_sentences=dialogue_sentences,
+            domain_hotwords=domain_hotwords,
+        )
+        if refinement is not None:
+            resolved = refinement.corrected_text
+            dialogue_review_text = refinement.dialogue_review_text
     resolved, dialogue_review_text = reconcile_event_ship_name(
         source_text,
         resolved,
@@ -113,29 +118,20 @@ def _prepare_diarization_sentences(
 
 
 def repair_vhf_text(text: str) -> str:
-    resolved = text or ""
-    replacements = [
-        (r"什么中山交管", "宁波舟山交管"),
-        (r"中山交管", "舟山交管"),
-        (r"宁远[，, ]?眉山", "宁远梅山"),
-        (r"宁远煤山", "宁远梅山"),
-        (r"北龙二区", "北仑二期"),
-        (r"通达七号泊位", "通达7号泊位"),
-        (r"谢谢教官", "谢谢交管"),
-        (r"现在\s*(?:159|幺五|一五|1五|15)", "湘远15"),
-        (r"限\s*(?:幺五|一五|1五|15)", "湘远15"),
-        (r"湘远\s*(?:幺五|一五|1五)", "湘远15"),
-        (r"大榭集装箱码头一号泊位", "大榭集装箱码头1号泊位"),
-        (r"散会", "再会"),
-    ]
-    for pattern, value in replacements:
-        resolved = re.sub(pattern, value, resolved)
+    if os.getenv("VHF_DIALOGUE_LEGACY_RULE_REPAIR", "0") == "1":
+        from app.services.vhf_legacy_rules import legacy_repair_vhf_text
 
-    resolved = re.sub(r"(?<=湘远15)靠左(?=，?大榭|大榭)", "靠妥", resolved)
-    resolved = re.sub(r"宁波交管[，, ]?(湘远15)(?:[，, ]?请讲)?", r"宁波交管，\1叫。请讲", resolved)
-    resolved = re.sub(r"(湘远15)靠妥[，, ]?(大榭)", r"\1靠妥\2", resolved)
+        return legacy_repair_vhf_text(text)
+    return normalize_vhf_text(text)
+
+
+def normalize_vhf_text(text: str) -> str:
+    resolved = text or ""
+    resolved = re.sub(r"\s+", " ", resolved)
+    resolved = re.sub(r"[。！？!?；;]+", "。", resolved)
+    resolved = re.sub(r"，+", "，", resolved)
     resolved = re.sub(r"([。！？])+", r"\1", resolved)
-    return resolved.strip()
+    return resolved.strip(" ，,。")
 
 
 def build_vhf_dialogue_review(
