@@ -307,6 +307,84 @@
     .flow-step.active { color: #0754c9; border-color: rgba(22,119,255,.28); background: #eef6ff; }
     .flow-step.done { color: #047857; border-color: rgba(0,184,132,.22); background: #ecfdf5; }
     .flow-step.risk { color: #be123c; border-color: rgba(239,68,68,.22); background: #fff1f2; }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .pipeline-stage {
+      position: relative;
+      padding: 12px 12px 12px 14px;
+      border-radius: 16px;
+      background: #f8fbff;
+      border: 1px solid var(--line);
+      min-height: 92px;
+    }
+    .pipeline-stage::after {
+      content: "›";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #b8c6da;
+      font-size: 20px;
+      z-index: 2;
+    }
+    .pipeline-stage:last-child::after { content: none; }
+    .pipeline-stage .step-no {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #1677ff; color: #fff;
+      font-size: 11px; margin-right: 6px;
+    }
+    .pipeline-stage .step-title { font-size: 12px; color: var(--muted); }
+    .pipeline-stage .step-main { display: block; margin-top: 8px; font-size: 14px; font-weight: 600; color: #173b62; }
+    .pipeline-stage .step-sub { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); line-height: 1.5; }
+    .pipeline-stage.active { border-color: rgba(22,119,255,.35); background: #eef6ff; }
+    .pipeline-stage.done { border-color: rgba(0,184,132,.28); background: #ecfdf5; }
+    .pipeline-stage.done .step-no { background: #047857; }
+    .pipeline-stage.risk { border-color: rgba(239,68,68,.35); background: #fff1f2; }
+    .pipeline-stage.risk .step-no { background: #be123c; }
+    .pipeline-stage.risk .step-main { color: #be123c; }
+    .high-risk-zone {
+      display: none;
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(239,68,68,.35);
+      background: linear-gradient(180deg,#fff1f2,#fff);
+    }
+    .high-risk-zone.show { display: block; }
+    .high-risk-zone .hr-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .high-risk-zone .hr-title { font-size: 13px; font-weight: 700; color: #be123c; }
+    .high-risk-zone .hr-sub { display: block; margin: 6px 0 10px; font-size: 12px; color: #7a1d2b; line-height: 1.6; }
+    .high-risk-zone .hr-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .high-risk-zone .hr-result { margin-top: 12px; border-top: 1px dashed rgba(239,68,68,.25); padding-top: 10px; }
+    .high-risk-zone .hr-result-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .high-risk-zone .hr-result-head b { font-size: 12px; color: #7a1d2b; }
+    .high-risk-zone .hr-result-list { display: grid; gap: 6px; max-height: 200px; overflow-y: auto; }
+    .hr-ship-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 12px; background: #fff; border: 1px solid var(--line); font-size: 12px; }
+    .hr-ship-row b { color: #173b62; }
+    .hr-ship-row span { color: var(--muted); }
+    .hr-ship-row.center { border-color: rgba(239,68,68,.4); background: #fff5f6; }
+    .pipeline-stage { cursor: pointer; transition: box-shadow .15s ease; }
+    .pipeline-stage:hover { box-shadow: 0 0 0 3px rgba(22,119,255,.12); }
+    .stage-detail {
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: #f3f7ff;
+      border: 1px solid rgba(22,119,255,.22);
+    }
+    .stage-detail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .stage-detail-head b { font-size: 13px; color: #0754c9; }
+    .stage-detail-close { cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1; padding: 0 4px; }
+    .stage-detail small { font-size: 12px; color: #335; line-height: 1.7; white-space: pre-line; }
+    @media (max-width: 1200px) { .pipeline { grid-template-columns: repeat(2, 1fr); } .pipeline-stage::after { content: none; } }
     .ais-detail {
       display: none;
       margin-top: 12px;
@@ -1300,7 +1378,7 @@
       </nav>
       <div class="rail-foot">
         <span class="pill green">在线</span>
-        <span>原型联调版 · 2026.06.01</span>
+        <span>原型联调版 · 2026.06.21 · 闭环流水线 v2</span>
         <span id="clock">--:--:--</span>
       </div>
     </aside>
@@ -1516,6 +1594,48 @@
         <section class="panel agent-action-panel">
           <div class="panel-head"><h2>分类、处置与记录</h2><span class="pill">闭环执行</span></div>
           <div class="agent-panel-body">
+            <div class="pipeline" id="dispositionPipeline">
+              <div class="pipeline-stage" id="pipeStage1">
+                <span class="step-title"><span class="step-no">1</span>语音输入</span>
+                <b class="step-main" id="pipeVoiceMain">等待语音</b>
+                <small class="step-sub" id="pipeVoiceSub">监听甚高频，等待话轮</small>
+              </div>
+              <div class="pipeline-stage" id="pipeStage2">
+                <span class="step-title"><span class="step-no">2</span>风险级别分类</span>
+                <b class="step-main" id="pipeRiskMain">待分类</b>
+                <small class="step-sub" id="pipeRiskSub">识别后判定风险等级</small>
+              </div>
+              <div class="pipeline-stage" id="pipeStage3">
+                <span class="step-title"><span class="step-no">3</span>处置</span>
+                <b class="step-main" id="pipeActionMain">待处置</b>
+                <small class="step-sub" id="pipeActionSub">按风险分流处置动作</small>
+              </div>
+              <div class="pipeline-stage" id="pipeStage4">
+                <span class="step-title"><span class="step-no">4</span>闭环归档</span>
+                <b class="step-main" id="pipeArchiveMain">未闭环</b>
+                <small class="step-sub" id="pipeArchiveSub">事件闭合后精修归档</small>
+              </div>
+            </div>
+            <div class="stage-detail" id="pipelineStageDetail" hidden>
+              <div class="stage-detail-head"><b id="stageDetailTitle">阶段明细</b><span id="stageDetailClose" class="stage-detail-close">×</span></div>
+              <small id="stageDetailBody">点击上方任一阶段查看明细。</small>
+            </div>
+            <div class="high-risk-zone" id="highRiskZone">
+              <div class="hr-head">
+                <span class="hr-title">⚠ 高危事件处置</span>
+                <span class="pill" id="highRiskShip">目标船待确认</span>
+              </div>
+              <small class="hr-sub" id="highRiskSub">检测到高危/遇险信号，建议立即对目标船周边水域进行点验核查。</small>
+              <div class="hr-actions">
+                <button class="red" id="pipelineInspectBtn">周边船舶点验</button>
+                <button class="secondary" id="pipelineGoInspectBtn">前往点验界面</button>
+                <button class="secondary" id="pipelineTakeoverBtn">人工接管</button>
+              </div>
+              <div class="hr-result" id="highRiskInspectResult" hidden>
+                <div class="hr-result-head"><b id="highRiskResultTitle">周边点验结果</b><span class="pill" id="highRiskResultCount">0 艘</span></div>
+                <div class="hr-result-list" id="highRiskResultList"></div>
+              </div>
+            </div>
             <div class="classification-streams">
               <div class="classification-stream" id="streamEmergency"><b>高危告警</b><strong id="riskLabel">否</strong><span>等待事件输入</span></div>
               <div class="classification-stream" id="streamAutoReply"><b>自动回复</b><strong id="autoLabel">待定</strong><span>等待事件输入</span></div>
@@ -2007,6 +2127,68 @@
       renderAgentInspector();
       renderActiveBusinessEvent();
       renderBusinessEventArchive();
+      renderDispositionPipeline();
+    }
+    function eventRiskTier(event) {
+      const level = String(event?.riskLevel || event?.risk_level || "").toUpperCase();
+      const intent = event?.intent || event?.business_type || "";
+      if (["L1", "L2", "L3"].includes(level) || intent === "emergency" || intent === "emergency_risk") {
+        return { key: "emergency", label: "高危 / 遇险", cls: "risk", action: "高危处置：广播 + 人工接管" };
+      }
+      if (level === "MANUAL" || intent === "human_approval" || intent === "departure_request") {
+        return { key: "manual", label: "申请类 / 需人工", cls: "active", action: "人工复核后回复" };
+      }
+      if (level === "AUTO" || intent === "auto_reply" || intent === "routine_report") {
+        return { key: "auto", label: "常规报告", cls: "done", action: "标准 VTS 回复（待确认播报）" };
+      }
+      return { key: "monitor", label: "一般监听", cls: "active", action: "持续监听并归档" };
+    }
+    function renderDispositionPipeline() {
+      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
+      const archived = Boolean(event && (event.status === "ARCHIVED" || event.status === "EVENT_CLOSED"));
+      const draft = (event?.utterances?.at(-1)?.text) || ($("asrText")?.textContent && $("asrText").textContent !== "等待语音输入" ? $("asrText").textContent : "");
+      const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+      const setCls = (id, cls) => { const el = $(id); if (el) el.className = `pipeline-stage${cls ? " " + cls : ""}`; };
+
+      if (!event) {
+        set("pipeVoiceMain", "等待语音"); set("pipeVoiceSub", "监听甚高频，等待话轮");
+        set("pipeRiskMain", "待分类"); set("pipeRiskSub", "识别后判定风险等级");
+        set("pipeActionMain", "待处置"); set("pipeActionSub", "按风险分流处置动作");
+        set("pipeArchiveMain", "未闭环"); set("pipeArchiveSub", "事件闭合后精修归档");
+        ["pipeStage1", "pipeStage2", "pipeStage3", "pipeStage4"].forEach((id) => setCls(id, ""));
+        if ($("highRiskZone")) $("highRiskZone").classList.remove("show");
+        return;
+      }
+
+      const tier = eventRiskTier(event);
+      set("pipeVoiceMain", draft ? "已转写" : "监听中");
+      set("pipeVoiceSub", draft ? draft.slice(0, 40) : `已接收 ${event.utterances?.length || 0} 个话轮`);
+      setCls("pipeStage1", draft ? "done" : "active");
+
+      set("pipeRiskMain", tier.label);
+      set("pipeRiskSub", `风险等级 ${event.riskLevel || "INFO"} · 评分 ${Number(event.riskScore || 0).toFixed(2)}`);
+      setCls("pipeStage2", tier.cls);
+
+      const latestAction = event.actions?.at(-1);
+      set("pipeActionMain", latestAction?.action || tier.action.split("：")[0]);
+      set("pipeActionSub", latestAction ? `${latestAction.status || "待处理"} · ${latestAction.suggested_action || tier.action}` : tier.action);
+      setCls("pipeStage3", tier.cls);
+
+      set("pipeArchiveMain", archived ? "闭环完成" : "进行中");
+      set("pipeArchiveSub", archived ? `${$("refinementStatus")?.textContent || "已归档"} · ${event.closeReason || "已闭合"}` : "等待事件闭合后精修");
+      setCls("pipeStage4", archived ? "done" : "");
+
+      const zone = $("highRiskZone");
+      if (zone) {
+        if (tier.key === "emergency") {
+          zone.classList.add("show");
+          if ($("highRiskShip")) $("highRiskShip").textContent = event.shipName || event.matchedShip || "目标船待确认";
+          if ($("highRiskSub")) $("highRiskSub").textContent = `检测到高危/遇险信号（${event.summary?.slice(0, 36) || tier.label}），建议立即对目标船周边水域进行点验核查。`;
+        } else {
+          zone.classList.remove("show");
+          if ($("highRiskInspectResult")) $("highRiskInspectResult").hidden = true;
+        }
+      }
     }
     function renderAgentThinkingTrace() {
       const visibleStages = new Set([
@@ -2818,6 +3000,92 @@
       });
       renderActionQueue();
       renderShips();
+    }
+    function renderHighRiskInspectResult(centerName, ships, radiusM) {
+      const box = $("highRiskInspectResult");
+      const list = $("highRiskResultList");
+      if (!box || !list) return;
+      box.hidden = false;
+      if ($("highRiskResultTitle")) $("highRiskResultTitle").textContent = `周边点验结果（${radiusM ? radiusM + "米内" : "当前范围"}）`;
+      if ($("highRiskResultCount")) $("highRiskResultCount").textContent = `${ships.length} 艘`;
+      if (!ships.length) {
+        list.innerHTML = '<div class="hr-ship-row"><b>未命中周边船舶</b><span>可前往点验界面调整范围或筛选条件</span></div>';
+        return;
+      }
+      list.innerHTML = ships.map((ship) => {
+        const isCenter = centerName && ship.ship_name === centerName;
+        const pos = ship.position_label || ship.distance_label || (ship.distance_m != null ? `约${Math.round(ship.distance_m)}米` : "位置待更新");
+        return `<div class="hr-ship-row${isCenter ? " center" : ""}"><b>${ship.ship_name || "目标船"}${isCenter ? " · 中心船" : ""}</b><span>${ship.ship_type || "船舶"} · ${pos}</span></div>`;
+      }).join("");
+    }
+    async function runHighRiskInspection() {
+      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
+      const shipName = event?.shipName || event?.matchedShip || "";
+      const ctx = event?.inspectionContext || {};
+      let centerName = ctx.center_ship?.ship_name || shipName;
+      let ships = [];
+      let radiusM = ctx.radius_m || 0;
+
+      if (ctx.triggered && (ctx.matched_ships?.length || ctx.center_ship)) {
+        ships = [ctx.center_ship, ...(ctx.matched_ships || [])].filter(Boolean);
+      } else {
+        try {
+          ships = visibleInspectionShips(await collectMatchedShips());
+        } catch (error) {
+          ships = [];
+        }
+      }
+
+      renderHighRiskInspectResult(centerName, ships, radiusM);
+      if (event) {
+        addBusinessAction(event, {
+          action: "高危周边点验",
+          status: ships.length ? "已圈选" : "无命中",
+          trigger: shipName || "高危目标船",
+          confidence: Number(event.riskScore || 0).toFixed(2),
+          time: nowLabel(),
+          suggested_action: `核验周边 ${ships.length} 艘船舶`,
+        });
+      }
+      appendGlobalTimeline({ time: nowLabel(), title: "高危周边点验", detail: `${centerName || "目标船"} 周边命中 ${ships.length} 艘船舶` });
+      toast(ships.length ? `已在语音页列出周边 ${ships.length} 艘船舶` : "未命中周边船舶，可前往点验界面调整范围", !ships.length);
+    }
+    async function goToInspectionPage() {
+      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
+      const shipName = event?.shipName || event?.matchedShip || "";
+      setPage("inspection");
+      try {
+        await loadShips();
+        await filterShips();
+        toast(`已切换到点验界面${shipName ? `，目标船 ${shipName}` : ""}`);
+      } catch (error) {
+        toast(`点验界面加载失败：${error.message}`, true);
+      }
+    }
+    function showStageDetail(stageKey) {
+      const box = $("pipelineStageDetail");
+      if (!box) return;
+      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
+      const titleMap = { voice: "① 语音输入明细", risk: "② 风险级别分类明细", action: "③ 处置明细", archive: "④ 闭环归档明细" };
+      let body = "暂无事件数据。";
+      if (event) {
+        const tier = eventRiskTier(event);
+        if (stageKey === "voice") {
+          const turns = (event.utterances || []).map((u, i) => `${i + 1}. ${u.text}`).join("\n") || "暂无话轮";
+          body = `事件ID：${event.eventId}\n船舶：${event.shipName || "待确认"}\n话轮数：${event.utterances?.length || 0}\n转写：\n${turns}`;
+        } else if (stageKey === "risk") {
+          body = `风险等级：${event.riskLevel || "INFO"}\n风险评分：${Number(event.riskScore || 0).toFixed(2)}\n分级：${tier.label}\n意图：${readableEventIntent(event)}\n判定说明：${$("riskReason")?.textContent || "依据关键词与置信度判定"}`;
+        } else if (stageKey === "action") {
+          const acts = (event.actions || []).map((a) => `· ${a.action}（${a.status || "待处理"}）${a.suggested_action ? " → " + a.suggested_action : ""}`).join("\n") || `· ${tier.action}`;
+          body = `建议处置：${tier.action}\n动作记录：\n${acts}`;
+        } else if (stageKey === "archive") {
+          const archived = event.status === "ARCHIVED" || event.status === "EVENT_CLOSED";
+          body = `状态：${archived ? "已闭环归档" : "进行中"}\n精修：${$("refinementStatus")?.textContent || "等待事件闭合"}\n划分依据：${event.closeReason || "结束语后1.5秒/连续静默5秒/切换船舶/人工关闭"}\n摘要：${event.summary || "无"}`;
+        }
+      }
+      if ($("stageDetailTitle")) $("stageDetailTitle").textContent = titleMap[stageKey] || "阶段明细";
+      if ($("stageDetailBody")) $("stageDetailBody").textContent = body;
+      box.hidden = false;
     }
     function selectAgentShip(shipName) {
       const ships = state.ships.length ? state.ships : fallbackShips;
@@ -4790,6 +5058,14 @@
       toast("当前业务事件已驳回");
     });
     $("closeBusinessEventBtn").addEventListener("click", () => closeBusinessEvent("操作员手动关闭"));
+    $("pipelineInspectBtn").addEventListener("click", () => runHighRiskInspection());
+    $("pipelineGoInspectBtn").addEventListener("click", () => goToInspectionPage().catch((error) => toast(error.message, true)));
+    $("pipelineTakeoverBtn").addEventListener("click", async () => { setAgent("人工接管", "risk"); await updateActiveStatus("confirmed"); toast("高危事件已转人工接管"); });
+    [["pipeStage1", "voice"], ["pipeStage2", "risk"], ["pipeStage3", "action"], ["pipeStage4", "archive"]].forEach(([id, key]) => {
+      const el = $(id);
+      if (el) el.addEventListener("click", () => showStageDetail(key));
+    });
+    if ($("stageDetailClose")) $("stageDetailClose").addEventListener("click", () => { $("pipelineStageDetail").hidden = true; });
     document.querySelectorAll(".agent-ship").forEach((button) => button.addEventListener("click", () => selectAgentShip(button.title)));
     $("askShipBtn").addEventListener("click", copilotAskShip);
     $("queryTrackBtn").addEventListener("click", copilotQueryTrack);
