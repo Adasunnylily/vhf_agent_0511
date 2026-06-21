@@ -49,11 +49,51 @@ def postprocess_vhf_dialogue(
     if refinement is not None:
         resolved = refinement.corrected_text
         dialogue_review_text = refinement.dialogue_review_text
+    resolved, dialogue_review_text = reconcile_event_ship_name(
+        source_text,
+        resolved,
+        dialogue_review_text,
+    )
     return VHFDialogueResult(
         original_text=source_text,
         resolved_text=resolved,
         dialogue_review_text=dialogue_review_text,
     )
+
+
+def reconcile_event_ship_name(
+    source_text: str,
+    corrected_text: str,
+    dialogue_review_text: str,
+) -> tuple[str, str]:
+    sentences = [item.strip() for item in re.split(r"[\n。！？!?；;]+", source_text) if item.strip()]
+    evidence: Dict[str, Dict[str, bool]] = {}
+    business_pattern = re.compile(r"(报告|申请|靠泊|靠妥|抛锚|起锚|离泊|开航|解缆|穿越|接码头通知)")
+    for sentence in sentences:
+        names = SHIP_NAME_PATTERN.findall(sentence)
+        for name in names:
+            item = evidence.setdefault(name, {"business": False, "short_call": False})
+            if business_pattern.search(sentence):
+                item["business"] = True
+            if len(sentence) <= 20 and "交管" in sentence and not business_pattern.search(sentence):
+                item["short_call"] = True
+
+    strong_names = [name for name, item in evidence.items() if item["business"]]
+    if len(strong_names) != 1:
+        return corrected_text, dialogue_review_text
+    strong = strong_names[0]
+    strong_prefix = re.sub(r"\d+$", "", strong)
+    weak_names = [
+        name
+        for name, item in evidence.items()
+        if name != strong
+        and item["short_call"]
+        and re.sub(r"\d+$", "", name) == strong_prefix
+    ]
+    if len(weak_names) != 1:
+        return corrected_text, dialogue_review_text
+    weak = weak_names[0]
+    return corrected_text.replace(weak, strong), dialogue_review_text.replace(weak, strong)
 
 
 def _prepare_diarization_sentences(

@@ -63,6 +63,19 @@ class DashScopeASRAdapterTests(unittest.TestCase):
 
         self.assertEqual("实时话轮：锦龙228接码头通知", result.original_text)
 
+    def test_postprocess_prefers_ship_name_from_substantive_business_turn(self) -> None:
+        from app.services.vhf_dialogue import reconcile_event_ship_name
+
+        corrected, dialogue = reconcile_event_ship_name(
+            "宁波交管，锦龙008。\n锦龙228接码头通知，金塘南不抛锚了，直接进去。",
+            "宁波交管锦龙008。锦龙008接码头通知，金塘南不抛锚了，直接进去。",
+            "锦龙008：宁波交管，锦龙008。\n锦龙008：接码头通知，直接进去。",
+        )
+
+        self.assertNotIn("锦龙008", corrected)
+        self.assertNotIn("锦龙008", dialogue)
+        self.assertIn("锦龙228", corrected)
+
     def test_load_hotword_lines(self) -> None:
         path = Path("data/hotwords/nbzh_hotwords.txt")
         words = load_hotword_lines(path, limit=5)
