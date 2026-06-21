@@ -371,6 +371,12 @@
     .hr-ship-row b { color: #173b62; }
     .hr-ship-row span { color: var(--muted); }
     .hr-ship-row.center { border-color: rgba(239,68,68,.4); background: #fff5f6; }
+    .high-risk-zone .hr-broadcast { margin-top: 12px; border-top: 1px dashed rgba(239,68,68,.25); padding-top: 10px; }
+    .high-risk-zone .hr-broadcast textarea {
+      width: 100%; margin: 8px 0; padding: 10px 12px; border-radius: 12px;
+      border: 1px solid rgba(239,68,68,.3); background: #fff; font-size: 13px;
+      line-height: 1.6; color: #173b62; resize: vertical; box-sizing: border-box;
+    }
     .pipeline-stage { cursor: pointer; transition: box-shadow .15s ease; }
     .pipeline-stage:hover { box-shadow: 0 0 0 3px rgba(22,119,255,.12); }
     .stage-detail {
@@ -1418,7 +1424,7 @@
       </nav>
       <div class="rail-foot">
         <span class="pill green">在线</span>
-        <span>原型联调版 · 2026.06.21 · 事件划分修复 + 船位图 v3</span>
+        <span>原型联调版 · 2026.06.21 · 高危预播报 v4</span>
         <span id="clock">--:--:--</span>
       </div>
     </aside>
@@ -1674,6 +1680,14 @@
               <div class="hr-result" id="highRiskInspectResult" hidden>
                 <div class="hr-result-head"><b id="highRiskResultTitle">周边点验结果</b><span class="pill" id="highRiskResultCount">0 艘</span></div>
                 <div class="hr-result-list" id="highRiskResultList"></div>
+              </div>
+              <div class="hr-broadcast" id="highRiskBroadcast" hidden>
+                <div class="hr-result-head"><b>高危点验预播报模板</b><span class="pill" id="highRiskBroadcastChannel">VHF 16频道</span></div>
+                <textarea id="highRiskBroadcastText" rows="3"></textarea>
+                <div class="hr-actions">
+                  <button class="red" id="highRiskBroadcastBtn">一键播报</button>
+                  <button class="secondary" id="highRiskBroadcastCopyBtn">复制模板</button>
+                </div>
               </div>
             </div>
             <div class="action-card voice-map-card">
@@ -2298,6 +2312,7 @@
         } else {
           zone.classList.remove("show");
           if ($("highRiskInspectResult")) $("highRiskInspectResult").hidden = true;
+          if ($("highRiskBroadcast")) $("highRiskBroadcast").hidden = true;
         }
       }
     }
@@ -3163,6 +3178,29 @@
         return `<div class="hr-ship-row${isCenter ? " center" : ""}"><b>${ship.ship_name || "目标船"}${isCenter ? " · 中心船" : ""}</b><span>${ship.ship_type || "船舶"} · ${pos}</span></div>`;
       }).join("");
     }
+    function buildHighRiskBroadcast(centerName, ships, event) {
+      const ctx = event?.inspectionContext || {};
+      const waters = ctx.center_ship?.position_label || event?.aisContext?.position_label || "北仑主航道水域";
+      const riskTerm = detectEarlyRisk(event?.summary || event?.resolvedText || "").term
+        || (event?.summary ? String(event.summary).slice(0, 16) : "")
+        || "高危/遇险情况";
+      const radiusM = Number(ctx.radius_m || 3000);
+      const nearby = ships.filter((s) => s && s.ship_name && s.ship_name !== centerName);
+      const nearbyNames = nearby.slice(0, 6).map((s) => s.ship_name).join("、");
+      const target = centerName || "目标船舶";
+      const nearbyClause = nearby.length
+        ? `周边 ${nearby.length} 艘船舶（${nearbyNames}${nearby.length > 6 ? " 等" : ""}）`
+        : `周边 ${radiusM} 米范围内各船`;
+      return `各船注意，各船注意：${target} 于 ${waters} 出现${riskTerm}，${nearbyClause}请立即减速避让、保持安全距离，加强瞭望，保持 VHF 16 频道守听并听从交管指挥，必要时协助救助。宁波交管。`;
+    }
+    function showHighRiskBroadcast(centerName, ships, event) {
+      const box = $("highRiskBroadcast");
+      const area = $("highRiskBroadcastText");
+      if (!box || !area) return;
+      area.value = buildHighRiskBroadcast(centerName, ships, event);
+      box.hidden = false;
+      if ($("highRiskBroadcastChannel")) $("highRiskBroadcastChannel").textContent = `VHF ${channelId() ? "16频道" : "16频道"}`;
+    }
     async function runHighRiskInspection() {
       const event = state.activeBusinessEvent || state.businessEvents[0] || null;
       const shipName = event?.shipName || event?.matchedShip || "";
@@ -3182,6 +3220,7 @@
       }
 
       renderHighRiskInspectResult(centerName, ships, radiusM);
+      showHighRiskBroadcast(centerName, ships, event);
       if (event) {
         addBusinessAction(event, {
           action: "高危周边点验",
@@ -5207,6 +5246,8 @@
     $("closeBusinessEventBtn").addEventListener("click", () => closeBusinessEvent("操作员手动关闭"));
     $("pipelineInspectBtn").addEventListener("click", () => runHighRiskInspection());
     $("pipelineGoInspectBtn").addEventListener("click", () => goToInspectionPage().catch((error) => toast(error.message, true)));
+    $("highRiskBroadcastBtn").addEventListener("click", () => speakText($("highRiskBroadcastText").value));
+    $("highRiskBroadcastCopyBtn").addEventListener("click", () => { navigator.clipboard.writeText($("highRiskBroadcastText").value || ""); toast("高危点验播报模板已复制"); });
     $("pipelineTakeoverBtn").addEventListener("click", async () => { setAgent("人工接管", "risk"); await updateActiveStatus("confirmed"); toast("高危事件已转人工接管"); });
     [["pipeStage1", "voice"], ["pipeStage2", "risk"], ["pipeStage3", "action"], ["pipeStage4", "archive"]].forEach(([id, key]) => {
       const el = $(id);
