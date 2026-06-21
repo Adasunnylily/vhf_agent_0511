@@ -49,6 +49,7 @@ from app.services.vhf_dialogue import build_vhf_dialogue_review, postprocess_vhf
 router = APIRouter(prefix="/api")
 mic_risk_engine = KeywordRiskEngine()
 stream_rule_risk_engine = KeywordRiskEngine(decision_mode="rules")
+event_refine_risk_engine = KeywordRiskEngine(decision_mode="rules")
 ais_risk_analyzer = AISRiskAnalyzer()
 mic_sessions: Dict[str, Dict[str, Any]] = {}
 mic_lock = threading.Lock()
@@ -1723,9 +1724,11 @@ def refine_streaming_business_event(
     task_id = str(payload.get("task_id") or "").strip()
     start_ms = int(payload.get("start_ms") or 0)
     end_ms = int(payload.get("end_ms") or 0)
+    duration_ms = max(0, end_ms - start_ms)
+    max_audio_refine_ms = int(os.getenv("VHF_EVENT_REFINE_MAX_AUDIO_MS", "0"))
     task = task_manager.get(task_id) if task_id else None
     processed_path = Path(str((task.meta if task else {}).get("processed_path") or ""))
-    if processed_path.is_file() and end_ms > start_ms:
+    if processed_path.is_file() and end_ms > start_ms and duration_ms <= max_audio_refine_ms:
         clip_path = storage.allocate_clip_path(".wav")
         _ensure_browser_wav(
             processed_path,
@@ -1742,21 +1745,23 @@ def refine_streaming_business_event(
         refined_asr = shared_asr_refiner.refine(
             clip_path,
             base_result,
-            duration_ms=end_ms - start_ms,
+            duration_ms=duration_ms,
         )
         if refined_asr.text.strip():
             raw_text = refined_asr.text.strip()
             refinement_engine = refined_asr.engine
+    elif processed_path.is_file() and duration_ms > max_audio_refine_ms:
+        refinement_engine = f"text_only_skip_audio_refine>{max_audio_refine_ms}ms"
 
-    resolution = entity_resolver.resolve(raw_text)
-    candidates = [candidate.to_dict() for candidate in resolution.candidates]
+    use_stream_llm_refine = os.getenv("VHF_STREAM_REFINE_USE_LLM", "1") == "1"
     dialogue = postprocess_vhf_dialogue(
-        resolution.resolved_text,
+        raw_text,
         asr_sentences=asr_sentences or None,
         original_text=original_event_text,
-        sentence_resolver=lambda text: entity_resolver.resolve(text).resolved_text,
+        sentence_resolver=None,
         map_speaker_roles=True,
-        entity_candidates=candidates,
+        entity_candidates=[],
+        use_llm_refiner=use_stream_llm_refine,
     )
     segment = AudioSegment(
         id=f"refined_{uuid.uuid4().hex[:12]}",
@@ -1771,15 +1776,15 @@ def refine_streaming_business_event(
         keywords=_extract_keywords(dialogue.resolved_text),
         engine="stream_event_refinement",
         resolved_text=dialogue.resolved_text,
-        entities=candidates,
+        entities=[],
         asr_sentences=asr_sentences,
     )
-    evaluated = mic_risk_engine.evaluate(segment)
-    event_payloads = _enrich_event_payloads(
-        [event.to_dict() for event in evaluated],
-        [segment],
-    )
-    decision = event_payloads[0] if event_payloads else _default_decision_payload(segment)
+    evaluated = event_refine_risk_engine.evaluate(segment)
+    decision = evaluated[0].to_dict() if evaluated else _default_decision_payload(segment)
+    decision["asr_text"] = segment.text
+    decision["resolved_text"] = segment.resolved_text or segment.text
+    decision["entities"] = []
+    decision["ais_context"] = {}
     decision["business_type"] = _decision_business_type(decision)
     return {
         "resolved_text": dialogue.resolved_text,
@@ -1787,8 +1792,8 @@ def refine_streaming_business_event(
         "event": decision,
         "refinement": {
             "asr_engine": refinement_engine,
-            "dialogue_mode": os.getenv("VHF_DIALOGUE_MODE", "rules"),
-            "decision_mode": os.getenv("VHF_DECISION_MODE", "rules"),
+            "dialogue_mode": "rules",
+            "decision_mode": "rules",
         },
     }
 
@@ -2457,6 +2462,12 @@ async def save_event_feedback(
     event["review_status"] = "confirmed"
     event_store.append(event)
     return {"event": event, "feedback": feedback}
+
+
+@router.delete("/events")
+async def clear_events(include_feedback: bool = True) -> Dict[str, object]:
+    deleted = event_store.clear(include_feedback=include_feedback)
+    return {"ok": True, "deleted": deleted}
 
 
 @router.delete("/events/{event_id}")

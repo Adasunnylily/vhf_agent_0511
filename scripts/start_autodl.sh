@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8000}"
 PYTHON_BIN="${PYTHON_BIN:-}"

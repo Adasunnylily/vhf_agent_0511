@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 DEFAULT_DIALOGUE_PROMPT = """你是海事VHF通话校对与对话重建助手。
 
-请根据ASR原文、规则初修文本、已知船名/地名候选、ASR句子，完成：
+请根据ASR原文、轻量初修文本、领域热词、已知船名/地名候选、ASR句子，完成：
 1. 修正明显错误的船名、地名、泊位名、动作词和VHF数字读法。
 2. 重建说话人轮次，尽量区分宁波交管、船方A、船方B；船名明确时用船名。
 3. 不要凭空新增没有依据的船名、地点或业务事实。
@@ -17,6 +17,8 @@ DEFAULT_DIALOGUE_PROMPT = """你是海事VHF通话校对与对话重建助手。
 5. 如果候选实体与ASR读音接近，优先使用候选实体。
 6. “请讲、收到、注意安全、再会、好下一个”等短句一般是交管/岸台话术；除非上下文明确是船船对话，否则 speaker 标为“宁波交管”，role 标为“vts”。
 7. 同一通信事件中，若相近船名在完整业务报告里重复出现，而另一个只在短呼叫中出现一次，优先采用重复且上下文完整的船名，并保持该船说话人名称一致。
+8. 领域热词是纠错参考，不是必须全部使用；只有当ASR发音、上下文或候选实体支持时才替换。
+9. 热词按类别提供：vessels 是船名，locations_and_waters 是地名/水域，berths_and_facilities 是泊位/码头设施，vhf_phrases 是VHF常用话术，navigation_actions 是业务动作，risk_terms 是风险词。请优先在对应类别中查找。
 
 只输出JSON，不要输出解释文本。JSON格式：
 {
@@ -52,6 +54,8 @@ class LLMDialogueRefiner:
         base_url: Optional[str] = None,
         timeout_s: Optional[int] = None,
         prompt: Optional[str] = None,
+        hotwords_path: Optional[str] = None,
+        hotwords_limit: Optional[int] = None,
     ) -> None:
         self.mode = (mode or os.getenv("VHF_DIALOGUE_MODE", "rules")).strip().lower()
         self.model = model or os.getenv("VHF_DIALOGUE_MODEL", os.getenv("VHF_DECISION_MODEL", "qwen-max"))
@@ -65,6 +69,11 @@ class LLMDialogueRefiner:
         )
         self.timeout_s = timeout_s or int(os.getenv("VHF_DIALOGUE_TIMEOUT_S", "30"))
         self.prompt = prompt or os.getenv("VHF_DIALOGUE_PROMPT", DEFAULT_DIALOGUE_PROMPT)
+        self.hotwords_path = hotwords_path or os.getenv(
+            "VHF_DIALOGUE_HOTWORDS_PATH",
+            os.getenv("VHF_ASR_HOTWORDS_PATH", "data/hotwords/nbzh_hotwords.txt"),
+        )
+        self.hotwords_limit = hotwords_limit or int(os.getenv("VHF_DIALOGUE_HOTWORDS_LIMIT", "80"))
         self.fail_fast = os.getenv("VHF_DIALOGUE_FAIL_FAST", "0") == "1"
         self._client: Any = None
 
@@ -79,6 +88,7 @@ class LLMDialogueRefiner:
         rule_dialogue_review_text: str,
         entity_candidates: Optional[List[Dict[str, Any]]] = None,
         asr_sentences: Optional[List[dict]] = None,
+        domain_hotwords: Optional[Any] = None,
     ) -> Optional[LLMDialogueRefinement]:
         if not self.is_enabled():
             return None
@@ -91,6 +101,7 @@ class LLMDialogueRefiner:
                 rule_dialogue_review_text=rule_dialogue_review_text,
                 entity_candidates=entity_candidates or [],
                 asr_sentences=asr_sentences or [],
+                domain_hotwords=domain_hotwords or self._load_domain_hotwords(),
             )
             corrected = str(payload.get("corrected_text") or "").strip()
             turns = payload.get("turns")
@@ -111,6 +122,7 @@ class LLMDialogueRefiner:
         rule_dialogue_review_text: str,
         entity_candidates: List[Dict[str, Any]],
         asr_sentences: List[dict],
+        domain_hotwords: Any,
     ) -> Dict[str, Any]:
         try:
             from openai import OpenAI
@@ -128,6 +140,7 @@ class LLMDialogueRefiner:
             "asr_text": original_text,
             "rule_resolved_text": rule_resolved_text,
             "rule_dialogue_review_text": rule_dialogue_review_text,
+            "domain_hotwords": self._compact_hotwords(domain_hotwords),
             "entity_candidates": self._compact_candidates(entity_candidates),
             "asr_sentences": asr_sentences,
         }
@@ -186,3 +199,43 @@ class LLMDialogueRefiner:
                 }
             )
         return compact
+
+    def _load_domain_hotwords(self) -> Any:
+        path = (self.hotwords_path or "").strip()
+        if not path:
+            return {}
+        try:
+            if path.endswith(".json"):
+                with open(path, "r", encoding="utf-8") as handle:
+                    payload = json.load(handle)
+                if isinstance(payload, dict):
+                    return {
+                        str(key): [str(item).strip() for item in value if str(item).strip()][: self.hotwords_limit]
+                        for key, value in payload.items()
+                        if isinstance(value, list)
+                    }
+            with open(path, "r", encoding="utf-8") as handle:
+                words = []
+                seen = set()
+                for line in handle:
+                    word = line.strip()
+                    if not word or word.startswith("#") or word in seen:
+                        continue
+                    seen.add(word)
+                    words.append(word)
+                    if len(words) >= self.hotwords_limit:
+                        break
+                return {"general": words}
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    def _compact_hotwords(self, hotwords: Any) -> Any:
+        if isinstance(hotwords, dict):
+            return {
+                str(key): [str(item).strip() for item in value if str(item).strip()][: self.hotwords_limit]
+                for key, value in hotwords.items()
+                if isinstance(value, list)
+            }
+        if isinstance(hotwords, list):
+            return {"general": [str(item).strip() for item in hotwords if str(item).strip()][: self.hotwords_limit]}
+        return {}
