@@ -1685,6 +1685,7 @@ async def start_quality_streaming_demo(
         return await upload_stream_simulation(
             file=upload,
             channel_id=channel_id,
+            transcript_override=None,
             denoise_mode="off",
             asr_mode="quality",
         )
