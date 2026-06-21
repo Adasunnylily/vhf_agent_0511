@@ -1972,12 +1972,21 @@ def push_mic_pcm(
     sample_rate = max(8000, min(48000, int(sample_rate)))
     frame_ms = max(1, round(len(pcm_bytes) / 2 / sample_rate * 1000))
     rms = pcm_rms(pcm_bytes)
-    is_speech = rms >= max(1.0, vad_rms_threshold)
+    # Adaptive noise floor: many laptop/browser mics are quiet, so a fixed 350
+    # RMS gate would treat real speech as silence ("说话没反应"). We calibrate a
+    # per-session noise floor and require speech to clearly exceed it.
+    min_threshold = float(os.getenv("VHF_MIC_RMS_THRESHOLD", str(vad_rms_threshold)))
+    min_threshold = max(60.0, min(min_threshold, 350.0))
 
     with mic_lock:
         session = mic_sessions.get(session_id)
         if session is None:
             raise HTTPException(status_code=404, detail="mic session not found")
+        noise_floor = float(session.get("pcm_noise_floor", rms))
+        effective_threshold = max(min_threshold, noise_floor * 2.2 + 60.0)
+        is_speech = rms >= effective_threshold
+        if not is_speech:
+            session["pcm_noise_floor"] = noise_floor * 0.9 + rms * 0.1
         session["pcm_total_ms"] = int(session.get("pcm_total_ms", 0)) + frame_ms
         buffer = session.setdefault("pcm_buffer", bytearray())
         has_speech = bool(session.get("pcm_has_speech", False))
@@ -2019,6 +2028,7 @@ def push_mic_pcm(
                 "status": "buffering",
                 "speech_detected": has_speech,
                 "rms": round(rms, 1),
+                "threshold": round(effective_threshold, 1),
                 "utterance_ms": utterance_ms,
                 "silence_ms": silence_ms,
             }

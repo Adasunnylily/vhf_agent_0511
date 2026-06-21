@@ -384,6 +384,46 @@
     .stage-detail-head b { font-size: 13px; color: #0754c9; }
     .stage-detail-close { cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1; padding: 0 4px; }
     .stage-detail small { font-size: 12px; color: #335; line-height: 1.7; white-space: pre-line; }
+    .voice-mini-map {
+      position: relative;
+      height: 240px;
+      margin-top: 8px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(90deg, rgba(22,119,255,0.06) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(22,119,255,0.06) 1px, transparent 1px),
+        linear-gradient(135deg, #eff8ff, #dceffa 60%, #f8fbff);
+      background-size: 30px 30px, 30px 30px, auto;
+    }
+    .vmap-dot {
+      position: absolute;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid var(--blue);
+      transform: translate(-50%, -50%);
+      box-shadow: 0 4px 10px rgba(22,119,255,.2);
+      z-index: 3;
+    }
+    .vmap-dot .vmap-label {
+      position: absolute; left: 50%; top: -16px; transform: translateX(-50%);
+      white-space: nowrap; font-size: 10px; color: #335;
+      background: rgba(255,255,255,.88); padding: 1px 5px; border-radius: 6px; display: none;
+    }
+    .vmap-dot.match { width: 20px; height: 20px; border-color: var(--green); background: #ecfdf5; box-shadow: 0 0 0 8px rgba(0,184,132,.16); z-index: 6; }
+    .vmap-dot.match .vmap-label { display: block; color: #047857; font-weight: 700; }
+    .vmap-dot.risk { width: 20px; height: 20px; border-color: var(--red); background: #fff1f2; box-shadow: 0 0 0 8px rgba(239,68,68,.16); z-index: 6; }
+    .vmap-dot.risk .vmap-label { display: block; color: #be123c; font-weight: 700; }
+    .vmap-dot.nearby { border-color: #f59e0b; box-shadow: 0 0 0 5px rgba(245,158,11,.14); z-index: 5; }
+    .vmap-dot.nearby .vmap-label { display: block; color: #b45309; }
+    .vmap-radius {
+      position: absolute; border-radius: 50%;
+      border: 2px dashed rgba(239,68,68,.5); background: rgba(239,68,68,.08);
+      transform: translate(-50%, -50%); z-index: 2; pointer-events: none;
+    }
+    .voice-map-hint { display: block; margin-top: 6px; font-size: 11px; color: var(--muted); line-height: 1.6; }
     @media (max-width: 1200px) { .pipeline { grid-template-columns: repeat(2, 1fr); } .pipeline-stage::after { content: none; } }
     .ais-detail {
       display: none;
@@ -1378,7 +1418,7 @@
       </nav>
       <div class="rail-foot">
         <span class="pill green">在线</span>
-        <span>原型联调版 · 2026.06.21 · 闭环流水线 v2</span>
+        <span>原型联调版 · 2026.06.21 · 事件划分修复 + 船位图 v3</span>
         <span id="clock">--:--:--</span>
       </div>
     </aside>
@@ -1635,6 +1675,14 @@
                 <div class="hr-result-head"><b id="highRiskResultTitle">周边点验结果</b><span class="pill" id="highRiskResultCount">0 艘</span></div>
                 <div class="hr-result-list" id="highRiskResultList"></div>
               </div>
+            </div>
+            <div class="action-card voice-map-card">
+              <div class="stream-head">
+                <h3>船舶位置态势</h3>
+                <span class="pill" id="voiceMapStatus">等待识别船舶</span>
+              </div>
+              <div class="voice-mini-map" id="voiceMiniMap"></div>
+              <small class="voice-map-hint">识别出船名后在图中高亮（绿色）；高危事件高亮为红色并显示点验半径圈，周边命中船舶为橙色。</small>
             </div>
             <div class="classification-streams">
               <div class="classification-stream" id="streamEmergency"><b>高危告警</b><strong id="riskLabel">否</strong><span>等待事件输入</span></div>
@@ -2128,6 +2176,69 @@
       renderActiveBusinessEvent();
       renderBusinessEventArchive();
       renderDispositionPipeline();
+      renderVoiceMiniMap();
+    }
+    function renderVoiceMiniMap() {
+      const wrap = $("voiceMiniMap");
+      if (!wrap) return;
+      const ships = state.ships.length ? state.ships : fallbackShips;
+      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
+      const matchName = event?.matchedShip || event?.shipName || "";
+      const ctx = event?.inspectionContext || {};
+      const isHighRisk = Boolean(event) && eventRiskTier(event).key === "emergency";
+      const nearbyNames = new Set((ctx.matched_ships || []).map((s) => s?.ship_name).filter(Boolean));
+      const centerName = ctx.center_ship?.ship_name || matchName;
+      wrap.innerHTML = "";
+
+      const centerShip = ships.find((s) => s.ship_name === centerName);
+      if (isHighRisk && centerShip) {
+        const [cx, cy] = shipPosition(centerShip);
+        const radiusM = Number(ctx.radius_m || 3000);
+        const pct = Math.min(70, Math.max(16, (radiusM / 8000) * 100));
+        const ring = document.createElement("div");
+        ring.className = "vmap-radius";
+        ring.style.left = `${cx}%`; ring.style.top = `${cy}%`;
+        ring.style.width = `${pct}%`; ring.style.height = `${pct}%`;
+        wrap.appendChild(ring);
+      }
+
+      let matchedOnMap = false;
+      ships.forEach((ship) => {
+        const [x, y] = shipPosition(ship);
+        const isMatch = matchName && ship.ship_name === matchName;
+        if (isMatch) matchedOnMap = true;
+        let cls = "vmap-dot";
+        if (isMatch && isHighRisk) cls += " risk";
+        else if (isMatch) cls += " match";
+        else if (nearbyNames.has(ship.ship_name)) cls += " nearby";
+        const dot = document.createElement("div");
+        dot.className = cls;
+        dot.style.left = `${x}%`; dot.style.top = `${y}%`;
+        dot.title = ship.ship_name;
+        const label = document.createElement("span");
+        label.className = "vmap-label";
+        label.textContent = ship.ship_name;
+        dot.appendChild(label);
+        wrap.appendChild(dot);
+      });
+
+      if (matchName && !matchedOnMap) {
+        const dot = document.createElement("div");
+        dot.className = `vmap-dot ${isHighRisk ? "risk" : "match"}`;
+        dot.style.left = "50%"; dot.style.top = "46%";
+        dot.title = matchName;
+        const label = document.createElement("span");
+        label.className = "vmap-label";
+        label.textContent = `${matchName}（位置估算）`;
+        dot.appendChild(label);
+        wrap.appendChild(dot);
+      }
+
+      if ($("voiceMapStatus")) {
+        $("voiceMapStatus").textContent = matchName
+          ? `已高亮：${matchName}${isHighRisk ? ` · 点验半径 ${Number(ctx.radius_m || 3000)}m` : ""}`
+          : (ships.length ? `${ships.length} 艘在港船舶` : "等待识别船舶");
+      }
     }
     function eventRiskTier(event) {
       const level = String(event?.riskLevel || event?.risk_level || "").toUpperCase();
@@ -2302,6 +2413,22 @@
       const match = text.match(/([\u4e00-\u9fa5A-Za-z]{1,6}\d{2,4})/);
       return match ? match[1] : "";
     }
+    function knownShipNames() {
+      return [...new Set([
+        ...state.ships.map((ship) => ship.ship_name),
+        ...fallbackShips.map((ship) => ship.ship_name),
+        "锦龙228", "港顺177", "宁远梅山", "货轮876", "湘远15",
+      ].filter(Boolean))].sort((a, b) => b.length - a.length);
+    }
+    function extractKnownShip(text = "") {
+      return knownShipNames().find((name) => name && text.includes(name)) || "";
+    }
+    function isMeaningfulUtterance(text = "") {
+      const cleaned = String(text || "").replace(/[\s，。、？！,.?!~…·:：;；"'“”‘’()（）]/g, "");
+      if (!cleaned) return false;
+      if (/\d/.test(cleaned) && cleaned.length >= 2) return true;
+      return cleaned.length >= 2;
+    }
     function createBusinessEvent(sourceType, chunk) {
       state.agentEvents = [];
       state.selectedAgentEvent = null;
@@ -2338,20 +2465,24 @@
     }
     function ensureBusinessEvent(chunk, text = "") {
       const ship = extractShipFromText(text);
+      const knownShip = extractKnownShip(text);
       const active = state.activeBusinessEvent;
       if (!active || active.status === "EVENT_CLOSED" || active.status === "ARCHIVED") {
         const event = createBusinessEvent(chunk.sourceType, chunk);
         event.shipName = ship || "";
         return event;
       }
-      if (ship && active.shipName && ship !== active.shipName && active.utterances.length >= 1) {
+      const activeKnownShip = extractKnownShip(active.shipName || "");
+      const meaningfulCount = active.utterances.filter((item) => isMeaningfulUtterance(item.text)).length;
+      if (knownShip && activeKnownShip && knownShip !== activeKnownShip && meaningfulCount >= 2) {
         closeBusinessEvent("检测到新船名，自动闭合上一业务事件");
         const event = createBusinessEvent(chunk.sourceType, chunk);
-        event.shipName = ship;
+        event.shipName = knownShip;
         return event;
       }
       if (!active.audioChunks.some((item) => item.chunkId === chunk.chunkId)) active.audioChunks.push(chunk);
-      if (ship && !active.shipName) active.shipName = ship;
+      if (knownShip && !activeKnownShip) active.shipName = knownShip;
+      else if (ship && !active.shipName) active.shipName = ship;
       return active;
     }
     function classifyUtterance(text = "") {
@@ -2384,7 +2515,7 @@
       return { isHighRisk: Boolean(hit), term: hit || "" };
     }
     function isEventClosingText(text = "") {
-      return /(报告完毕|通话结束|保持守听|再会|注意安全|收到交管|收到.*谢谢|谢谢交管|谢谢老师|好的谢谢|谢谢[。.!！]?)/.test(text);
+      return /(报告完毕|通话结束|保持守听|再(会|见)|(?<!不)注意(航行|通航)?安全|收到交管|收到[，,。.\s]*谢谢|谢谢交管|谢谢老师|好的[，,\s]*谢谢|谢谢[，,\s]*再见)/.test(text);
     }
     function addBusinessAction(event, action) {
       if (!event.actions.some((item) => item.action === action.action && item.trigger === action.trigger)) {
@@ -2427,6 +2558,10 @@
       renderStreamingAgentConsole();
     }
     function handleFinalUtterance(chunk, text, payload = {}) {
+      if (!isMeaningfulUtterance(text)) {
+        appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "忽略噪声片段", confidence: payload.confidence || "--", summary: `过滤无效转写：${text}` });
+        return;
+      }
       const event = ensureBusinessEvent(chunk, text);
       const classification = classifyDecisionPayload(payload, text);
       const decisionEvent = payload.decisionEvent || payload.event || {};
@@ -2503,6 +2638,16 @@
     function closeBusinessEvent(reason = "人工或静默闭合") {
       const event = state.activeBusinessEvent;
       if (!event || event.status === "EVENT_CLOSED" || event.status === "ARCHIVED") return;
+      const meaningfulUtterances = event.utterances.filter((item) => isMeaningfulUtterance(item.text));
+      if (!meaningfulUtterances.length) {
+        event.status = "ARCHIVED";
+        state.activeBusinessEvent = null;
+        clearTimeout(state.eventCloseTimer);
+        setEventState("IDLE_LISTENING", "空事件已忽略，未归档");
+        appendGlobalTimeline({ time: nowLabel(), title: "忽略空事件", detail: `${reason} · 无有效语音内容` });
+        renderStreamingAgentConsole();
+        return;
+      }
       event.status = "EVENT_CLOSED";
       event.endTime = Date.now();
       event.closeReason = reason;
@@ -3951,9 +4096,10 @@
         }
         if (payload.status === "buffering") {
           if ($("liveMicStatus")) {
+            const thr = payload.threshold != null ? ` / 门限 ${payload.threshold}` : "";
             $("liveMicStatus").textContent = payload.speech_detected
-              ? `话轮累积中 · ${payload.utterance_ms || 0}ms · RMS ${payload.rms || 0}`
-              : `监听静音 · RMS ${payload.rms || 0}`;
+              ? `话轮累积中 · ${payload.utterance_ms || 0}ms · RMS ${payload.rms || 0}${thr}`
+              : `监听静音 · RMS ${payload.rms || 0}${thr}（说话需高于门限）`;
           }
           renderStreamingStatus();
           return;
@@ -4542,6 +4688,7 @@
       }
       $("aisEdit").innerHTML = `<option value="">未关联船位</option>${state.ships.map((ship) => `<option value="${ship.ship_id}">${ship.ship_name} · ${ship.mmsi || "无识别码"}</option>`).join("")}`;
       renderShips();
+      renderVoiceMiniMap();
     }
     function shipPosition(ship) {
       const x = 6 + ((Number(ship.lng) - 121.84) / .09) * 86;
