@@ -1424,7 +1424,7 @@
       </nav>
       <div class="rail-foot">
         <span class="pill green">在线</span>
-        <span>原型联调版 · 2026.06.21 · 高危预播报 v4</span>
+        <span>原型联调版 · 2026.06.21 · 服务端TTS + 点验同步 v5</span>
         <span id="clock">--:--:--</span>
       </div>
     </aside>
@@ -1687,7 +1687,9 @@
                 <div class="hr-actions">
                   <button class="red" id="highRiskBroadcastBtn">一键播报</button>
                   <button class="secondary" id="highRiskBroadcastCopyBtn">复制模板</button>
+                  <button class="secondary" id="highRiskBroadcastInspectBtn">同步到点验界面</button>
                 </div>
+                <audio id="ttsAudioPlayer" controls hidden></audio>
               </div>
             </div>
             <div class="action-card voice-map-card">
@@ -1947,6 +1949,8 @@
       mapOverlays: [],
       feedback: [],
       ttsUtterance: null,
+      ttsAudio: null,
+      highRiskInspection: null,
       eventState: "IDLE_LISTENING",
       activeBusinessEvent: null,
       businessEvents: [],
@@ -3197,9 +3201,27 @@
       const box = $("highRiskBroadcast");
       const area = $("highRiskBroadcastText");
       if (!box || !area) return;
-      area.value = buildHighRiskBroadcast(centerName, ships, event);
+      const broadcastText = buildHighRiskBroadcast(centerName, ships, event);
+      area.value = broadcastText;
       box.hidden = false;
-      if ($("highRiskBroadcastChannel")) $("highRiskBroadcastChannel").textContent = `VHF ${channelId() ? "16频道" : "16频道"}`;
+      state.highRiskInspection = { centerName, ships, event, broadcastText };
+      if ($("highRiskBroadcastChannel")) $("highRiskBroadcastChannel").textContent = `VHF 16频道 · ${channelId() || "beilun_vhf_01"}`;
+    }
+    function syncHighRiskToInspectionPage() {
+      const ctx = state.highRiskInspection;
+      if (!ctx?.broadcastText) return toast("请先执行周边船舶点验生成预播报模板", true);
+      $("noticeText").value = ctx.broadcastText;
+      const shipIds = (ctx.ships || []).map((ship) => ship.ship_id).filter(Boolean);
+      state.selectedShipIds = new Set(shipIds);
+      if (ctx.centerName) {
+        $("areaName").value = `${ctx.centerName}周边点验`;
+      }
+      setPage("inspection");
+      loadShips().then(() => {
+        renderShips();
+        renderVoiceMiniMap();
+        toast(`已同步高危预播报到点验界面 · 已圈选 ${shipIds.length} 艘船舶`);
+      }).catch((error) => toast(`点验界面加载失败：${error.message}`, true));
     }
     async function runHighRiskInspection() {
       const event = state.activeBusinessEvent || state.businessEvents[0] || null;
@@ -3235,6 +3257,10 @@
       toast(ships.length ? `已在语音页列出周边 ${ships.length} 艘船舶` : "未命中周边船舶，可前往点验界面调整范围", !ships.length);
     }
     async function goToInspectionPage() {
+      if (state.highRiskInspection?.broadcastText) {
+        syncHighRiskToInspectionPage();
+        return;
+      }
       const event = state.activeBusinessEvent || state.businessEvents[0] || null;
       const shipName = event?.shipName || event?.matchedShip || "";
       setPage("inspection");
@@ -4614,11 +4640,36 @@
     async function toggleMic() {
       try { state.mic ? await stopMic() : await startMic(); } catch (error) { toast(`麦克风接入失败：${error.message}`, true); }
     }
-    function speakText(text, onEnd) {
+    async function speakText(text, onEnd) {
       const content = String(text || "").trim();
       if (!content || content === "等待生成回复内容") {
         toast("当前没有可播报的话术", true);
         return;
+      }
+      setAgent("播报中");
+      try {
+        const payload = await request("/api/tts/speak", { method: "POST", body: form({ text: content }) });
+        const player = $("ttsAudioPlayer") || $("audioPlayer");
+        if (payload.audio_url && player) {
+          if (state.ttsAudio) {
+            state.ttsAudio.pause();
+            state.ttsAudio = null;
+          }
+          if (state.ttsUtterance) {
+            speechSynthesis.cancel();
+            state.ttsUtterance = null;
+          }
+          player.hidden = false;
+          player.src = payload.audio_url.startsWith("http") ? payload.audio_url : `${API_BASE}${payload.audio_url}`;
+          player.onended = () => { setAgent("播报完成"); if (onEnd) onEnd(); };
+          player.onerror = () => toast("服务端TTS音频播放失败，将改用浏览器播报", true);
+          state.ttsAudio = player;
+          await player.play();
+          toast(`服务端TTS播报已开始（${payload.engine || "DashScope"}）`);
+          return;
+        }
+      } catch (error) {
+        toast(`服务端TTS暂不可用，改用浏览器播报：${error.message}`);
       }
       if (!("speechSynthesis" in window)) {
         toast("当前浏览器不支持语音播报", true);
@@ -4630,7 +4681,7 @@
       utterance.pitch = 1;
       const voices = speechSynthesis.getVoices();
       utterance.voice = voices.find((voice) => voice.lang.toLowerCase().startsWith("zh")) || null;
-      utterance.onstart = () => { setAgent("播报中"); toast("语音播报已开始"); };
+      utterance.onstart = () => toast("浏览器语音播报已开始");
       utterance.onend = () => { state.ttsUtterance = null; setAgent("播报完成"); if (onEnd) onEnd(); };
       utterance.onerror = () => toast("浏览器语音播报失败，请检查系统音量或浏览器权限", true);
       speechSynthesis.cancel();
@@ -4979,6 +5030,9 @@
     function buildLocalInspectionNotices(ships) {
       const areaName = $("areaName").value || "点验区域";
       const template = $("noticeText").value || "{船名}，请注意，你船已进入{区域}，请保持甚高频守听。";
+      if (/^各船注意/.test(template.trim())) {
+        return [{ ship: ships[0] || {}, notice_text: template.trim() }];
+      }
       return ships.map((ship) => ({
         ship,
         notice_text: template
@@ -5036,7 +5090,7 @@
           notices = task.meta?.notices || [];
         }
         if (notices[0]?.notice_text) {
-          speakText(notices[0].notice_text);
+          await speakText(notices[0].notice_text);
         }
         const noticeTotal = notices.length;
         $("noticeCount").textContent = String(Number($("noticeCount").textContent) + noticeTotal);
@@ -5246,8 +5300,9 @@
     $("closeBusinessEventBtn").addEventListener("click", () => closeBusinessEvent("操作员手动关闭"));
     $("pipelineInspectBtn").addEventListener("click", () => runHighRiskInspection());
     $("pipelineGoInspectBtn").addEventListener("click", () => goToInspectionPage().catch((error) => toast(error.message, true)));
-    $("highRiskBroadcastBtn").addEventListener("click", () => speakText($("highRiskBroadcastText").value));
+    $("highRiskBroadcastBtn").addEventListener("click", () => speakText($("highRiskBroadcastText").value).catch((error) => toast(error.message, true)));
     $("highRiskBroadcastCopyBtn").addEventListener("click", () => { navigator.clipboard.writeText($("highRiskBroadcastText").value || ""); toast("高危点验播报模板已复制"); });
+    $("highRiskBroadcastInspectBtn").addEventListener("click", () => syncHighRiskToInspectionPage());
     $("pipelineTakeoverBtn").addEventListener("click", async () => { setAgent("人工接管", "risk"); await updateActiveStatus("confirmed"); toast("高危事件已转人工接管"); });
     [["pipeStage1", "voice"], ["pipeStage2", "risk"], ["pipeStage3", "action"], ["pipeStage4", "archive"]].forEach(([id, key]) => {
       const el = $(id);

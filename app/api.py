@@ -1131,6 +1131,33 @@ async def run_inspection_task(
     )
 
 
+@router.post("/tts/speak")
+async def synthesize_tts(text: str = Form(...)) -> Dict[str, object]:
+    from app.services.tts import synthesize_speech
+
+    try:
+        audio_path = synthesize_speech(text)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return {
+        "ok": True,
+        "text": text.strip(),
+        "audio_url": f"/api/tts/audio/{audio_path.name}",
+        "engine": os.getenv("VHF_TTS_MODEL", "sambert-zhichu-v1"),
+    }
+
+
+@router.get("/tts/audio/{filename}")
+async def get_tts_audio(filename: str) -> FileResponse:
+    safe_name = Path(filename).name
+    audio_path = settings.data_dir / "tts" / safe_name
+    if not audio_path.is_file():
+        raise HTTPException(status_code=404, detail="tts audio not found")
+    return FileResponse(audio_path, media_type="audio/wav", filename=safe_name)
+
+
 @router.post("/inspection/tts")
 async def run_inspection_tts(
     channel_id: str = Form("vhf_demo_01"),
