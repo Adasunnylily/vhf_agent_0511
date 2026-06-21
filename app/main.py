@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 
 from app.config import settings
 from app.frontend import render_dashboard
-from app.services.asr import FunASRStreamingAdapter, create_asr_adapter, create_asr_refiner
+from app.services.asr import ASRRefiner, FunASRStreamingAdapter, create_asr_adapter, create_asr_refiner
 from app.services.demo_inspection import InspectionTaskSimulator
 from app.services.demo_scenarios import ScenarioSimulator
 from app.services.entity_resolver import EntityResolver
@@ -87,6 +87,22 @@ stream_processor = StreamingAudioProcessor(
     simulation_speed=settings.stream_simulation_speed,
     entity_resolver=entity_resolver,
     asr_refiner=shared_asr_refiner,
+)
+quality_stream_processor = StreamingAudioProcessor(
+    preprocessor=preprocessor,
+    vad=WavEnergyVAD(
+        frame_ms=settings.vad_frame_ms,
+        silence_ms=settings.vad_silence_ms,
+        min_speech_ms=settings.vad_min_speech_ms,
+        max_segment_ms=settings.vad_max_segment_ms,
+    ),
+    asr=shared_mic_asr,
+    risk_engine=KeywordRiskEngine(),
+    storage=storage,
+    ws_manager=ws_manager,
+    simulation_speed=settings.stream_simulation_speed,
+    entity_resolver=entity_resolver,
+    asr_refiner=ASRRefiner(enabled=False),
 )
 realtime_stream_processor = RealtimeStreamingProcessor(
     preprocessor=preprocessor,

@@ -25,6 +25,7 @@ from app.main import (
     knowledge_repository,
     pipeline,
     preprocessor,
+    quality_stream_processor,
     realtime_stream_processor,
     scenario_simulator,
     shared_asr,
@@ -855,8 +856,8 @@ def _continuous_concat_items(limit: int) -> List[Dict[str, Any]]:
                 if index >= limit:
                     break
                 range_text = _pick_row_value(row, ["起止时间", "time_range", "range"])
-                start_ms = _parse_time_to_ms(_pick_row_value(row, ["start_ms", "start", "开始", "起始时间", "开始时间"]))
-                end_ms = _parse_time_to_ms(_pick_row_value(row, ["end_ms", "end", "结束", "结束时间"]))
+                start_ms = _parse_time_to_ms(_pick_row_value(row, ["start_ms", "start_sec", "start", "开始", "起始时间", "开始时间"]))
+                end_ms = _parse_time_to_ms(_pick_row_value(row, ["end_ms", "end_sec", "end", "结束", "结束时间"]))
                 if range_text and (not start_ms or not end_ms):
                     parts = re.split(r"\s*(?:-|~|—|–|至|到)\s*", range_text, maxsplit=1)
                     if len(parts) == 2:
@@ -864,7 +865,7 @@ def _continuous_concat_items(limit: int) -> List[Dict[str, Any]]:
                         end_ms = _parse_time_to_ms(parts[1])
                 if end_ms <= start_ms:
                     continue
-                class_label = _pick_row_value(row, ["分类", "label", "business_type", "category"])
+                class_label = _pick_row_value(row, ["分类", "label", "business_type", "category_code", "category"])
                 source_name = _pick_row_value(row, ["原文件名", "filename", "source", "source_file", "文件"])
                 items.append(
                     {
@@ -1259,6 +1260,7 @@ async def upload_stream_simulation(
     channel_id: str = Form("vhf_demo_01"),
     transcript_override: Optional[str] = Form(None),
     denoise_mode: str = Form("off"),
+    asr_mode: str = Form("primary"),
 ) -> Dict[str, str]:
     task = task_manager.create(filename=file.filename or "unknown", channel_id=channel_id)
     saved_path = storage.save_upload(file.file, file.filename or "upload.bin")
@@ -1266,6 +1268,9 @@ async def upload_stream_simulation(
     def runner() -> None:
         live_segments: List[AudioSegment] = []
         live_events: List[Dict[str, object]] = []
+        use_quality_asr = asr_mode.strip().lower() == "quality"
+        active_processor = quality_stream_processor if use_quality_asr else stream_processor
+        mode = "qwen_vad_quality_replay" if use_quality_asr else "vad_incremental_replay"
 
         def on_segment(
             segment: AudioSegment,
@@ -1293,13 +1298,14 @@ async def upload_stream_simulation(
                 events=live_events,
                 meta={
                     "denoise_mode": denoise_mode.strip().lower(),
-                    "mode": "vad_incremental_replay",
+                    "mode": mode,
+                    "asr_model": settings.mic_asr_model if use_quality_asr else settings.asr_model,
                     "completed_segments": index + 1,
                     "total_segments": total,
                 },
             )
 
-        segments, events = stream_processor.process_file_stream(
+        segments, events = active_processor.process_file_stream(
             file_path=saved_path,
             channel_id=channel_id,
             transcript_override=transcript_override,
@@ -1318,7 +1324,13 @@ async def upload_stream_simulation(
             status="completed",
             segments=[segment.to_dict() for segment in segments],
             events=persisted_events,
-            meta={"denoise_mode": denoise_mode.strip().lower()},
+            meta={
+                "denoise_mode": denoise_mode.strip().lower(),
+                "mode": mode,
+                "asr_model": settings.mic_asr_model if use_quality_asr else settings.asr_model,
+                "completed_segments": len(segments),
+                "total_segments": len(segments),
+            },
         )
 
     task_manager.run_async(task.id, runner)
@@ -1327,6 +1339,7 @@ async def upload_stream_simulation(
         "status": "queued",
         "channel_id": channel_id,
         "denoise_mode": denoise_mode,
+        "mode": "qwen_vad_quality_replay" if asr_mode.strip().lower() == "quality" else "vad_incremental_replay",
     }
 
 
@@ -1660,8 +1673,25 @@ async def start_websocket_streaming_demo(
         )
 
 
+@router.post("/streaming/replay/quality-demo")
+async def start_quality_streaming_demo(
+    channel_id: str = Form("vhf_demo_01"),
+) -> Dict[str, str]:
+    path = _long_audio_demo_path()
+    if path is None:
+        raise HTTPException(status_code=404, detail="服务器演示长音频不存在")
+    with path.open("rb") as source:
+        upload = UploadFile(filename=path.name, file=source)
+        return await upload_stream_simulation(
+            file=upload,
+            channel_id=channel_id,
+            denoise_mode="off",
+            asr_mode="quality",
+        )
+
+
 @router.post("/streaming/refine-event")
-async def refine_streaming_business_event(
+def refine_streaming_business_event(
     payload: Dict[str, Any] = Body(...),
 ) -> Dict[str, object]:
     raw_text = str(payload.get("asr_text") or "").strip()
@@ -1909,7 +1939,7 @@ async def start_mic_stream(
 
 
 @router.post("/mic/pcm")
-async def push_mic_pcm(
+def push_mic_pcm(
     file: UploadFile = File(...),
     session_id: str = Form(...),
     channel_id: str = Form("vhf_demo_01"),
@@ -1919,7 +1949,7 @@ async def push_mic_pcm(
     vad_silence_ms: int = Form(900),
     vad_rms_threshold: float = Form(350.0),
 ) -> Dict[str, object]:
-    pcm_bytes = await file.read()
+    pcm_bytes = file.file.read()
     if len(pcm_bytes) < 320:
         return {"session_id": session_id, "seq": seq, "status": "skipped", "reason": "pcm_frame_too_small"}
     sample_rate = max(8000, min(48000, int(sample_rate)))
@@ -1997,7 +2027,7 @@ async def push_mic_pcm(
 
 
 @router.post("/mic/chunk")
-async def push_mic_chunk(
+def push_mic_chunk(
     file: UploadFile = File(...),
     session_id: str = Form(...),
     channel_id: str = Form("vhf_demo_01"),
@@ -2189,7 +2219,7 @@ async def push_mic_chunk(
 
 
 @router.post("/mic/stop")
-async def stop_mic_stream(
+def stop_mic_stream(
     session_id: str = Form(...),
 ) -> Dict[str, object]:
     with mic_lock:

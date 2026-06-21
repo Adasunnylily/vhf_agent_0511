@@ -1408,7 +1408,7 @@
                 <div class="stream-test-card source-mode-panel active" id="replayModePanel">
                   <div class="source-mode-heading">
                     <b>长音频模拟流式守听</b>
-                    <span>播放原音的同时，通过 WebSocket 持续返回文字并自动分类、处置和归档。</span>
+                    <span>播放原音的同时，使用Qwen按VAD话轮增量转写；事件结束后统一精修、分类和归档。</span>
                   </div>
                   <button class="server-demo-btn" id="serverReplayBtn">直接播放服务器演示长音频（推荐）</button>
                   <div class="source-divider">或选择本地音频（大文件需要先上传）</div>
@@ -1430,7 +1430,7 @@
                   <div class="stream-metrics">
                     <div class="stream-metric"><small>回放位置</small><strong id="replayPosition">00:00</strong></div>
                     <div class="stream-metric"><small>首字延迟</small><strong id="latestLatency">--</strong></div>
-                    <div class="stream-metric"><small>识别方式</small><strong>真流式</strong></div>
+                    <div class="stream-metric"><small>识别方式</small><strong id="replayEngineLabel">Qwen准实时</strong></div>
                   </div>
                 </div>
               </div>
@@ -1500,24 +1500,23 @@
 
             <div class="stream-card">
               <div class="stream-head">
-                <h3>智能体思维轨迹</h3>
-                <span class="pill">逐步展开</span>
+                <h3>当前事件处理进度</h3>
+                <span class="pill">仅显示当前事件</span>
               </div>
               <div class="reasoning-log" id="reasoningTrace">
-                <span>[步骤 1] 等待甚高频语音信号</span>
-                <span>[步骤 2] 等待语音识别完成</span>
-                <span>[步骤 3] 等待业务意图分类</span>
-                <span>[步骤 4] 等待船位信息关联</span>
-                <span>[步骤 5] 暂未触发处置动作</span>
+                <span>[1] 等待语音</span>
+                <span>[2] 实时转写</span>
+                <span>[3] 判断事件边界</span>
+                <span>[4] 分类并执行处置</span>
               </div>
               <div class="refinement-head">
-                <b>事件结束后精修</b>
+                <b>最终事件结果（事件结束后）</b>
                 <span class="pill" id="refinementStatus">等待事件闭合</span>
               </div>
               <small class="event-boundary-hint">划分依据：结束语后1.5秒、连续静默5秒、切换到新船舶或人工关闭。</small>
               <div class="dialogue-box text-box" id="refinedAsrText">精修后的完整文本将在这里显示，不覆盖上方实时草稿。</div>
               <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">精修后将在这里显示 [交管] / [船方] 对话轮次，可人工修改后保存。</div>
-              <div class="dialogue-box text-box" id="continuousDialogues">连续守听结果将在这里按对话片段滚动展示。</div>
+              <div class="dialogue-box text-box" id="continuousDialogues" hidden>兼容旧版连续测试集结果。</div>
             </div>
 
             <div class="stream-card">
@@ -2036,11 +2035,10 @@
       const events = state.agentEvents.filter((event) => visibleStages.has(event.stage)).slice(-10);
       if (!events.length) {
         $("reasoningTrace").innerHTML = `
-          <span>[步骤 1] 等待甚高频语音信号</span>
-          <span>[步骤 2] 等待语音识别完成</span>
-          <span>[步骤 3] 等待业务意图分类</span>
-          <span>[步骤 4] 等待船位信息关联</span>
-          <span>[步骤 5] 暂未触发处置动作</span>
+          <span>[1] 等待语音</span>
+          <span>[2] 实时转写</span>
+          <span>[3] 判断事件边界</span>
+          <span>[4] 分类并执行处置</span>
         `;
         return;
       }
@@ -2141,6 +2139,10 @@
       return match ? match[1] : "";
     }
     function createBusinessEvent(sourceType, chunk) {
+      state.agentEvents = [];
+      state.selectedAgentEvent = null;
+      state.classificationStreams = { emergency: [], autoReply: [], humanReview: [], monitoring: [] };
+      state.actionQueue = [];
       const event = {
         eventId: `be_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`,
         status: "EVENT_ACTIVE",
@@ -2368,26 +2370,29 @@
         event.roleDialogueText = formatRoleDialogueForDisplay(event.dialogueReviewText);
         event.summary = event.resolvedText.slice(0, 220);
         event.refinement = refinement.refinement || {};
-        if (event.roleDialogueText) $("dialogueEdit").textContent = event.roleDialogueText;
-        if (event.resolvedText) $("refinedAsrText").textContent = event.resolvedText;
-        if ($("refinementStatus")) $("refinementStatus").textContent = "精修完成";
-        routeClassification({
-          intent: decision.business_type || "other_business",
-          risk_score: event.riskScore,
-          auto_reply_allowed: event.intent === "auto_reply",
-          title: event.shipName || "精修业务事件",
-          summary: decision.summary || event.summary,
-          time: nowLabel(),
-        });
-        appendAgentEvent({
-          stage: "event_refined",
-          title: "说话人和分类精修完成",
-          detail: `${event.dialogueReviewText || event.resolvedText}\n处置：${intentLabel(decision.business_type || "other_business")}`,
-          asr_text: event.resolvedText,
-          intent: decision.business_type || "other_business",
-          risk_score: event.riskScore.toFixed(2),
-          decision_reason: decision.summary || "事件结束后精修",
-        });
+        const isCurrentWorkspace = !state.activeBusinessEvent || state.activeBusinessEvent.eventId === event.eventId;
+        if (isCurrentWorkspace) {
+          if (event.roleDialogueText) $("dialogueEdit").textContent = event.roleDialogueText;
+          if (event.resolvedText) $("refinedAsrText").textContent = event.resolvedText;
+          if ($("refinementStatus")) $("refinementStatus").textContent = "精修完成";
+          routeClassification({
+            intent: decision.business_type || "other_business",
+            risk_score: event.riskScore,
+            auto_reply_allowed: event.intent === "auto_reply",
+            title: event.shipName || "精修业务事件",
+            summary: decision.summary || event.summary,
+            time: nowLabel(),
+          });
+          appendAgentEvent({
+            stage: "event_refined",
+            title: "说话人和分类精修完成",
+            detail: `${event.dialogueReviewText || event.resolvedText}\n处置：${intentLabel(decision.business_type || "other_business")}`,
+            asr_text: event.resolvedText,
+            intent: decision.business_type || "other_business",
+            risk_score: event.riskScore.toFixed(2),
+            decision_reason: decision.summary || "事件结束后精修",
+          });
+        }
         appendGlobalTimeline({ time: nowLabel(), title: "事件精修完成", detail: `${decision.business_type || "other_business"} · ${decision.summary || "已重新分类"}` });
       } catch (error) {
         if (event.runToken !== state.streaming.runToken) return;
@@ -3768,7 +3773,7 @@
       if (!replay || replay.processedSegmentIds.has(segment.id)) return;
       const startMs = Number(segment.start_ms || 0);
       const endMs = Number(segment.end_ms || startMs);
-      if (replay.lastEndMs !== null && startMs - replay.lastEndMs > 5000 && state.activeBusinessEvent) {
+      if (replay.lastEndMs !== null && startMs - replay.lastEndMs >= 5000 && state.activeBusinessEvent) {
         closeBusinessEvent("连续音频静默超过5秒");
       }
       const chunk = makeStreamingChunk({
@@ -3800,6 +3805,9 @@
       if (!replay || replay.processedUtteranceIds.has(utterance.utterance_id)) return;
       const startMs = Number(utterance.start_ms || 0);
       const endMs = Number(utterance.end_ms || startMs + 1000);
+      if (replay.lastEndMs !== null && startMs - replay.lastEndMs >= 5000 && state.activeBusinessEvent) {
+        closeBusinessEvent("连续音频静默超过5秒");
+      }
       const chunk = makeStreamingChunk({
         sourceType: "long_audio",
         durationMs: Math.max(0, endMs - startMs),
@@ -3818,9 +3826,10 @@
         dialogue_review_text: replay.dialogueTurns.filter(Boolean).join("\n"),
         confidence: utterance.confidence || "0.85",
         events: [utterance.event || {}],
-        suppressAutoClose: false,
+        suppressAutoClose: true,
       }, "backend");
       replay.processedUtteranceIds.add(utterance.utterance_id);
+      replay.lastEndMs = endMs;
       appendAgentEvent({
         stage: "utterance_finalized",
         title: "最终句确认",
@@ -3830,6 +3839,9 @@
         intent: utterance.event?.business_type || "other_business",
         risk_score: utterance.event?.confidence || "0.85",
       });
+      if (/(再会|报告完毕|通话结束|保持守听)/.test(utterance.resolved_text || utterance.text || "")) {
+        closeBusinessEvent("检测到业务结束语");
+      }
     }
     async function pollLongReplayTask(taskId) {
       for (let attempt = 0; attempt < 1800; attempt += 1) {
@@ -3952,6 +3964,17 @@
       }, Math.max(250, chunkSizeMs / speed));
       let payload;
       try {
+        payload = await request(serverDemo ? "/api/streaming/replay/quality-demo" : "/api/stream/upload", {
+          method: "POST",
+          body: serverDemo
+            ? form({ channel_id: channelId() })
+            : form({ file, channel_id: channelId(), denoise_mode: "off", asr_mode: "quality" }),
+        });
+        state.streaming.replay.trueStreaming = false;
+        if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen准实时";
+        $("replayStatus").textContent = `Qwen高精度准实时守听已启动 · ${fileName} · ${speed}x`;
+        appendGlobalTimeline({ time: nowLabel(), title: "识别链路", detail: "Qwen3-ASR + VAD话轮 + 事件结束后精修" });
+      } catch (qualityError) {
         payload = await request(serverDemo ? "/api/streaming/replay/demo" : "/api/streaming/replay", {
           method: "POST",
           body: serverDemo
@@ -3959,15 +3982,9 @@
             : form({ file, channel_id: channelId(), playback_speed: speed }),
         });
         state.streaming.replay.trueStreaming = true;
-        $("replayStatus").textContent = `WebSocket 真流式回放已启动 · ${fileName} · ${speed}x`;
-      } catch (streamError) {
-        if (serverDemo) throw streamError;
-        payload = await request("/api/stream/upload", {
-          method: "POST",
-          body: form({ file, channel_id: channelId(), denoise_mode: "off" }),
-        });
-        $("replayStatus").textContent = `当前模型不支持 partial，已降级为 VAD 段级增量识别 · ${fileName}`;
-        appendGlobalTimeline({ time: nowLabel(), title: "流式模式降级", detail: streamError.message });
+        if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Paraformer真流式";
+        $("replayStatus").textContent = `Qwen链路失败，已降级为Paraformer WebSocket · ${fileName}`;
+        appendGlobalTimeline({ time: nowLabel(), title: "识别模式降级", detail: qualityError.message });
       }
       state.streaming.replay.taskId = payload.task_id;
       pollLongReplayTask(payload.task_id).catch((error) => {
@@ -3999,6 +4016,7 @@
       state.streaming.replay = null;
       state.streaming.activeSource = "";
       $("replayStatus").textContent = "回放已停止";
+      if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen准实时";
       setLevel(.35);
       renderStreamingStatus();
     }

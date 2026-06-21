@@ -61,7 +61,13 @@ def collect_items(input_dir: Path) -> list[AudioItem]:
     return items
 
 
-def write_markdown(manifest_path: Path, rows: list[dict[str, object]], output_wav: Path, seed: int) -> None:
+def write_markdown(
+    manifest_path: Path,
+    rows: list[dict[str, object]],
+    output_wav: Path,
+    seed: int,
+    gap_ms: int,
+) -> None:
     lines = [
         "# 音频分类打乱拼接标签文档",
         "",
@@ -69,6 +75,7 @@ def write_markdown(manifest_path: Path, rows: list[dict[str, object]], output_wa
         f"- 输出音频: `{output_wav.name}`",
         f"- 片段总数: {len(rows)}",
         f"- 随机种子: `{seed}`",
+        f"- 业务间静默: `{gap_ms} ms`",
         "",
         "## 片段顺序",
         "",
@@ -111,6 +118,8 @@ def main() -> None:
         help="Directory for concatenated audio and label documents.",
     )
     parser.add_argument("--seed", type=int, default=20260616, help="Random seed for reproducible shuffle.")
+    parser.add_argument("--limit", type=int, default=0, help="Maximum number of files; 0 means all files.")
+    parser.add_argument("--gap-ms", type=int, default=0, help="Silence inserted between business events.")
     args = parser.parse_args()
 
     input_dir = args.input_dir.resolve()
@@ -124,6 +133,8 @@ def main() -> None:
     rng = random.Random(args.seed)
     shuffled = items[:]
     rng.shuffle(shuffled)
+    if args.limit > 0:
+        shuffled = shuffled[: args.limit]
 
     output_wav = output_dir / "shuffled_concat.wav"
     csv_path = output_dir / "shuffled_concat_labels.csv"
@@ -132,7 +143,10 @@ def main() -> None:
 
     rows: list[dict[str, object]] = []
     cursor = 0.0
+    gap_seconds = max(0, args.gap_ms) / 1000.0
     for index, item in enumerate(shuffled, start=1):
+        if index > 1:
+            cursor += gap_seconds
         duration = probe_duration_seconds(item.path)
         rows.append(
             {
@@ -148,31 +162,37 @@ def main() -> None:
         )
         cursor += duration
 
-    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8") as tmp:
-        concat_list = Path(tmp.name)
-        for item in shuffled:
-            escaped = str(item.path).replace("'", "'\\''")
-            tmp.write(f"file '{escaped}'\n")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        temp_root = Path(tmp_dir)
+        concat_list = temp_root / "concat.txt"
+        silence_path = temp_root / "event_gap.wav"
+        if gap_seconds > 0:
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-f", "lavfi",
+                    "-i", "anullsrc=channel_layout=mono:sample_rate=8000",
+                    "-t", f"{gap_seconds:.3f}", "-c:a", "pcm_alaw", str(silence_path),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        with concat_list.open("w", encoding="utf-8") as handle:
+            for index, item in enumerate(shuffled):
+                if index > 0 and gap_seconds > 0:
+                    handle.write(f"file '{silence_path}'\n")
+                escaped = str(item.path).replace("'", "'\\''")
+                handle.write(f"file '{escaped}'\n")
 
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(concat_list),
-            "-c",
-            "copy",
-            str(output_wav),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    concat_list.unlink(missing_ok=True)
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_list),
+                "-c", "copy", str(output_wav),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
     with csv_path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(
@@ -203,13 +223,14 @@ def main() -> None:
         }
         for row in rows
     ]
-    write_markdown(md_path, markdown_rows, output_wav, args.seed)
+    write_markdown(md_path, markdown_rows, output_wav, args.seed, max(0, args.gap_ms))
 
     manifest = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "input_dir": str(input_dir),
         "output_wav": str(output_wav),
         "seed": args.seed,
+        "gap_ms": max(0, args.gap_ms),
         "segment_count": len(rows),
         "total_duration_sec": round(cursor, 3),
         "segments": rows,
