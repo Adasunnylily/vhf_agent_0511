@@ -3656,7 +3656,10 @@
           renderStreamingAgentConsole();
           return;
         }
-        if (isPcm && payload.status === "final") payload.suppressAutoClose = true;
+        if (isPcm && payload.status === "final") {
+          payload.suppressAutoClose = true;
+          payload.deferDecision = true;
+        }
         applyChunkAsrResult(chunk, payload, "backend");
       } catch (error) {
         if (chunk.runToken !== state.streaming.runToken) return;
