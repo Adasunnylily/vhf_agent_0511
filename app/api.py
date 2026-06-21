@@ -1302,7 +1302,7 @@ async def upload_stream_simulation(
                     "denoise_mode": denoise_mode.strip().lower(),
                     "mode": mode,
                     "asr_model": settings.mic_asr_model if use_quality_asr else settings.asr_model,
-                    "processed_path": str(saved_path),
+                    "processed_path": segment.file_path,
                     "completed_segments": index + 1,
                     "total_segments": total,
                 },
@@ -1331,7 +1331,7 @@ async def upload_stream_simulation(
                 "denoise_mode": denoise_mode.strip().lower(),
                 "mode": mode,
                 "asr_model": settings.mic_asr_model if use_quality_asr else settings.asr_model,
-                "processed_path": str(saved_path),
+                "processed_path": segments[0].file_path if segments else str(saved_path),
                 "completed_segments": len(segments),
                 "total_segments": len(segments),
             },
@@ -1726,7 +1726,12 @@ def refine_streaming_business_event(
     processed_path = Path(str((task.meta if task else {}).get("processed_path") or ""))
     if processed_path.is_file() and end_ms > start_ms:
         clip_path = storage.allocate_clip_path(".wav")
-        slice_wav_segment(processed_path, clip_path, start_ms, end_ms)
+        _ensure_browser_wav(
+            processed_path,
+            clip_path,
+            start_ms=start_ms,
+            end_ms=end_ms,
+        )
         base_result = ASRResult(
             text=raw_text,
             confidence=float(payload.get("confidence") or 0.85),
