@@ -12,6 +12,7 @@ from http import HTTPStatus
 
 from app.services.asr_prompts import ensure_dashscope_api_key_in_env
 from app.services.funasr_emotion import extract_funasr_emotion_tags, extract_funasr_event_tags
+from app.services.maritime_keywords import MARITIME_HOTWORDS
 
 
 @dataclass
@@ -411,9 +412,10 @@ class QwenASRAdapter(BaseASRAdapter):
             text = ""
             if getattr(response, "choices", None):
                 text = response.choices[0].message.content or ""
+            sanitized_text = sanitize_asr_text(str(text))
             return ASRResult(
-                text=sanitize_asr_text(str(text)),
-                confidence=0.0,
+                text=sanitized_text,
+                confidence=0.85 if sanitized_text else 0.0,
                 engine=f"qwen_asr:{self.model}",
             )
         except Exception as exc:
@@ -509,7 +511,7 @@ class LocalQwenASRAdapter(BaseASRAdapter):
         text = sanitize_asr_text(self._extract_text(results))
         return ASRResult(
             text=text,
-            confidence=0.0,
+            confidence=0.85 if text else 0.0,
             engine=f"qwen_local:{self.model_name}",
             final_latency_ms=elapsed_ms,
         )

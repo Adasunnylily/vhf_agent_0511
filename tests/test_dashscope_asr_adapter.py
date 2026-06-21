@@ -1,6 +1,8 @@
 import unittest
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 from app.services.asr import QwenASRAdapter, create_asr_adapter, format_diarized_text, load_hotword_lines
 from app.services.vhf_dialogue import build_vhf_dialogue_review
@@ -67,6 +69,23 @@ class DashScopeASRAdapterTests(unittest.TestCase):
 
         self.assertIsInstance(adapter, QwenASRAdapter)
         self.assertEqual(hotwords_path, adapter.hotwords_path)
+
+    def test_qwen_adapter_uses_neutral_confidence_when_api_has_no_score(self) -> None:
+        adapter = QwenASRAdapter(prompt="")
+        response = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="宁波交管，锦龙228。"))]
+        )
+        client = MagicMock()
+        client.chat.completions.create.return_value = response
+        adapter._client = client
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            audio_path = Path(tmp_dir) / "sample.wav"
+            audio_path.write_bytes(b"RIFF-test")
+            result = adapter.transcribe(audio_path)
+
+        self.assertEqual("宁波交管，锦龙228。", result.text)
+        self.assertEqual(0.85, result.confidence)
 
 
 if __name__ == "__main__":

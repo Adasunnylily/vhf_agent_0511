@@ -2284,6 +2284,22 @@
       event.riskScore = Math.max(event.riskScore || 0, classification.riskScore);
       event.summary = event.utterances.map((item) => item.text).join(" / ").slice(0, 180);
       setEventState("UTTERANCE_FINALIZED", text);
+      if (payload.deferDecision) {
+        triggerEarlyRiskIfNeeded(event, text);
+        event.intent = event.riskLevel === "L1" ? "emergency" : "monitoring_only";
+        appendAgentEvent({
+          stage: "utterance_finalized",
+          title: "话轮已加入当前事件",
+          detail: text,
+          asr_text: text,
+          chunk_id: chunk.chunkId,
+          intent: event.intent,
+          risk_score: event.riskScore.toFixed(2),
+          dedupe_key: `utterance:${event.eventId}`,
+        });
+        renderStreamingAgentConsole();
+        return;
+      }
       routeClassification({
         intent: event.intent === "emergency" ? "emergency_risk" : event.intent === "auto_reply" ? "routine_report" : event.intent === "human_approval" ? "departure_request" : "other_business",
         risk_score: event.riskScore,
@@ -2371,6 +2387,12 @@
         event.summary = event.resolvedText.slice(0, 220);
         event.refinement = refinement.refinement || {};
         const isCurrentWorkspace = !state.activeBusinessEvent || state.activeBusinessEvent.eventId === event.eventId;
+        const finalAction = createActionFromPolicy({
+          intent: decision.business_type || "other_business",
+          risk_score: event.riskScore,
+          auto_reply_allowed: event.intent === "auto_reply",
+        });
+        if (!event.actions.some((item) => item.action === finalAction.action)) event.actions.push(finalAction);
         if (isCurrentWorkspace) {
           if (event.roleDialogueText) $("dialogueEdit").textContent = event.roleDialogueText;
           if (event.resolvedText) $("refinedAsrText").textContent = event.resolvedText;
@@ -2383,6 +2405,15 @@
             summary: decision.summary || event.summary,
             time: nowLabel(),
           });
+          state.actionQueue = [...state.actionQueue.slice(-7), finalAction];
+          if (event.intent === "auto_reply") {
+            const reply = decision.broadcast_text || `${event.shipName || "相关船舶"}，收到，请保持甚高频守听，注意航行安全。`;
+            $("replyText").textContent = reply;
+            if (!event.autoReplySpoken) {
+              event.autoReplySpoken = true;
+              speakText(reply);
+            }
+          }
           appendAgentEvent({
             stage: "event_refined",
             title: "说话人和分类精修完成",
@@ -3489,9 +3520,25 @@
       $("asrText").textContent = payload.cumulative_text || `${$("asrText").textContent === "等待语音输入" ? "" : $("asrText").textContent}\n${text}`.trim();
       if (payload.dialogue_review_text) $("dialogueEdit").textContent = payload.dialogue_review_text;
       $("asrStatus").textContent = "实时听写";
-      $("intentText").textContent = intentLabel(routedPayload.intent);
+      $("intentText").textContent = payload.deferDecision ? "事件累积中" : intentLabel(routedPayload.intent);
       $("shipText").textContent = routedPayload.event?.ais_context?.ship_name || $("shipText").textContent || "待匹配";
       $("copilotRiskScore").textContent = routedPayload.risk.toFixed(2);
+      if (payload.deferDecision) {
+        appendAgentEvent({
+          stage: "asr_completed",
+          title: "实时话轮转写完成",
+          detail: text,
+          chunk_id: chunk.chunkId,
+          asr_text: text,
+          asr_confidence: chunk.confidence,
+          dedupe_key: `asr:${state.activeBusinessEvent?.eventId || chunk.chunkId}`,
+        });
+        appendGlobalTimeline({ time: nowLabel(), title: "话轮加入当前事件", detail: text });
+        recordChunkLatency(chunk);
+        renderStreamingAgentConsole();
+        setFlow(2);
+        return;
+      }
       const businessEventId = state.activeBusinessEvent?.eventId || chunk.chunkId;
       const eventIntent = state.activeBusinessEvent?.intent || routedPayload.intent;
       const eventRisk = Number(state.activeBusinessEvent?.riskScore ?? routedPayload.risk);
@@ -3793,6 +3840,7 @@
         dialogue_review_text: event.dialogue_review_text || "",
         confidence: segment.confidence || event.confidence || "0.82",
         events: [event],
+        deferDecision: true,
       }, "backend");
       replay.processedSegmentIds.add(segment.id);
       replay.lastEndMs = endMs;
@@ -3827,6 +3875,7 @@
         confidence: utterance.confidence || "0.85",
         events: [utterance.event || {}],
         suppressAutoClose: true,
+        deferDecision: true,
       }, "backend");
       replay.processedUtteranceIds.add(utterance.utterance_id);
       replay.lastEndMs = endMs;
