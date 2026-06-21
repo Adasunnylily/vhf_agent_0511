@@ -22,11 +22,13 @@ def postprocess_vhf_dialogue(
     text: str,
     asr_sentences: Optional[List[dict]] = None,
     *,
+    original_text: Optional[str] = None,
     sentence_resolver: Optional[Callable[[str], str]] = None,
     map_speaker_roles: bool = False,
     entity_candidates: Optional[List[Dict[str, object]]] = None,
     dialogue_refiner: Optional[LLMDialogueRefiner] = None,
 ) -> VHFDialogueResult:
+    source_text = original_text or text
     resolved = repair_vhf_text(text)
     dialogue_sentences = asr_sentences
     if asr_sentences:
@@ -38,7 +40,7 @@ def postprocess_vhf_dialogue(
     )
     refiner = dialogue_refiner or LLMDialogueRefiner()
     refinement = refiner.refine(
-        original_text=text,
+        original_text=source_text,
         rule_resolved_text=resolved,
         rule_dialogue_review_text=dialogue_review_text,
         entity_candidates=entity_candidates,
@@ -48,7 +50,7 @@ def postprocess_vhf_dialogue(
         resolved = refinement.corrected_text
         dialogue_review_text = refinement.dialogue_review_text
     return VHFDialogueResult(
-        original_text=text,
+        original_text=source_text,
         resolved_text=resolved,
         dialogue_review_text=dialogue_review_text,
     )

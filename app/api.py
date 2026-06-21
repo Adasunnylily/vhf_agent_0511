@@ -1702,6 +1702,7 @@ def refine_streaming_business_event(
     raw_text = str(payload.get("asr_text") or "").strip()
     if not raw_text:
         raise HTTPException(status_code=400, detail="缺少待精修的ASR文本")
+    original_event_text = raw_text
     channel_id = str(payload.get("channel_id") or settings.default_channel_id)
     utterances = payload.get("utterances")
     asr_sentences = []
@@ -1752,6 +1753,7 @@ def refine_streaming_business_event(
     dialogue = postprocess_vhf_dialogue(
         resolution.resolved_text,
         asr_sentences=asr_sentences or None,
+        original_text=original_event_text,
         sentence_resolver=lambda text: entity_resolver.resolve(text).resolved_text,
         map_speaker_roles=True,
         entity_candidates=candidates,

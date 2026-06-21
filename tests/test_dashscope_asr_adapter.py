@@ -48,6 +48,21 @@ class DashScopeASRAdapterTests(unittest.TestCase):
         )
         self.assertIn("说话人1：锦华662报告。", result.dialogue_review_text)
 
+    def test_postprocess_preserves_realtime_text_as_refinement_evidence(self) -> None:
+        from app.services.vhf_dialogue import postprocess_vhf_dialogue
+
+        class DisabledRefiner:
+            def refine(self, **kwargs):
+                return None
+
+        result = postprocess_vhf_dialogue(
+            "整段精修候选：锦龙008",
+            original_text="实时话轮：锦龙228接码头通知",
+            dialogue_refiner=DisabledRefiner(),
+        )
+
+        self.assertEqual("实时话轮：锦龙228接码头通知", result.original_text)
+
     def test_load_hotword_lines(self) -> None:
         path = Path("data/hotwords/nbzh_hotwords.txt")
         words = load_hotword_lines(path, limit=5)
