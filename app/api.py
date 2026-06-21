@@ -1290,6 +1290,8 @@ async def upload_stream_simulation(
                 fallback["entities"] = segment.entities
                 fallback["ais_context"] = _best_ais_context_from_entities(segment.entities) or {}
                 payloads = [ais_risk_analyzer.enrich_event(fallback)]
+            for payload in payloads:
+                payload["business_type"] = _decision_business_type(payload)
             live_events.extend(payloads)
             task_manager.update(
                 task.id,

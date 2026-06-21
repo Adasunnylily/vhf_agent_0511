@@ -120,6 +120,11 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=20260616, help="Random seed for reproducible shuffle.")
     parser.add_argument("--limit", type=int, default=0, help="Maximum number of files; 0 means all files.")
     parser.add_argument("--gap-ms", type=int, default=0, help="Silence inserted between business events.")
+    parser.add_argument(
+        "--include-stems",
+        default="",
+        help="Comma-separated WAV stems to include before shuffling.",
+    )
     args = parser.parse_args()
 
     input_dir = args.input_dir.resolve()
@@ -127,6 +132,12 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     items = collect_items(input_dir)
+    include_stems = {item.strip() for item in args.include_stems.split(",") if item.strip()}
+    if include_stems:
+        items = [item for item in items if item.path.stem in include_stems]
+        missing = include_stems - {item.path.stem for item in items}
+        if missing:
+            raise SystemExit(f"Requested WAV stems not found: {', '.join(sorted(missing))}")
     if not items:
         raise SystemExit(f"No wav files found under {input_dir}")
 
