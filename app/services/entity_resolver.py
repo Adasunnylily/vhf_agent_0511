@@ -113,10 +113,14 @@ class EntityResolver:
     def _ensure_registry_loaded(self) -> None:
         if self._allowed_ship_names or self.vessel_registry_path is None:
             return
-        if not self.vessel_registry_path.exists():
+        path = self.vessel_registry_path
+        project_registry = Path("data/hotwords/nbzh_vessel_registry.json")
+        if not path.exists() and project_registry.exists():
+            path = project_registry
+        if not path.exists():
             return
         try:
-            payload = json.loads(self.vessel_registry_path.read_text(encoding="utf-8"))
+            payload = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             return
         for item in payload.get("ships", []) if isinstance(payload, dict) else []:
