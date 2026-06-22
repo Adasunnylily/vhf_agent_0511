@@ -64,6 +64,7 @@ class EntityResolver:
         self.ship_min_score = ship_min_score
         self.ship_min_margin = ship_min_margin
         self._allowed_ship_names: set[str] = set()
+        self._registry_entries: List[Tuple[str, str, List[str], str, Dict[str, object]]] = []
         self._entries: List[Tuple[str, str, List[str], str, Dict[str, object]]] = []
         self._dynamic_entries: List[Tuple[str, str, List[str], str, Dict[str, object]]] = []
         self._loaded = False
@@ -101,6 +102,7 @@ class EntityResolver:
         if not path.exists() and Path("data/lexicon_corrections.json").exists():
             path = Path("data/lexicon_corrections.json")
         if not path.exists():
+            self._entries = list(self._registry_entries)
             return
 
         try:
@@ -108,7 +110,10 @@ class EntityResolver:
         except Exception:
             return
 
-        self._entries = self._payload_to_entries(payload, default_source="lexicon")
+        self._entries = [
+            *self._registry_entries,
+            *self._payload_to_entries(payload, default_source="lexicon"),
+        ]
 
     def _ensure_registry_loaded(self) -> None:
         if self._allowed_ship_names or self.vessel_registry_path is None:
@@ -132,6 +137,7 @@ class EntityResolver:
                 canonical = ""
             if canonical:
                 self._allowed_ship_names.add(canonical)
+        self._registry_entries = self._payload_to_entries(payload, default_source="controlled_registry")
 
     def _payload_to_entries(
         self,
