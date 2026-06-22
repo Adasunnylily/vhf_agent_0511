@@ -122,7 +122,9 @@ def repair_vhf_text(text: str) -> str:
         from app.services.vhf_legacy_rules import legacy_repair_vhf_text
 
         return legacy_repair_vhf_text(text)
-    return normalize_vhf_text(text)
+    from app.services.vhf_ship_repair import repair_ship_names_in_text
+
+    return repair_ship_names_in_text(normalize_vhf_text(text))
 
 
 def normalize_vhf_text(text: str) -> str:

@@ -174,6 +174,10 @@ class EntityResolver:
             if candidate.reason == "fuzzy" and candidate.source == "ais_active" and candidate.score >= 0.86:
                 fuzzy_hints.append(candidate.canonical)
                 continue
+            if candidate.entity_type == "ship" and candidate.reason == "fuzzy" and candidate.score >= 0.84:
+                if candidate.matched_text and candidate.matched_text in resolved and candidate.canonical != candidate.matched_text:
+                    resolved = resolved.replace(candidate.matched_text, candidate.canonical)
+                continue
             if candidate.reason not in {"exact", "normalized_exact"} or candidate.score < 0.96:
                 continue
             if candidate.canonical != candidate.matched_text and candidate.matched_text in resolved:

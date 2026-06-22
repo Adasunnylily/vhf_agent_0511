@@ -1424,7 +1424,7 @@
       </nav>
       <div class="rail-foot">
         <span class="pill green">在线</span>
-        <span>原型联调版 · 2026.06.21 · 服务端TTS + 点验同步 v5</span>
+        <span>原型联调版 · 2026.06.21 · RAG+船名词典 v6</span>
         <span id="clock">--:--:--</span>
       </div>
     </aside>
@@ -1498,9 +1498,9 @@
                   <span id="liveMicStatus">待启动 · 请允许浏览器使用麦克风</span>
                   <div class="stream-control-row">
                     <select id="liveChunkMs">
+                      <option value="1800" selected>1.8秒临时预览</option>
                       <option value="2000">2秒临时预览</option>
-                      <option value="3000" selected>3秒临时预览</option>
-                      <option value="5000">5秒临时预览</option>
+                      <option value="3000">3秒临时预览</option>
                     </select>
                     <button id="startLiveMicBtn">开始现场守听</button>
                     <button class="secondary" id="stopLiveMicBtn">停止守听</button>
@@ -1893,7 +1893,8 @@
         <section class="panel wide">
           <div class="panel-head"><h2>知识库</h2><span class="pill">交管规则 · 国际规范</span></div>
           <div class="panel-body">
-            <div class="knowledge-search"><input id="knowledgeQuery" placeholder="检索交管规则、航行法规和风险处置要求" /><button id="knowledgeSearchBtn">检索</button></div>
+            <div class="knowledge-search"><input id="knowledgeQuery" placeholder="检索交管规则、航行法规和风险处置要求" /><button id="knowledgeSearchBtn">检索</button><button class="green" id="knowledgeAskBtn">RAG问答</button></div>
+            <div class="event-detail" id="knowledgeAnswer">输入问题后点击「RAG问答」，将基于知识库片段由 LLM 生成回答。</div>
             <div class="knowledge-search">
               <input id="knowledgeCategory" placeholder="资料分类，例如：交管规定" value="交管规定" />
               <input id="knowledgeFile" type="file" />
@@ -2713,6 +2714,17 @@
         event.roleDialogueText = formatRoleDialogueForDisplay(event.dialogueReviewText);
         event.summary = event.resolvedText.slice(0, 220);
         event.refinement = refinement.refinement || {};
+        if (decision.ais_context?.ship_name) {
+          event.shipName = decision.ais_context.ship_name;
+          event.matchedShip = decision.ais_context.ship_name;
+          event.aisContext = decision.ais_context;
+        } else if (decision.entities?.length) {
+          const shipEntity = decision.entities.find((item) => item.entity_type === "ship");
+          if (shipEntity?.canonical) {
+            event.shipName = shipEntity.canonical;
+            event.matchedShip = shipEntity.canonical;
+          }
+        }
         const isCurrentWorkspace = !state.activeBusinessEvent || event.sourceType === "long_audio" || state.activeBusinessEvent.eventId === event.eventId;
         const finalAction = createActionFromPolicy({
           intent: decision.business_type || "other_business",
@@ -4148,8 +4160,8 @@
             seq: chunk.index,
             cumulative: false,
             sample_rate: 16000,
-            preview_window_ms: Number($("liveChunkMs")?.value || 3000),
-            vad_silence_ms: 900,
+            preview_window_ms: Number($("liveChunkMs")?.value || 1800),
+            vad_silence_ms: 1100,
           }),
         });
         if (chunk.runToken !== state.streaming.runToken || !state.mic?.active || state.mic.sessionId !== micSessionId) return;
@@ -4275,7 +4287,7 @@
       const archiveParts = [];
       const mimeType = bestMicMime();
       const archiveRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      const previewWindowMs = Math.max(2000, Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 3000));
+      const previewWindowMs = Math.max(1500, Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 1800));
       state.streaming.chunkSeq = 0;
       state.streaming.queue = [];
       state.streaming.latencies = [];
@@ -5262,6 +5274,25 @@
         $("knowledgeList").innerHTML = (payload.items || []).map((item) => `<div class="event-row"><b>${item.title}</b><span>${item.category || "法规资料"}</span><span>${item.content || item.summary || ""}</span></div>`).join("") || '<div class="event-row"><b>暂无匹配资料</b><span>可通过后端接口导入审核过的规则文档</span></div>';
       } catch (error) { $("knowledgeList").innerHTML = '<div class="event-row"><b>知识库暂不可用</b><span>请检查后端服务</span></div>'; }
     }
+    async function askKnowledge() {
+      const question = ($("knowledgeQuery").value || "").trim();
+      if (!question) return toast("请先输入问题", true);
+      $("knowledgeAnswer").textContent = "RAG 检索并生成回答中...";
+      try {
+        const payload = await request("/api/knowledge/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question }),
+        });
+        const sources = (payload.sources || []).map((item) => item.title).filter(Boolean).join("、");
+        $("knowledgeAnswer").innerHTML = `<b>回答</b><br/>${payload.answer || "未生成回答"}<br/><br/><b>引用资料</b><br/>${sources || "无"}`;
+        if (payload.sources?.length) {
+          $("knowledgeList").innerHTML = payload.sources.map((item) => `<div class="event-row"><b>${item.title}</b><span>${item.category || "法规资料"}</span><span>${item.content || ""}</span></div>`).join("");
+        }
+      } catch (error) {
+        $("knowledgeAnswer").textContent = `RAG 问答失败：${error.message}`;
+      }
+    }
     async function importKnowledgeDocument() {
       const file = $("knowledgeFile").files[0];
       if (!file) return toast("请先选择要导入的知识库文件", true);
@@ -5343,6 +5374,7 @@
       window.open(`${API_BASE}/api/feedback.csv`, "_blank");
     });
     $("knowledgeSearchBtn").addEventListener("click", searchKnowledge);
+    $("knowledgeAskBtn").addEventListener("click", askKnowledge);
     $("knowledgeImportBtn").addEventListener("click", () => importKnowledgeDocument().catch((error) => toast(`导入失败：${error.message}`, true)));
     $("refreshAreasBtn").addEventListener("click", loadAreas);
     $("saveSettingsBtn").addEventListener("click", () => {

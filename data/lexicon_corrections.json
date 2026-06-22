@@ -1,366 +1,502 @@
 {
   "ships": [
     {
-      "canonical": "DHT SUNARBANS",
+      "canonical": "东方查尔斯顿275",
       "aliases": [
-        "DHTSUNARBANS",
-        "Dht Sunarbans",
-        "dht sunarbans"
-      ]
+        "交管东方查尔斯顿275",
+        "东方查尔斯顿675",
+        "东方查尔斯顿215",
+        "东方查尔斯顿278",
+        "东方查尔斯顿27",
+        "警275",
+        "275"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "GLASGOW VOYAGER",
+      "canonical": "东港油66",
       "aliases": [
-        "GLASGOWVOYAGER",
-        "Glasgow Voyager",
-        "glasgow voyager"
-      ]
+        "交管东港油66",
+        "东港油26",
+        "东港油62",
+        "东港油6",
+        "警66",
+        "66"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "GREAT ZHOU",
+      "canonical": "中兴顺浚15",
       "aliases": [
-        "GREATZHOU",
-        "Great Zhou",
-        "great zhou"
-      ]
+        "交管中兴顺浚15",
+        "中兴顺浚18",
+        "中兴顺浚75",
+        "中兴顺浚1",
+        "警15",
+        "15"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "HAN GRACE",
+      "canonical": "云尾17",
       "aliases": [
-        "HANGRACE",
-        "Han Grace",
-        "han grace"
-      ]
+        "交管云尾17",
+        "云尾77",
+        "云尾11",
+        "警17",
+        "云尾1",
+        "17"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "KMTC DELHI",
+      "canonical": "光大68",
       "aliases": [
-        "KMTCDELHI",
-        "Kmtc Delhi",
-        "kmtc delhi"
-      ]
+        "交管光大68",
+        "光大28",
+        "光大60",
+        "警68",
+        "光大6",
+        "68"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "MCC TAIPEI",
+      "canonical": "加腾17",
       "aliases": [
-        "MCCTAIPEI",
-        "Mcc Taipei",
-        "mcc taipei"
-      ]
+        "交管加腾17",
+        "加腾11",
+        "加腾77",
+        "警17",
+        "加腾1",
+        "17"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "ONE MILLAU",
+      "canonical": "华谊008",
       "aliases": [
-        "ONEMILLAU",
-        "One Millau",
-        "one millau"
-      ]
+        "交管华谊008",
+        "华谊808",
+        "华谊088",
+        "华谊000",
+        "警008",
+        "华谊00",
+        "008"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "TAN COSTAS S",
+      "canonical": "嘉诚17",
       "aliases": [
-        "TANCOSTASS",
-        "Tan Costas S",
-        "tan costas s"
-      ]
+        "交管嘉诚17",
+        "嘉诚11",
+        "嘉诚77",
+        "警17",
+        "嘉诚1",
+        "17"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "YONGGANGXIAOTUO7HAO",
+      "canonical": "广达68",
       "aliases": [
-        "YONGGANG XIAOTUO 7 HAO",
-        "Yonggangxiaotuo7Hao",
-        "yonggangxiaotuo7hao",
-        "甬港小拖7号"
-      ]
+        "交管广达68",
+        "广达60",
+        "广达28",
+        "广达6",
+        "警68",
+        "68"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "中国银川",
+      "canonical": "引水130",
       "aliases": [
-        "中谷银川"
-      ]
+        "交管引水130",
+        "引水180",
+        "引水730",
+        "引水138",
+        "引水13",
+        "警130",
+        "130"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "引航员139",
+      "aliases": [
+        "交管引航员139",
+        "引航员189",
+        "引航员739",
+        "引航员13",
+        "警139",
+        "139"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "恒基88",
+      "aliases": [
+        "交管恒基88",
+        "恒基08",
+        "恒基80",
+        "恒基8",
+        "警88",
+        "88"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "新平082",
+      "aliases": [
+        "交管新平082",
+        "新平086",
+        "新平882",
+        "新平002",
+        "新平08",
+        "警082",
+        "082"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "新民州96",
+      "aliases": [
+        "交管新民州96",
+        "新民州92",
+        "新民州9",
+        "警96",
+        "96"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "汇通66",
+      "aliases": [
+        "交管汇通66",
+        "汇通62",
+        "汇通26",
+        "警66",
+        "汇通6",
+        "66"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "江峰17",
+      "aliases": [
+        "交管江峰17",
+        "江峰77",
+        "江峰11",
+        "江峰1",
+        "警17",
+        "17"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "江户17",
+      "aliases": [
+        "交管江户17",
+        "江户11",
+        "江户77",
+        "警17",
+        "江户1",
+        "17"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "海景68",
+      "aliases": [
+        "交管海景68",
+        "海景60",
+        "海景28",
+        "海景6",
+        "警68",
+        "68"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "海洋137",
+      "aliases": [
+        "交管海洋137",
+        "海洋737",
+        "海洋131",
+        "海洋187",
+        "海洋13",
+        "警137",
+        "137"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "港油66",
+      "aliases": [
+        "交管港油66",
+        "港油62",
+        "港油26",
+        "警66",
+        "港油6",
+        "66"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "港顺177",
+      "aliases": [
+        "交管港顺177",
+        "港顺777",
+        "港顺117",
+        "港顺171",
+        "港顺17",
+        "警177",
+        "177"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "玲珑001",
+      "aliases": [
+        "交管玲珑001",
+        "玲珑081",
+        "玲珑801",
+        "玲珑007",
+        "警001",
+        "玲珑00",
+        "001"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "盛轮99",
+      "aliases": [
+        "交管盛轮99",
+        "警99",
+        "盛轮9",
+        "99"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "粤海42",
+      "aliases": [
+        "交管粤海42",
+        "粤海46",
+        "粤海4",
+        "警42",
+        "42"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "粤海492",
+      "aliases": [
+        "交管粤海492",
+        "粤海496",
+        "警492",
+        "粤海49",
+        "492"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "远洋8516",
+      "aliases": [
+        "交管远洋8516",
+        "远洋0516",
+        "远洋8512",
+        "远洋8576",
+        "远洋8816",
+        "警8516",
+        "远洋851",
+        "8516"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "远洋8616",
+      "aliases": [
+        "交管远洋8616",
+        "远洋8676",
+        "远洋8612",
+        "远洋0616",
+        "远洋8216",
+        "警8616",
+        "远洋861",
+        "8616"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "远胜88",
+      "aliases": [
+        "交管远胜88",
+        "远胜08",
+        "远胜80",
+        "警88",
+        "远胜8",
+        "88"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "鑫武31",
+      "aliases": [
+        "交管鑫武31",
+        "鑫武37",
+        "鑫武81",
+        "鑫武3",
+        "警31",
+        "31"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "鑫永祥78",
+      "aliases": [
+        "交管鑫永祥78",
+        "鑫永祥70",
+        "鑫永祥18",
+        "鑫永祥7",
+        "警78",
+        "78"
+      ],
+      "source": "annotation_gt"
     },
     {
       "canonical": "锦华662",
       "aliases": [
-        "警官六六",
-        "警花662",
-        "警花六六二",
-        "锦华六六二"
-      ]
+        "交管锦华662",
+        "锦华622",
+        "锦华666",
+        "锦华262",
+        "警662",
+        "锦华66",
+        "662"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "锦龙22",
+      "aliases": [
+        "交管锦龙22",
+        "锦龙62",
+        "锦龙26",
+        "警龙22",
+        "锦龙2",
+        "警22",
+        "锦22",
+        "22"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "锦龙227",
+      "aliases": [
+        "交管锦龙227",
+        "警龙227",
+        "锦龙267",
+        "锦龙627",
+        "锦龙207",
+        "锦龙221",
+        "锦龙22",
+        "锦227",
+        "警227",
+        "227"
+      ],
+      "source": "annotation_gt"
     },
     {
       "canonical": "锦龙228",
       "aliases": [
-        "锦龙两两八",
-        "锦龙二二八"
-      ]
+        "交管锦龙228",
+        "锦龙628",
+        "锦龙220",
+        "锦龙268",
+        "警龙228",
+        "锦228",
+        "锦龙22",
+        "警228",
+        "228"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "雷业999",
+      "aliases": [
+        "交管雷业999",
+        "雷业99",
+        "警999",
+        "999"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "顺泽18",
+      "aliases": [
+        "交管顺泽18",
+        "顺泽78",
+        "顺泽10",
+        "顺泽1",
+        "警18",
+        "18"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "顺浚15",
+      "aliases": [
+        "交管顺浚15",
+        "顺浚18",
+        "顺浚75",
+        "顺浚1",
+        "警15",
+        "15"
+      ],
+      "source": "annotation_gt"
+    },
+    {
+      "canonical": "顺龙99",
+      "aliases": [
+        "交管顺龙99",
+        "警99",
+        "锦99",
+        "顺龙9",
+        "99"
+      ],
+      "source": "annotation_gt"
     }
   ],
   "locations": [
     {
-      "canonical": "1号管理分区",
+      "canonical": "黄牛礁",
       "aliases": [
-        "1管理分区"
-      ]
+        "黄牛礁进口",
+        "黄牛礁进x口",
+        "黄牛礁进X口"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "2号管理分区",
+      "canonical": "金塘南",
       "aliases": [
-        "2管理分区"
-      ]
+        "金塘南抛锚",
+        "金塘南抛锚线",
+        "金塘南锚地"
+      ],
+      "source": "annotation_gt"
     },
     {
-      "canonical": "3号管理分区",
+      "canonical": "宁波舟山交管",
       "aliases": [
-        "3管理分区"
-      ]
-    },
-    {
-      "canonical": "4号管理分区",
-      "aliases": [
-        "4管理分区"
-      ]
-    },
-    {
-      "canonical": "5号管理分区",
-      "aliases": [
-        "5管理分区"
-      ]
-    },
-    {
-      "canonical": "6号管理分区",
-      "aliases": [
-        "6管理分区"
-      ]
-    },
-    {
-      "canonical": "C1-1",
-      "aliases": [
-        "C11",
-        "c1-1"
-      ]
-    },
-    {
-      "canonical": "C1-2",
-      "aliases": [
-        "C12",
-        "c1-2"
-      ]
-    },
-    {
-      "canonical": "C2-1",
-      "aliases": [
-        "C21",
-        "c2-1"
-      ]
-    },
-    {
-      "canonical": "C2-2",
-      "aliases": [
-        "C22",
-        "c2-2"
-      ]
-    },
-    {
-      "canonical": "VHF08",
-      "aliases": [
-        "Vhf08",
-        "vhf08"
-      ]
-    },
-    {
-      "canonical": "VTS管理区",
-      "aliases": [
-        "Vts管理区",
-        "vts管理区"
-      ]
-    },
-    {
-      "canonical": "一期(NBCT)3号泊",
-      "aliases": [
-        "NBCT 3号泊",
-        "NBCT3号泊",
-        "一期(NBCT)3泊",
-        "一期(Nbct)3号泊",
-        "一期(nbct)3号泊",
-        "一期3号泊",
-        "一期NBCT3号泊",
-        "一期（NBCT）3号泊"
-      ]
-    },
-    {
-      "canonical": "一期(NBCT)4号泊",
-      "aliases": [
-        "NBCT 4号泊",
-        "NBCT4号泊",
-        "一期(NBCT)4泊",
-        "一期(Nbct)4号泊",
-        "一期(nbct)4号泊",
-        "一期4号泊",
-        "一期NBCT4号泊",
-        "一期（NBCT）4号泊"
-      ]
-    },
-    {
-      "canonical": "一期(NBCT)5号泊",
-      "aliases": [
-        "NBCT 5号泊",
-        "NBCT5号泊",
-        "一期(NBCT)5泊",
-        "一期(Nbct)5号泊",
-        "一期(nbct)5号泊",
-        "一期5号泊",
-        "一期NBCT5号泊",
-        "一期（NBCT）5号泊"
-      ]
-    },
-    {
-      "canonical": "一期(NBCT)6号泊",
-      "aliases": [
-        "NBCT 6号泊",
-        "NBCT6号泊",
-        "一期(NBCT)6泊",
-        "一期(Nbct)6号泊",
-        "一期(nbct)6号泊",
-        "一期6号泊",
-        "一期NBCT6号泊",
-        "一期（NBCT）6号泊"
-      ]
-    },
-    {
-      "canonical": "一期1号泊",
-      "aliases": [
-        "一期1泊"
-      ]
-    },
-    {
-      "canonical": "一期2号泊",
-      "aliases": [
-        "一期2泊"
-      ]
-    },
-    {
-      "canonical": "三期1号泊",
-      "aliases": [
-        "三期1泊"
-      ]
-    },
-    {
-      "canonical": "三期2号泊",
-      "aliases": [
-        "三期2泊"
-      ]
-    },
-    {
-      "canonical": "三期3号泊",
-      "aliases": [
-        "三期3泊"
-      ]
-    },
-    {
-      "canonical": "三期4号泊",
-      "aliases": [
-        "三期4泊"
-      ]
-    },
-    {
-      "canonical": "北仑司1号泊",
-      "aliases": [
-        "北仑司1泊"
-      ]
-    },
-    {
-      "canonical": "北仑司2号泊",
-      "aliases": [
-        "北仑司2泊"
-      ]
-    },
-    {
-      "canonical": "北仑司6号泊",
-      "aliases": [
-        "北仑司6泊"
-      ]
-    },
-    {
-      "canonical": "北仑电厂1号泊",
-      "aliases": [
-        "北仑电厂1泊"
-      ]
-    },
-    {
-      "canonical": "北仑电厂2号泊",
-      "aliases": [
-        "北仑电厂2泊"
-      ]
-    },
-    {
-      "canonical": "北仑电厂3号泊",
-      "aliases": [
-        "北仑电厂3泊"
-      ]
-    },
-    {
-      "canonical": "台塑多1#",
-      "aliases": [
-        "台塑多1",
-        "台塑多1号"
-      ]
-    },
-    {
-      "canonical": "台塑多2#",
-      "aliases": [
-        "台塑多2",
-        "台塑多2号"
-      ]
-    },
-    {
-      "canonical": "建龙(北一司)",
-      "aliases": [
-        "建龙北一司",
-        "建龙（北一司）"
-      ]
-    },
-    {
-      "canonical": "算山1号泊",
-      "aliases": [
-        "算山1泊"
-      ]
-    },
-    {
-      "canonical": "算山2号泊",
-      "aliases": [
-        "算山2泊"
-      ]
-    },
-    {
-      "canonical": "算山3号泊",
-      "aliases": [
-        "算山3泊"
-      ]
-    },
-    {
-      "canonical": "算山4号泊",
-      "aliases": [
-        "算山4泊"
-      ]
-    },
-    {
-      "canonical": "算山5号泊",
-      "aliases": [
-        "算山5泊"
-      ]
-    },
-    {
-      "canonical": "算山6号泊",
-      "aliases": [
-        "算山6泊"
-      ]
-    },
-    {
-      "canonical": "算山7号泊",
-      "aliases": [
-        "算山7泊"
-      ]
+        "波舟山交管",
+        "宁波舟山交管警",
+        "交管警"
+      ],
+      "source": "annotation_gt"
     }
   ],
   "callsigns": []

@@ -23,6 +23,7 @@ from app.main import (
     entity_resolver,
     inspection_simulator,
     knowledge_repository,
+    knowledge_rag,
     pipeline,
     preprocessor,
     quality_stream_processor,
@@ -561,8 +562,21 @@ async def list_knowledge_documents() -> Dict[str, List[Dict[str, str]]]:
 
 @router.get("/knowledge/search")
 async def search_knowledge(q: str = "") -> Dict[str, object]:
-    items = knowledge_repository.search(q)
-    return {"query": q, "count": len(items), "items": items[:20]}
+    items = knowledge_rag.retrieve(q) if q.strip() else knowledge_repository.list_entries()[:20]
+    return {"query": q, "count": len(items), "items": items[:20], "mode": "rag" if q.strip() else "list"}
+
+
+@router.post("/knowledge/ask")
+async def ask_knowledge(payload: Dict[str, str] = Body(...)) -> Dict[str, object]:
+    question = str(payload.get("question") or payload.get("q") or "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="question is required")
+    try:
+        return knowledge_rag.ask(question)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=503, detail=f"知识库问答失败：{error}") from error
 
 
 @router.post("/knowledge/documents/import")
@@ -1731,6 +1745,13 @@ def refine_streaming_business_event(
     if not raw_text:
         raise HTTPException(status_code=400, detail="缺少待精修的ASR文本")
     original_event_text = raw_text
+    from app.services.vhf_ship_repair import repair_ship_names_in_text
+
+    raw_text = repair_ship_names_in_text(raw_text)
+    base_resolution = entity_resolver.resolve(raw_text)
+    raw_text = base_resolution.resolved_text or raw_text
+    entity_candidates = [item.to_dict() for item in base_resolution.candidates]
+    sentence_resolver = lambda sentence: entity_resolver.resolve(repair_ship_names_in_text(sentence)).resolved_text
     channel_id = str(payload.get("channel_id") or settings.default_channel_id)
     utterances = payload.get("utterances")
     asr_sentences = []
@@ -1785,11 +1806,16 @@ def refine_streaming_business_event(
         raw_text,
         asr_sentences=asr_sentences or None,
         original_text=original_event_text,
-        sentence_resolver=None,
+        sentence_resolver=sentence_resolver,
         map_speaker_roles=True,
-        entity_candidates=[],
+        entity_candidates=entity_candidates,
         use_llm_refiner=use_stream_llm_refine,
     )
+    final_resolution = entity_resolver.resolve(dialogue.resolved_text)
+    resolved_text = final_resolution.resolved_text or dialogue.resolved_text
+    dialogue_review_text = dialogue.dialogue_review_text
+    if final_resolution.resolved_text and final_resolution.resolved_text != dialogue.resolved_text:
+        dialogue_review_text = dialogue_review_text.replace(dialogue.resolved_text, final_resolution.resolved_text)
     segment = AudioSegment(
         id=f"refined_{uuid.uuid4().hex[:12]}",
         channel_id=channel_id,
@@ -1800,27 +1826,34 @@ def refine_streaming_business_event(
         duration_ms=max(0, end_ms - start_ms),
         text=raw_text,
         confidence=float(payload.get("confidence") or 0.85),
-        keywords=_extract_keywords(dialogue.resolved_text),
+        keywords=_extract_keywords(resolved_text),
         engine="stream_event_refinement",
-        resolved_text=dialogue.resolved_text,
-        entities=[],
+        resolved_text=resolved_text,
+        entities=[item.to_dict() for item in final_resolution.candidates],
         asr_sentences=asr_sentences,
     )
     evaluated = event_refine_risk_engine.evaluate(segment)
     decision = evaluated[0].to_dict() if evaluated else _default_decision_payload(segment)
     decision["asr_text"] = segment.text
     decision["resolved_text"] = segment.resolved_text or segment.text
-    decision["entities"] = []
-    decision["ais_context"] = {}
+    decision["entities"] = segment.entities
+    ais_context = _best_ais_context_from_entities(segment.entities) or {}
+    if not ais_context:
+        for candidate in final_resolution.candidates:
+            if candidate.entity_type == "ship":
+                ais_context = inspection_simulator.find_ship_context(candidate.canonical) or {"ship_name": candidate.canonical}
+                break
+    decision["ais_context"] = ais_context
     decision["business_type"] = _decision_business_type(decision)
     return {
-        "resolved_text": dialogue.resolved_text,
-        "dialogue_review_text": dialogue.dialogue_review_text,
+        "resolved_text": resolved_text,
+        "dialogue_review_text": dialogue_review_text,
         "event": decision,
         "refinement": {
             "asr_engine": refinement_engine,
-            "dialogue_mode": "rules",
+            "dialogue_mode": "llm" if use_stream_llm_refine else "rules",
             "decision_mode": "rules",
+            "entity_candidates": len(entity_candidates),
         },
     }
 
@@ -1989,8 +2022,8 @@ def push_mic_pcm(
     channel_id: str = Form("vhf_demo_01"),
     seq: int = Form(0),
     sample_rate: int = Form(16000),
-    preview_window_ms: int = Form(3000),
-    vad_silence_ms: int = Form(900),
+    preview_window_ms: int = Form(int(os.getenv("VHF_MIC_PREVIEW_WINDOW_MS", "1800"))),
+    vad_silence_ms: int = Form(int(os.getenv("VHF_MIC_VAD_SILENCE_MS", "1100"))),
     vad_rms_threshold: float = Form(350.0),
 ) -> Dict[str, object]:
     pcm_bytes = file.file.read()
@@ -2045,8 +2078,8 @@ def push_mic_pcm(
         preview_due = (
             has_speech
             and not is_final
-            and utterance_ms >= max(1500, preview_window_ms)
-            and utterance_ms - last_preview_ms >= max(1500, preview_window_ms)
+            and utterance_ms >= max(1200, preview_window_ms)
+            and utterance_ms - last_preview_ms >= max(1200, preview_window_ms)
         )
         if not is_final and not preview_due:
             return {
