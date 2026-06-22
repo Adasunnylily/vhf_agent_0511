@@ -203,6 +203,8 @@ class EntityResolver:
         normalized_alias = normalize_entity_text(alias)
         if not normalized_alias:
             return None
+        if entity_type == "ship" and (len(normalized_alias) < 3 or normalized_alias.isdigit()):
+            return None
         if alias and alias in raw_text:
             return EntityCandidate(entity_type, canonical, alias, 1.0, "exact", source, metadata)
         if normalized_alias in normalized_text:

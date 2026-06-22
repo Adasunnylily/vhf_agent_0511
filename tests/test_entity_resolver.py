@@ -49,6 +49,9 @@ class EntityResolverRegistryTests(unittest.TestCase):
                 ]
             }
         )
+        resolver._entries.append(  # pylint: disable=protected-access
+            ("ship", "锦龙228", ["66"], "legacy_bad_alias", {})
+        )
         return resolver
 
     def test_known_alias_matches_reviewed_ship(self) -> None:
