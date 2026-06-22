@@ -1916,6 +1916,8 @@ def _recognize_mic_utterance(
         ),
         map_speaker_roles=bool(result.sentences),
         entity_candidates=[candidate.to_dict() for candidate in resolution.candidates],
+        # Keep live mic results responsive; event-close refinement runs the LLM later.
+        use_llm_refiner=False,
     )
     text_for_rules = dialogue_result.resolved_text
     with mic_lock:
