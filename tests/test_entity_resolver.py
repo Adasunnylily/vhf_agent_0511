@@ -60,6 +60,7 @@ class EntityResolverRegistryTests(unittest.TestCase):
 
         ships = [candidate for candidate in result.candidates if candidate.entity_type == "ship"]
         self.assertEqual(["锦华662"], [candidate.canonical for candidate in ships])
+        self.assertEqual("锦华662，请讲", result.resolved_text)
 
     def test_unknown_ship_is_not_eligible_for_ais_link(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
