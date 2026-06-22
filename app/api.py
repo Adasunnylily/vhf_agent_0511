@@ -61,6 +61,11 @@ async def public_config() -> Dict[str, object]:
         "default_channel_id": settings.default_channel_id,
         "amap_key": settings.amap_key,
         "amap_security_js_code": settings.amap_security_js_code,
+        "mic_transport": "http_pcm_frames",
+        "mic_frame_ms": 200,
+        "mic_partial_mode": "windowed_batch_asr",
+        "mic_asr_provider": settings.mic_asr_provider,
+        "mic_asr_model": settings.mic_asr_model,
     }
 
 
@@ -69,9 +74,23 @@ def _sync_dynamic_ais_lexicon() -> None:
 
 
 def _best_ais_context_from_entities(entities: List[Dict[str, Any]]) -> Optional[Dict[str, object]]:
-    for entity in entities:
-        if entity.get("entity_type") != "ship":
-            continue
+    ship_entities = [
+        entity
+        for entity in entities
+        if entity.get("entity_type") == "ship"
+        and entity_resolver.is_allowed_ship_name(str(entity.get("canonical") or ""))
+        and float(entity.get("score") or 0.0) >= settings.entity_ship_match_min_score
+    ]
+    ship_entities.sort(key=lambda item: float(item.get("score") or 0.0), reverse=True)
+    if not ship_entities:
+        return None
+    if (
+        len(ship_entities) > 1
+        and float(ship_entities[0].get("score") or 0.0) - float(ship_entities[1].get("score") or 0.0)
+        < settings.entity_ship_match_min_margin
+    ):
+        return None
+    for entity in ship_entities[:1]:
         metadata = entity.get("metadata")
         if isinstance(metadata, dict) and metadata:
             return metadata
@@ -989,19 +1008,24 @@ def _build_continuous_ais_alignment(
     ]
     ship_context = _best_ais_context_from_entities(entities)
     if not ship_context:
-        named_ships = inspection_simulator.list_mock_ships(limit=15)
-        if named_ships:
-            ship_context = named_ships[index % len(named_ships)]
-    ship_context = ship_context or {}
-    lng = float(ship_context.get("lng") or 121.8842)
-    lat = float(ship_context.get("lat") or 29.9138)
-    confidence = 0.88 if ship_context.get("ship_name") else 0.42
-    if entities:
-        confidence = min(0.96, confidence + 0.06)
+        return {
+            "vhf_event_id": (events[0].get("event_id") if events else "") or f"continuous_{index}",
+            "matched": False,
+            "matched_ship_id": "",
+            "ship_name": "",
+            "confidence_score": 0.0,
+            "reason": "未在审核船名库中获得唯一高置信度候选",
+            "route": [],
+            "source": "unmatched",
+        }
+    lng = float(ship_context.get("lng"))
+    lat = float(ship_context.get("lat"))
+    confidence = 0.92
     return {
         "vhf_event_id": (events[0].get("event_id") if events else "") or f"continuous_{index}",
+        "matched": True,
         "matched_ship_id": ship_context.get("ship_id") or ship_context.get("mmsi") or f"sim_ship_{index}",
-        "ship_name": ship_context.get("ship_name") or f"模拟船舶{index + 1}",
+        "ship_name": ship_context.get("ship_name") or "",
         "mmsi": ship_context.get("mmsi") or "",
         "callsign": ship_context.get("callsign") or "",
         "ship_type": ship_context.get("ship_type") or "待核验船舶",
@@ -1847,12 +1871,23 @@ def _recognize_mic_utterance(
     sample_rate: int,
     is_final: bool,
 ) -> Dict[str, object]:
+    recognition_started = time.perf_counter()
     duration_ms = round(len(pcm_bytes) / 2 / sample_rate * 1000)
     suffix = "final" if is_final else "partial"
     wav_path = settings.normalized_dir / f"{session_id}_{seq}_{suffix}.wav"
     write_pcm_wav(wav_path, pcm_bytes, sample_rate)
+    asr_started = time.perf_counter()
     result = shared_mic_asr.transcribe(file_path=wav_path)
-    result = shared_asr_refiner.refine(wav_path, result, duration_ms=duration_ms)
+    asr_ms = round((time.perf_counter() - asr_started) * 1000)
+    refine_ms = 0
+    refiner_applied = False
+    already_quality_asr = result.engine.startswith(("qwen_asr:", "qwen_local:"))
+    if is_final and not already_quality_asr:
+        refine_started = time.perf_counter()
+        result = shared_asr_refiner.refine(wav_path, result, duration_ms=duration_ms)
+        refine_ms = round((time.perf_counter() - refine_started) * 1000)
+        refiner_applied = True
+    postprocess_started = time.perf_counter()
     text = result.text.strip()
     if not _is_informative_text(text):
         return {
@@ -1861,6 +1896,13 @@ def _recognize_mic_utterance(
             "status": "skipped",
             "reason": "uninformative_text",
             "text": text,
+            "timings": {
+                "asr_ms": asr_ms,
+                "refine_ms": refine_ms,
+                "postprocess_ms": round((time.perf_counter() - postprocess_started) * 1000),
+                "recognition_total_ms": round((time.perf_counter() - recognition_started) * 1000),
+                "refiner_applied": refiner_applied,
+            },
         }
 
     resolution = entity_resolver.resolve(text)
@@ -1935,6 +1977,15 @@ def _recognize_mic_utterance(
         "engine": result.engine,
         "duration_ms": duration_ms,
         "events": decision_payloads,
+        "transport_mode": "http_pcm_frames",
+        "partial_mode": "windowed_batch_asr",
+        "timings": {
+            "asr_ms": asr_ms,
+            "refine_ms": refine_ms,
+            "postprocess_ms": round((time.perf_counter() - postprocess_started) * 1000),
+            "recognition_total_ms": round((time.perf_counter() - recognition_started) * 1000),
+            "refiner_applied": refiner_applied,
+        },
     }
 
 
@@ -1979,7 +2030,16 @@ async def start_mic_stream(
             "session_id": session_id,
         },
     )
-    return {"session_id": session_id, "channel_id": channel_id, "status": "running"}
+    return {
+        "session_id": session_id,
+        "channel_id": channel_id,
+        "status": "running",
+        "transport_mode": "http_pcm_frames",
+        "frame_ms": 200,
+        "partial_mode": "windowed_batch_asr",
+        "asr_provider": settings.mic_asr_provider,
+        "asr_model": settings.mic_asr_model,
+    }
 
 
 @router.post("/mic/pcm")
@@ -1993,6 +2053,7 @@ def push_mic_pcm(
     vad_silence_ms: int = Form(900),
     vad_rms_threshold: float = Form(350.0),
 ) -> Dict[str, object]:
+    request_started = time.perf_counter()
     pcm_bytes = file.file.read()
     if len(pcm_bytes) < 320:
         return {"session_id": session_id, "seq": seq, "status": "skipped", "reason": "pcm_frame_too_small"}
@@ -2058,6 +2119,14 @@ def push_mic_pcm(
                 "threshold": round(effective_threshold, 1),
                 "utterance_ms": utterance_ms,
                 "silence_ms": silence_ms,
+                "transport_mode": "http_pcm_frames",
+                "partial_mode": "windowed_batch_asr",
+                "timings": {
+                    "server_total_ms": round((time.perf_counter() - request_started) * 1000),
+                    "asr_ms": 0,
+                    "refine_ms": 0,
+                    "postprocess_ms": 0,
+                },
             }
         utterance_bytes = bytes(buffer)
         if is_final:
@@ -2070,7 +2139,7 @@ def push_mic_pcm(
         else:
             session["pcm_last_preview_ms"] = utterance_ms
 
-    return _recognize_mic_utterance(
+    payload = _recognize_mic_utterance(
         session_id=session_id,
         channel_id=channel_id,
         seq=seq,
@@ -2078,6 +2147,10 @@ def push_mic_pcm(
         sample_rate=sample_rate,
         is_final=is_final,
     )
+    timings = payload.setdefault("timings", {})
+    if isinstance(timings, dict):
+        timings["server_total_ms"] = round((time.perf_counter() - request_started) * 1000)
+    return payload
 
 
 @router.post("/mic/chunk")

@@ -26,8 +26,8 @@ class DemoInspectionTests(unittest.TestCase):
     def test_filter_ships_by_type_and_geometry(self) -> None:
         simulator = InspectionTaskSimulator(ws_manager=DummyWSManager(), playback_speed=1000.0)
 
-        # 框选锦龙008附近水域，只允许集装箱船
-        geometry = '{"type":"rect","x1":121.88,"y1":29.91,"x2":121.89,"y2":29.92}'
+        # 框选锦龙228附近水域，只允许集装箱船
+        geometry = '{"type":"rect","x1":121.86,"y1":29.96,"x2":121.88,"y2":29.98}'
         matched = simulator.filter_ships(
             area_name="",
             min_draft_m=9.0,
@@ -43,7 +43,7 @@ class DemoInspectionTests(unittest.TestCase):
         simulator = InspectionTaskSimulator(ws_manager=DummyWSManager(), playback_speed=1000.0)
 
         geometry = (
-            '{"type":"line","points":[[121.87,29.9234],[121.88,29.9234]],'
+            '{"type":"line","points":[[121.91,29.9547],[121.925,29.9547]],'
             '"line_buffer_m":300}'
         )
         matched = simulator.filter_ships(
@@ -90,7 +90,7 @@ class DemoInspectionTests(unittest.TestCase):
             area_name="不存在的区域",
             min_draft_m=0,
             min_tonnage_t=0,
-            specific_ship_ids=["ship_jh662"],
+            specific_ship_ids=["mock_002"],
         )
 
         self.assertEqual(["锦华662"], [ship.ship_name for ship in matched])

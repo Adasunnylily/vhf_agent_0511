@@ -1493,13 +1493,14 @@
                 <div class="stream-test-card source-mode-panel" id="micModePanel">
                   <div class="source-mode-heading">
                     <b>现场麦克风实时守听</b>
-                    <span>连续采集16k PCM音频帧，后端按声学静默形成完整话轮。</span>
+                    <span>连续采集16k PCM，每200ms通过HTTP送入后端；结果监控使用WebSocket。</span>
                   </div>
                   <span id="liveMicStatus">待启动 · 请允许浏览器使用麦克风</span>
+                  <span id="micLatencyBreakdown">链路耗时：等待有效语音</span>
                   <div class="stream-control-row">
                     <select id="liveChunkMs">
-                      <option value="2000">2秒临时预览</option>
-                      <option value="3000" selected>3秒临时预览</option>
+                      <option value="2000" selected>2秒临时预览</option>
+                      <option value="3000">3秒临时预览</option>
                       <option value="5000">5秒临时预览</option>
                     </select>
                     <button id="startLiveMicBtn">开始现场守听</button>
@@ -1968,10 +1969,10 @@
       },
     };
     const fallbackShips = [
-      { ship_id: "ship_jl008", ship_name: "锦龙008", mmsi: "413245008", ship_type: "集装箱船", draft_m: 10.8, tonnage_t: 16800, sog_kn: 7.2, lng: 121.8842, lat: 29.9138, position_label: "北仑港主航道" },
-      { ship_id: "ship_jh662", ship_name: "锦华662", mmsi: "413000662", ship_type: "杂货船", draft_m: 8.7, tonnage_t: 9800, sog_kn: 4.3, lng: 121.8736, lat: 29.9234, position_label: "北仑港主航道" },
-      { ship_id: "ship_zgyc", ship_name: "中国银川", mmsi: "413512345", ship_type: "散货船", draft_m: 13.5, tonnage_t: 22600, sog_kn: 6.8, lng: 121.9005, lat: 29.9342, position_label: "警戒区北口" },
-      { ship_id: "ship_yg20", ship_name: "甬港拖20", mmsi: "412320020", ship_type: "拖船", draft_m: 5.2, tonnage_t: 4600, sog_kn: 9.5, lng: 121.8585, lat: 29.9058, position_label: "内港水域" },
+      { ship_id: "mock_001", ship_name: "锦龙228", mmsi: "413220001", ship_type: "集装箱船", draft_m: 13.5, tonnage_t: 15600, sog_kn: 6.8, lng: 121.869486, lat: 29.968956, position_label: "北仑港外航道" },
+      { ship_id: "mock_002", ship_name: "锦华662", mmsi: "413220002", ship_type: "散货船", draft_m: 8.6, tonnage_t: 18700, sog_kn: 10.6, lng: 121.916778, lat: 29.954723, position_label: "大榭进港航道" },
+      { ship_id: "mock_003", ship_name: "中国银川", mmsi: "413220003", ship_type: "杂货船", draft_m: 13.1, tonnage_t: 12500, sog_kn: 5.7, lng: 121.955688, lat: 29.996135, position_label: "金塘水道南口" },
+      { ship_id: "mock_004", ship_name: "新平082", mmsi: "413220004", ship_type: "油船", draft_m: 9.0, tonnage_t: 10100, sog_kn: 7.5, lng: 121.889045, lat: 29.973402, position_label: "北仑港外航道" },
     ];
     function computeDefaultApiBase() {
       const query = new URLSearchParams(location.search).get("api") || "";
@@ -3955,7 +3956,7 @@
       mic.pcmSource = source;
       mic.pcmProcessor = processor;
       mic.pcmPending = [];
-      mic.pcmFrameSamples = 8000;
+      mic.pcmFrameSamples = 3200;
       processor.onaudioprocess = (event) => {
         if (!mic.active || state.mic !== mic) return;
         const input = event.inputBuffer.getChannelData(0);
@@ -4000,6 +4001,18 @@
       state.streaming.latencies = [...state.streaming.latencies, { chunkId: chunk.chunkId, totalMs, uploadMs }].slice(-30);
       renderStreamingStatus();
       return { totalMs, uploadMs };
+    }
+    function renderMicLatencyBreakdown(payload, chunk) {
+      const target = $("micLatencyBreakdown");
+      if (!target || chunk.sourceType !== "mic") return;
+      const timings = payload?.timings || {};
+      const roundTripMs = Math.max(0, Math.round(performance.now() - (chunk.uploadStartedAt || performance.now())));
+      const serverMs = Math.max(0, Number(timings.server_total_ms || 0));
+      const networkMs = Math.max(0, Math.round(roundTripMs - serverMs));
+      const asrMs = Math.max(0, Math.round(Number(timings.asr_ms || 0)));
+      const refineMs = Math.max(0, Math.round(Number(timings.refine_ms || 0)));
+      const postMs = Math.max(0, Math.round(Number(timings.postprocess_ms || 0)));
+      target.textContent = `链路耗时：传输 ${networkMs}ms · ASR ${asrMs}ms · 精修 ${refineMs}ms · 后处理 ${postMs}ms · 总计 ${roundTripMs}ms`;
     }
     function chunkEventFromPayload(payload, chunk) {
       const event = chooseEvent(payload.events || []) || {};
@@ -4152,6 +4165,7 @@
             vad_silence_ms: 900,
           }),
         });
+        renderMicLatencyBreakdown(payload, chunk);
         if (chunk.runToken !== state.streaming.runToken || !state.mic?.active || state.mic.sessionId !== micSessionId) return;
         if (payload.status === "skipped") {
           chunk.status = "failed";
@@ -4252,7 +4266,7 @@
         durationMs,
         format: "pcm_s16le",
       }));
-      if ($("liveMicStatus")) $("liveMicStatus").textContent = `PCM采集中 · 500ms/帧 · 已发送 ${state.streaming.chunkSeq} 帧`;
+      if ($("liveMicStatus")) $("liveMicStatus").textContent = `PCM采集中 · 200ms/帧 · 已发送 ${state.streaming.chunkSeq} 帧`;
     }
     async function startLiveMicStream() {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -4275,7 +4289,7 @@
       const archiveParts = [];
       const mimeType = bestMicMime();
       const archiveRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      const previewWindowMs = Math.max(2000, Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 3000));
+      const previewWindowMs = Math.max(2000, Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 2000));
       state.streaming.chunkSeq = 0;
       state.streaming.queue = [];
       state.streaming.latencies = [];
@@ -4288,6 +4302,8 @@
         archiveParts,
         mimeType,
         previewWindowMs,
+        transportMode: result.transport_mode || "http_pcm_frames",
+        partialMode: result.partial_mode || "windowed_batch_asr",
         runToken,
       };
       archiveRecorder.ondataavailable = (event) => {
@@ -4299,7 +4315,8 @@
       resetVoiceWorkflow("现场麦克风流式测试已启动...");
       $("listenTitle").textContent = "现场麦克风流式接入中...";
       $("asrStatus").textContent = "麦克风流";
-      $("liveMicStatus").textContent = `运行中 · PCM 500ms/帧 · ${previewWindowMs}ms预览`;
+      $("liveMicStatus").textContent = `运行中 · PCM 200ms/帧 · ${previewWindowMs}ms准实时预览 · ${result.asr_model || "ASR"}`;
+      $("micLatencyBreakdown").textContent = "链路耗时：等待首个有效语音窗口";
       setAgent("监听中");
       startTimer();
       archiveRecorder.start();

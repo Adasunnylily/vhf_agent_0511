@@ -1,0 +1,2523 @@
+{
+  "version": 1,
+  "policy": "ship names may only match entries from reviewed workbooks or existing reviewed lexicons",
+  "sources": [
+    "VHF评测集标注模板_增强版.xlsx",
+    "标注文档.xlsx",
+    "船名.xlsx"
+  ],
+  "ships": [
+    {
+      "canonical": "DHT SUNARBANS",
+      "aliases": [
+        "DHTSUNARBANS",
+        "Dht Sunarbans",
+        "dht sunarbans"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "GLASGOW VOYAGER",
+      "aliases": [
+        "GLASGOWVOYAGER",
+        "Glasgow Voyager",
+        "glasgow voyager"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "GREAT ZHOU",
+      "aliases": [
+        "GREATZHOU",
+        "Great Zhou",
+        "great zhou"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "HAN GRACE",
+      "aliases": [
+        "HANGRACE",
+        "Han Grace",
+        "han grace"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "KMTC DELHI",
+      "aliases": [
+        "KMTCDELHI",
+        "Kmtc Delhi",
+        "kmtc delhi"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "MCC TAIPEI",
+      "aliases": [
+        "MCCTAIPEI",
+        "Mcc Taipei",
+        "mcc taipei"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "ONE MILLAU",
+      "aliases": [
+        "ONEMILLAU",
+        "One Millau",
+        "one millau"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "TAN COSTAS S",
+      "aliases": [
+        "TANCOSTASS",
+        "Tan Costas S",
+        "tan costas s"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "YONGGANGXIAOTUO7HAO",
+      "aliases": [
+        "YONGGANG XIAOTUO 7 HAO",
+        "Yonggangxiaotuo7Hao",
+        "yonggangxiaotuo7hao",
+        "甬港小拖7号"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "万祥858",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "三航拖2008",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "三航拖2011",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "三航砼18",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "东伦5",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "东城油161",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "东方09",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "东方宝弘",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "东海210",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "东港油66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "东瓯1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "中国银川",
+      "aliases": [
+        "中谷银川"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "中油华远11",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "中海双鱼6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "中玉8108",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "中福之源",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "中蓝08",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "中蓝18",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "丰顺86",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "丰顺87",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "丰顺95",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "丰顺97",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "丰顺98",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "云尾17",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "云鼎27",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "交运海顺",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "亿豪88",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "他船",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "众茂5",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "众茂6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "伟通6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "佳盈26",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "佳盈27",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "佳盈88",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "信航301",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "元翔油79",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "光大68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴发17",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴发19",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴发29",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴发59",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴发97",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴宁62",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴江77",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴泰77",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴泰88",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴港598",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴港78",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴港86",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴港98",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴航858",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴航988",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴航工65",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴航海388",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴茂航海",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴远舟7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴通316",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "兴通海",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "凌正16",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "劲旅179",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "北仑7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华兴33",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华兴368",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华夏96",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华正集运",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华泓15",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华泓29",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华盛156",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华航太和",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华远达68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华鑫968",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "华顺5",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "协海107",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "协海之韵",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "南港拖21",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "南港拖26",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "博之远",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "博康67",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "古海6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "吉祥512",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "吉祥516",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "吉祥520",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "同盛118",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "名爵88",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "启航供6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "启顺198",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "启顺238",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "启顺57",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "周宁轮",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "和帆118",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "和新7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "善治",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "喧腾禹顺",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "嘉航102",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "嘉诚17",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "国海三龙3",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "国翔1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "圣图加",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "圣峰998",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "基盛168",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "壹鼎6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "大件捷运",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "大润28",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "大蒸港588",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "天宇99",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "天海平泽",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "奔富006",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "奔富007",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "奔富008",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宁丰2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宁冶勘海测1号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宁波交管锦龙008",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宁远乍浦",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宁远大榭",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宁远头门",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宁远梅山",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宁远电鲲",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宁远穿山",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宁远镇海",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "安丰17",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "安强18",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "安泉州31",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "安秋568",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宏程运198",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宏翔85",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宏达海11",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宏达海22",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宏达海3",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宏达海8",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "定海神1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "宝马377",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "富强17",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "富瑞228",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "屿山湾",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "常丰油2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "广星698",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "庆丰28",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "庆顺",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "康发296",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "康发运维8",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "康顺之星",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "建兴15",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "建兴19",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "建兴25",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "建兴37",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "建宏67",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "建甬6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "建航利达",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "引水130",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "引航员139",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "弘通99",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "德臻",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "思杰16",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "恒泰27",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "恒浚工16",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "扬海88",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "捷卓258",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "捷邦1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "捷邦9",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "文峰16",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "文峰2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新中源218",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新富源16",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新平082",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新恒扬27",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新明州102",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新明州106",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新明州22",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新明州68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新林龙1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新林龙2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新林龙3",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新欧1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新民州96",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新江丰08",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新江丰10",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新浩程27",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新海恒",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新海春",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新海江1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新海江2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新海达395",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新瓯15",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新跃运",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新金增1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新金增2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新锦福5",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新鸿翔76",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新鸿翔78",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "新鹭盛9",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "昌汇288",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "昌裕9",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "明舟97",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "明辉79",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "易坤亨通",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "易安2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "易安6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "晟杰平安",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "晟翔77",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "晟翔78",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "景隆227",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "景隆228",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "景隆229",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "景隆338",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "景隆339",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "景隆668",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "景隆669",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "智恒达",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "望洋顺发",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "林龙001",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "林龙002",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "林龙003",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "林龙005",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "林龙006",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "正吉18",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "永宁98",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "永昌宇宙",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "永泰达37",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "永诚16",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "永鑫158",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "永隆1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "汇满2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "汇通66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "汇通69",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "汉海8号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰11",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰12",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰16",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰17",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰18",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰19",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰8",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江丰9",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江信7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江峰17",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江峰6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江峰7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江海之悦",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江海之鑫",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江海油2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江海润强",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江海直达108",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江海直达67",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江海直达68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江甬19",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江甬29",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "江甬58",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "沪交巡0021",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙临机789",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定45068",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定58157",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定58389",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定58659",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定58675",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定58758",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定58822",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定59321",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定59358",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定70157",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙定82275",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙岱82276",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙嵊86566",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙嵊渔03158",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙嵊渔05768",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙嵊渔07725",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙嵊渔14221",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙嵊渔30213",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙嵊渔30228",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙嵊渔冷80006",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙嵊渔运80548",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙工驳328",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙普工2019",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙榭机215",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙测科01",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙甬工浚807",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙甬工驳9051",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙甬工驳9052",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙甬工驳947",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙甬驳77",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浙鄞渔11668",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "浩源3",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海丰海口",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海巡07128",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海巡07135",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海巡163",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海巡16408",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海工交17",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海建52",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海景68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海洋137",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海洲运1",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海王星",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海锦68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海阳133",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海阳136",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海阳137",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海阳138",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海阳139",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海阳156",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海阳506",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "海阳96",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "润久98",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "润发宝舟",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "润洲5",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "润翔顺达",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "淮海集6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "港丰17",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "港盛兴",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "港通66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "港顺177",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "溢沣润66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "潮安178",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "潮安68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "潮安88",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "潮安98",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "潮安99",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "炜伦15号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "玲珑001",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "琥珀岛",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "瑞盛7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "生松工68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬油10号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬海安18",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港众联11号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港众联12号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港众联16号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港众联21号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港众联2号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港众联9号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港引32号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港引35号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港引36号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港拖20",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港拖23",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港拖6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港拖8",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港拖9",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港消拖12号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬港环指",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "甬舟通顺",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "盛航化9",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "盛轮99",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "盛邦",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "神洲22",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "神洲28",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "祥恒6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "禾源顺8",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "粤海42",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "粤海492",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "紫桐",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "繁阳68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "联合17",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "联合20",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "联合22",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "联合5",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "联合7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "胜利",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "腾峰66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "舟池128",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "舟池23",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "舟池658",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "舟海浚2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "舟金港3",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "舟金港5",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "舟顺安5",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "航甬66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "航达68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "航顺11",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "航顺12",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "航顺15",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "航顺819",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "芦港618",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "苏瑞199",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "荣宁78",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "荣昌188",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "荣浩29",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "辉泓浙安",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "运泽66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "运达7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远大时代",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远大锦绣",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬11",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬12",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8508",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8512",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8516",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8517",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8606",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8608",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8609",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8612",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8616",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8617",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远扬8618",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远洋8516",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远洋8616",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远翔66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "远胜88",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "连江海8",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "通洲27",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "通海百达",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "通达化18",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "逸港66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "逸港68",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "邦宏577",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "金丰海9",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "金开6",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "金成洲299",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "金木8",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "金泰688",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "金色天鹅",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "金达66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "金达7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "金达99",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "金鹰89",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鑫武28",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鑫武31",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鑫武7",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鑫永祥78",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鑫舟66",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鑫隆盛",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鑫鸿818",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "铧薏之星",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "银色光阳",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "银鑫001",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦华219",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦华588",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦华662",
+      "aliases": [
+        "警官六六",
+        "警花662",
+        "警花六六二",
+        "锦华六六二"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦华667",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦华669",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦华96",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦华97",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦华996",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦华997",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦龙22",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦龙227",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "锦龙228",
+      "aliases": [
+        "锦龙两两八",
+        "锦龙二二八"
+      ],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "长恒27",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "长江之泉",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "长江之源",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "长航深海",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "长航顺海",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "长鑫31",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "长鑫万森",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "隆启518",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "集英066",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "集英088",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "雨田28",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "雷业999",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺义环测9",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺安29",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺安69",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺宏星耀",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺泰399",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺泽18",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺泽99",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺浚003",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺浚15",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺浚16",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺浚98",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺港长隆",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺潮789",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺航166",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺行海测1号",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺达799",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺达986",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺达997",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "顺龙99",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "领军顺达",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "骁远15",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "骏宇28",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "骏港2",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "骏鑫199",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鲲顺",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鸿利之星",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鸿远79",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鸿锦春",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鹏弘168",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "鹏祥128",
+      "aliases": [],
+      "source": "controlled_registry"
+    },
+    {
+      "canonical": "齐合永嘉",
+      "aliases": [],
+      "source": "controlled_registry"
+    }
+  ]
+}

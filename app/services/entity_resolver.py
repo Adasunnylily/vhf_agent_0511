@@ -48,10 +48,22 @@ class EntityResolution:
 class EntityResolver:
     """Resolve maritime ship/location entities with a lexicon plus fuzzy candidates."""
 
-    def __init__(self, lexicon_path: Path, enabled: bool = True, min_score: float = 0.82) -> None:
+    def __init__(
+        self,
+        lexicon_path: Path,
+        enabled: bool = True,
+        min_score: float = 0.82,
+        vessel_registry_path: Optional[Path] = None,
+        ship_min_score: float = 0.90,
+        ship_min_margin: float = 0.06,
+    ) -> None:
         self.lexicon_path = lexicon_path
         self.enabled = enabled
         self.min_score = min_score
+        self.vessel_registry_path = vessel_registry_path
+        self.ship_min_score = ship_min_score
+        self.ship_min_margin = ship_min_margin
+        self._allowed_ship_names: set[str] = set()
         self._entries: List[Tuple[str, str, List[str], str, Dict[str, object]]] = []
         self._dynamic_entries: List[Tuple[str, str, List[str], str, Dict[str, object]]] = []
         self._loaded = False
@@ -64,6 +76,7 @@ class EntityResolver:
             return EntityResolution(original_text=text, resolved_text=text, candidates=[])
 
         candidates = self._match_candidates(text)
+        candidates = self._filter_ship_candidates(candidates)
         resolved_text = self._apply_safe_replacements(text, candidates)
         return EntityResolution(
             original_text=text,
@@ -72,12 +85,18 @@ class EntityResolver:
         )
 
     def set_dynamic_lexicon(self, payload: Dict[str, List[Dict[str, object]]]) -> None:
+        self._ensure_registry_loaded()
         self._dynamic_entries = self._payload_to_entries(payload, default_source="ais_active")
+
+    def is_allowed_ship_name(self, ship_name: str) -> bool:
+        self._ensure_registry_loaded()
+        return not self._allowed_ship_names or ship_name.strip() in self._allowed_ship_names
 
     def _ensure_loaded(self) -> None:
         if self._loaded:
             return
         self._loaded = True
+        self._ensure_registry_loaded()
         path = self.lexicon_path
         if not path.exists() and Path("data/lexicon_corrections.json").exists():
             path = Path("data/lexicon_corrections.json")
@@ -91,6 +110,25 @@ class EntityResolver:
 
         self._entries = self._payload_to_entries(payload, default_source="lexicon")
 
+    def _ensure_registry_loaded(self) -> None:
+        if self._allowed_ship_names or self.vessel_registry_path is None:
+            return
+        if not self.vessel_registry_path.exists():
+            return
+        try:
+            payload = json.loads(self.vessel_registry_path.read_text(encoding="utf-8"))
+        except Exception:
+            return
+        for item in payload.get("ships", []) if isinstance(payload, dict) else []:
+            if isinstance(item, str):
+                canonical = item.strip()
+            elif isinstance(item, dict):
+                canonical = str(item.get("canonical") or "").strip()
+            else:
+                canonical = ""
+            if canonical:
+                self._allowed_ship_names.add(canonical)
+
     def _payload_to_entries(
         self,
         payload: Dict[str, List[Dict[str, object]]],
@@ -101,6 +139,8 @@ class EntityResolver:
             for item in payload.get(section, []):
                 canonical = str(item.get("canonical", "")).strip()
                 if not canonical:
+                    continue
+                if entity_type == "ship" and self._allowed_ship_names and canonical not in self._allowed_ship_names:
                     continue
                 aliases = [str(alias).strip() for alias in item.get("aliases", []) if str(alias).strip()]
                 values = sorted(set([canonical, *aliases]), key=len, reverse=True)
@@ -126,6 +166,19 @@ class EntityResolver:
                     found[key] = best
 
         return sorted(found.values(), key=lambda item: item.score, reverse=True)[:8]
+
+    def _filter_ship_candidates(self, candidates: List[EntityCandidate]) -> List[EntityCandidate]:
+        ships = [candidate for candidate in candidates if candidate.entity_type == "ship"]
+        others = [candidate for candidate in candidates if candidate.entity_type != "ship"]
+        if not ships:
+            return candidates
+        ships.sort(key=lambda item: item.score, reverse=True)
+        best = ships[0]
+        if best.score < self.ship_min_score:
+            return others
+        if len(ships) > 1 and best.score - ships[1].score < self.ship_min_margin:
+            return others
+        return sorted([best, *others], key=lambda item: item.score, reverse=True)[:8]
 
     def _score_alias(
         self,

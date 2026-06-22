@@ -38,6 +38,9 @@ ws_manager = ChannelWebSocketManager()
 entity_resolver = EntityResolver(
     lexicon_path=settings.entity_lexicon_path,
     enabled=settings.entity_resolver_enabled,
+    vessel_registry_path=settings.entity_vessel_registry_path,
+    ship_min_score=settings.entity_ship_match_min_score,
+    ship_min_margin=settings.entity_ship_match_min_margin,
 )
 streaming_chunk_size = [
     int(part.strip())
@@ -880,6 +883,9 @@ async def healthz() -> dict:
         "asr_model": settings.asr_model,
         "mic_asr_provider": settings.mic_asr_provider,
         "mic_asr_model": settings.mic_asr_model,
+        "mic_transport": "http_pcm_frames",
+        "mic_frame_ms": 200,
+        "mic_partial_mode": "windowed_batch_asr",
         "asr_diarization_enabled": settings.asr_diarization_enabled,
         "asr_speaker_count": settings.asr_speaker_count,
         "dashscope_api_key_env": settings.dashscope_asr_api_key_env,
@@ -895,6 +901,9 @@ async def healthz() -> dict:
         "streaming_chunk_size": settings.streaming_chunk_size,
         "asr_vocabulary_model": vocabulary_model,
         "asr_vocabulary_active": bool(vocabulary_id),
+        "entity_vessel_registry": str(settings.entity_vessel_registry_path),
+        "entity_ship_match_min_score": settings.entity_ship_match_min_score,
+        "entity_ship_match_min_margin": settings.entity_ship_match_min_margin,
     }
 
 

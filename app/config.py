@@ -99,6 +99,14 @@ class Settings:
     entity_lexicon_path: Path = Path(
         os.getenv("VHF_ENTITY_LEXICON_PATH", str(data_dir / "lexicon_corrections.json"))
     )
+    entity_vessel_registry_path: Path = Path(
+        os.getenv(
+            "VHF_ENTITY_VESSEL_REGISTRY_PATH",
+            str(data_dir / "hotwords" / "nbzh_vessel_registry.json"),
+        )
+    )
+    entity_ship_match_min_score: float = float(os.getenv("VHF_ENTITY_SHIP_MATCH_MIN_SCORE", "0.90"))
+    entity_ship_match_min_margin: float = float(os.getenv("VHF_ENTITY_SHIP_MATCH_MIN_MARGIN", "0.06"))
     continuous_demo_dir: Path = Path(
         os.getenv(
             "VHF_CONTINUOUS_DEMO_DIR",
