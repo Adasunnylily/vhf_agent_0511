@@ -1405,6 +1405,101 @@
       }
       .bottom-grid { grid-template-columns: 1fr; }
     }
+
+    /* Voice duty workstation: listening -> event command -> situation -> queue. */
+    body.agent-shell .topbar { min-height: 74px; padding: 14px 22px; }
+    body.agent-shell .topbar h1 { font-size: 24px; }
+    .voice-page.streaming-agent {
+      grid-template-columns: minmax(300px, .82fr) minmax(560px, 1.55fr) minmax(330px, .9fr);
+      grid-template-rows: minmax(720px, auto) 250px;
+      align-items: stretch;
+      gap: 16px;
+    }
+    .voice-page .agent-map-panel { grid-column: 1; grid-row: 1; }
+    .voice-page .agent-core-panel { grid-column: 2; grid-row: 1; }
+    .voice-page .agent-action-panel { grid-column: 3; grid-row: 1; }
+    .voice-page .agent-timeline-panel { grid-column: 1 / 4; grid-row: 2; }
+    .voice-page .panel-head { min-height: 62px; padding: 14px 18px; }
+    .voice-page .panel-head h2 { font-size: 18px; }
+    .voice-page .agent-panel-body { padding: 16px; gap: 14px; align-content: start; }
+    .agent-map-panel .agent-panel-body,
+    .agent-core-panel .agent-panel-body,
+    .agent-action-panel .agent-panel-body { height: calc(100% - 62px); overflow: auto; }
+    .command-center-body { grid-template-rows: auto auto auto auto; }
+    .current-event-hero {
+      display: grid;
+      gap: 14px;
+      padding: 20px;
+      border: 1px solid rgba(116,165,223,.55);
+      border-radius: 24px;
+      background: radial-gradient(circle at 100% 0, rgba(22,119,255,.12), transparent 36%), linear-gradient(145deg, rgba(255,255,255,.98), rgba(236,246,255,.94));
+      box-shadow: 0 18px 44px rgba(18,77,140,.10);
+    }
+    .current-event-hero.emergency { border-color: rgba(239,68,68,.42); background: linear-gradient(145deg, #fff, #fff1f2); box-shadow: 0 18px 46px rgba(190,24,93,.10); }
+    .current-event-hero.manual { border-color: rgba(245,158,11,.42); background: linear-gradient(145deg, #fff, #fffbeb); }
+    .event-hero-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+    .event-hero-head h2 { margin: 9px 0 4px; font-size: 28px; color: #102d4d; }
+    .event-hero-head p { margin: 0; color: #60758f; font-weight: 700; }
+    .event-level-badge { display: inline-flex; padding: 6px 10px; border-radius: 999px; background: #eef4fb; color: #536b86; font-size: 12px; font-weight: 900; }
+    .event-level-badge.emergency { background: #ffe4e6; color: #be123c; }
+    .event-level-badge.manual { background: #fef3c7; color: #b45309; }
+    .event-level-badge.auto { background: #dbeafe; color: #0754c9; }
+    .event-level-badge.done { background: #d1fae5; color: #047857; }
+    .event-score { min-width: 92px; text-align: right; }
+    .event-score small { display: block; color: #71849a; }
+    .event-score strong { display: block; margin-top: 3px; font-size: 30px; color: #0754c9; }
+    .current-event-hero.emergency .event-score strong { color: #be123c; }
+    .event-quote { min-height: 58px; padding: 14px 16px; border-radius: 16px; background: rgba(232,242,253,.76); color: #173b62; font-size: 15px; font-weight: 700; line-height: 1.7; }
+    .event-summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+    .event-summary-grid div { padding: 10px; border-radius: 14px; background: rgba(255,255,255,.76); border: 1px solid rgba(184,210,240,.7); }
+    .event-summary-grid span { display: block; color: #71849a; font-size: 11px; }
+    .event-summary-grid b { display: block; margin-top: 5px; color: #173b62; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .latency-strip { display: flex; gap: 10px; flex-wrap: wrap; }
+    .latency-strip span { padding: 7px 10px; border-radius: 999px; background: #f3f8fe; color: #60758f; font-size: 12px; }
+    .latency-strip b { color: #173b62; }
+    .command-center-body .pipeline { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+    .command-center-body .pipeline-stage { min-height: 112px; }
+    .recommendation-card { display: grid; gap: 12px; padding: 16px; border: 1px solid rgba(184,210,240,.78); border-radius: 20px; background: rgba(255,255,255,.86); }
+    .recommendation-lines { display: grid; gap: 5px; color: #60758f; font-size: 12px; }
+    .primary-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .primary-actions button { min-width: 110px; }
+    .decision-detail-drawer { border-top: 1px solid rgba(184,210,240,.72); padding-top: 10px; }
+    .decision-detail-drawer summary { cursor: pointer; color: #0754c9; font-weight: 850; }
+    .decision-detail-drawer[open] { display: grid; gap: 12px; }
+    .situation-body { grid-template-rows: auto auto auto; }
+    .voice-map-card { padding: 14px; }
+    .voice-map-card .voice-mini-map { min-height: 350px; }
+    .map-facts { display: grid; gap: 8px; margin-top: 10px; }
+    .map-facts span { display: flex; justify-content: space-between; gap: 12px; color: #71849a; font-size: 12px; }
+    .map-facts b { color: #173b62; text-align: right; }
+    .situation-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .situation-actions button { min-height: 44px; }
+    .association-note { padding: 12px; border-radius: 15px; background: #f4f8fd; color: #60758f; font-size: 12px; line-height: 1.6; }
+    .event-queue-panel { min-height: 230px; }
+    .event-table-wrap { overflow: auto; padding: 0 16px 16px; }
+    .event-queue-table { width: 100%; border-collapse: separate; border-spacing: 0 7px; font-size: 12px; }
+    .event-queue-table th { color: #71849a; text-align: left; padding: 4px 10px; white-space: nowrap; }
+    .event-queue-table td { padding: 11px 10px; background: rgba(247,250,254,.96); border-top: 1px solid rgba(184,210,240,.62); border-bottom: 1px solid rgba(184,210,240,.62); white-space: nowrap; }
+    .event-queue-table td:first-child { border-left: 1px solid rgba(184,210,240,.62); border-radius: 12px 0 0 12px; }
+    .event-queue-table td:last-child { border-right: 1px solid rgba(184,210,240,.62); border-radius: 0 12px 12px 0; }
+    .event-queue-table tr[data-business-event-id] { cursor: pointer; }
+    .event-queue-table tr[data-business-event-id]:hover td,
+    .event-queue-table tr.selected td { background: #edf6ff; border-color: rgba(22,119,255,.36); }
+    .event-queue-table tr.emergency td { background: #fff1f2; border-color: rgba(239,68,68,.28); }
+    .queue-risk { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-weight: 850; background: #eef4fb; color: #536b86; }
+    .queue-risk.emergency { background: #ffe4e6; color: #be123c; }
+    .queue-risk.manual { background: #fef3c7; color: #b45309; }
+    .queue-risk.auto { background: #dbeafe; color: #0754c9; }
+    .compat-runtime-nodes { display: none !important; }
+    @media (max-width: 1450px) {
+      .voice-page.streaming-agent { grid-template-columns: minmax(290px,.85fr) minmax(500px,1.45fr) minmax(310px,.9fr); }
+      .event-summary-grid { grid-template-columns: repeat(3, 1fr); }
+      .runtime-chip { padding: 7px 9px; font-size: 12px; }
+    }
+    @media (max-width: 1120px) {
+      .voice-page.streaming-agent { grid-template-columns: 1fr; grid-template-rows: auto; }
+      .voice-page .agent-map-panel, .voice-page .agent-core-panel, .voice-page .agent-action-panel, .voice-page .agent-timeline-panel { grid-column: 1; grid-row: auto; }
+    }
   </style>
 </head>
 <body class="agent-shell">
@@ -1436,9 +1531,10 @@
         </div>
         <div class="right">
           <div class="runtime-states">
-            <span class="runtime-chip"><i class="pulse-dot"></i>监听</span>
-            <span class="runtime-chip"><i class="pulse-dot blue"></i>研判</span>
-            <span class="runtime-chip"><i class="pulse-dot orange"></i>执行</span>
+            <span class="runtime-chip" id="topListeningStatus"><i class="pulse-dot"></i>监听中</span>
+            <span class="runtime-chip" id="topAsrStatus"><i class="pulse-dot blue"></i>ASR 已连接</span>
+            <span class="runtime-chip" id="topLlmStatus"><i class="pulse-dot blue"></i>LLM 已连接</span>
+            <span class="runtime-chip" id="topModeStatus"><i class="pulse-dot orange"></i>智能值守</span>
           </div>
           <span class="pill green" id="agentState">待命</span>
           <button class="secondary" id="archiveBtn">存入汇报索引</button>
@@ -1569,7 +1665,9 @@
                 <div class="entity"><span>意图</span><b id="intentText">待识别</b></div>
                 <div class="entity" id="aisToggle"><span>船位关联</span><b id="aisRuntimeText">待匹配</b></div>
                 <div class="entity"><span>船名</span><b id="shipText">待匹配</b></div>
+                <div class="entity"><span>船名纠错</span><b id="shipAliasText">等待识别</b></div>
                 <div class="entity"><span>船位状态</span><b id="aisRuntimeStatus">未关联</b></div>
+                <div class="entity"><span>ASR置信度</span><b id="asrConfidenceText">--</b></div>
                 <div class="entity"><span>风险评分</span><b id="copilotRiskScore">0.12</b></div>
                 <div class="entity"><span>限制区</span><b id="copilotZone">未进入</b></div>
               </div>
@@ -1591,194 +1689,118 @@
         </section>
 
         <section class="panel agent-core-panel">
-          <div class="panel-head"><h2>实时分析与业务判断</h2><span class="pill">流式推理</span></div>
-          <div class="agent-panel-body">
-            <div class="stream-card">
-              <div class="stream-head">
-                <h3>当前事件处理进度</h3>
-                <span class="pill">仅显示当前事件</span>
+          <div class="panel-head"><h2>当前事件主控台</h2><span class="pill" id="businessEventState">IDLE_LISTENING</span></div>
+          <div class="agent-panel-body command-center-body">
+            <div class="current-event-hero" id="currentEventHero">
+              <div class="event-hero-head">
+                <div>
+                  <span class="event-level-badge neutral" id="currentEventLevel">等待事件</span>
+                  <h2 id="activeEventShip">待确认船舶</h2>
+                  <p id="currentEventPosition">船位尚未可靠关联</p>
+                </div>
+                <div class="event-score"><small>风险评分</small><strong id="currentEventScore">0.00</strong></div>
               </div>
-              <div class="reasoning-log" id="reasoningTrace">
-                <span>[1] 等待语音</span>
-                <span>[2] 实时转写</span>
-                <span>[3] 判断事件边界</span>
-                <span>[4] 分类并执行处置</span>
+              <div class="event-quote" id="currentEventText">系统持续监听中，等待有效甚高频业务语音。</div>
+              <div class="event-summary-grid">
+                <div><span>事件ID</span><b id="activeEventIdText">暂无</b></div>
+                <div><span>业务类型</span><b id="activeEventIntent">待识别</b></div>
+                <div><span>风险等级</span><b id="activeEventRisk">INFO</b></div>
+                <div><span>当前动作</span><b id="activeEventAction">等待</b></div>
+                <div><span>话轮数</span><b id="activeEventUtterances">0</b></div>
               </div>
-              <div class="refinement-head">
-                <b>最终事件结果（事件结束后）</b>
-                <span class="pill" id="refinementStatus">等待事件闭合</span>
+              <div class="latency-strip">
+                <span>ASR <b id="currentAsrLatency">--</b></span>
+                <span>LLM分类 <b id="currentLlmLatency">--</b></span>
+                <span>总耗时 <b id="currentTotalLatency">--</b></span>
               </div>
-              <small class="event-boundary-hint">划分依据：结束语后1.5秒、连续静默5秒、切换到新船舶或人工关闭。</small>
-              <div class="dialogue-box text-box" id="refinedAsrText">精修后的完整文本将在这里显示，不覆盖上方实时草稿。</div>
-              <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">精修后将在这里显示 [交管] / [船方] 对话轮次，可人工修改后保存。</div>
-              <div class="dialogue-box text-box" id="continuousDialogues" hidden>兼容旧版连续测试集结果。</div>
             </div>
 
-            <div class="stream-card">
-              <div class="stream-head">
-                <h3>局部决策与复核</h3>
-                <span class="pill" id="aisText">待匹配</span>
+            <div class="pipeline" id="dispositionPipeline">
+              <div class="pipeline-stage" id="pipeStage1"><span class="step-title"><span class="step-no">1</span>语音输入</span><b class="step-main" id="pipeVoiceMain">等待语音</b><small class="step-sub" id="pipeVoiceSub">监听甚高频，等待话轮</small></div>
+              <div class="pipeline-stage" id="pipeStage2"><span class="step-title"><span class="step-no">2</span>风险分类</span><b class="step-main" id="pipeRiskMain">待分类</b><small class="step-sub" id="pipeRiskSub">识别后判定风险等级</small></div>
+              <div class="pipeline-stage" id="pipeStage3"><span class="step-title"><span class="step-no">3</span>高危处置</span><b class="step-main" id="pipeActionMain">待处置</b><small class="step-sub" id="pipeActionSub">广播与人工接管</small></div>
+              <div class="pipeline-stage" id="pipeStage4"><span class="step-title"><span class="step-no">4</span>点验闭环</span><b class="step-main" id="pipeArchiveMain">未闭环</b><small class="step-sub" id="pipeArchiveSub">点验完成后归档</small></div>
+            </div>
+            <div class="stage-detail" id="pipelineStageDetail" hidden><div class="stage-detail-head"><b id="stageDetailTitle">阶段明细</b><span id="stageDetailClose" class="stage-detail-close">×</span></div><small id="stageDetailBody">点击上方任一阶段查看明细。</small></div>
+
+            <div class="high-risk-zone" id="highRiskZone">
+              <div class="hr-head"><span class="hr-title">⚠ 高危事件处置</span><span class="pill" id="highRiskShip">目标船待确认</span></div>
+              <small class="hr-sub" id="highRiskSub">检测到高危/遇险信号后，立即启动周边船舶点验与人工接管。</small>
+              <div class="hr-actions">
+                <button class="red" id="pipelineInspectBtn">周边船舶点验</button>
+                <button id="pipelineGoInspectBtn">前往点验界面</button>
+                <button class="secondary" id="pipelineTakeoverBtn">人工接管</button>
               </div>
-              <div class="flow" id="flow">
-                <div class="flow-step active">语音接入</div>
-                <div class="flow-step">语音听写</div>
-                <div class="flow-step">风险研判</div>
-                <div class="flow-step">处置分流</div>
-                <div class="flow-step">语音播报</div>
-                <div class="flow-step">事件归档</div>
-              </div>
-              <div class="ais-detail" id="aisDetail"></div>
-              <div class="mini-actions">
-                <button class="secondary" id="askShipBtn">询问船舶</button>
-                <button class="secondary" id="queryTrackBtn">查询轨迹</button>
-                <button class="secondary" id="markAlertBtn">标记预警</button>
-                <button class="secondary" id="copilotReviewBtn">人工复核</button>
+              <div class="hr-result" id="highRiskInspectResult" hidden><div class="hr-result-head"><b id="highRiskResultTitle">周边点验结果</b><span class="pill" id="highRiskResultCount">0 艘</span></div><div class="hr-result-list" id="highRiskResultList"></div></div>
+              <div class="hr-broadcast" id="highRiskBroadcast" hidden>
+                <div class="hr-result-head"><b>高危点验预播报模板</b><span class="pill" id="highRiskBroadcastChannel">VHF 16频道</span></div>
+                <textarea id="highRiskBroadcastText" rows="3"></textarea>
+                <div class="hr-actions"><button class="red" id="highRiskBroadcastBtn">一键播报</button><button class="secondary" id="highRiskBroadcastCopyBtn">复制模板</button><button class="secondary" id="highRiskBroadcastInspectBtn">同步到点验界面</button></div>
+                <audio id="ttsAudioPlayer" controls hidden></audio>
               </div>
             </div>
+
+            <div class="recommendation-card">
+              <div class="stream-head"><h3>系统判断与推荐动作</h3><span class="pill" id="aisText">待匹配</span></div>
+              <div class="evidence" id="evidenceList"></div>
+              <div class="recommendation-lines"><span id="riskReason">未命中高危信号</span><span id="autoReason">等待识别结果</span><span id="manualReason">复杂业务进入人工复核</span></div>
+              <div class="reply-box" id="replyText" contenteditable="true">等待生成回复内容</div>
+              <div class="primary-actions">
+                <button class="red" id="manualBtn">人工接管</button>
+                <button class="green" id="speakBtn">同步广播</button>
+                <button id="saveFeedbackBtn">保存复核</button>
+                <button class="secondary" id="copyBtn">复制结果</button>
+                <button class="secondary" id="markHandledBtn">标记已处理</button>
+              </div>
+            </div>
+
+            <details class="decision-detail-drawer">
+              <summary>查看思维轨迹、精修文本与人工复核</summary>
+              <div class="reasoning-log" id="reasoningTrace"><span>[1] 等待语音</span><span>[2] 实时转写</span><span>[3] 判断事件边界</span><span>[4] 分类并执行处置</span></div>
+              <div class="refinement-head"><b>事件结束后精修</b><span class="pill" id="refinementStatus">等待事件闭合</span></div>
+              <small class="event-boundary-hint">划分依据：结束语后1.5秒、连续静默5秒、切换到新船舶或人工关闭。</small>
+              <div class="dialogue-box text-box" id="refinedAsrText">精修后的完整文本将在这里显示。</div>
+              <div class="dialogue-box text-box" id="dialogueEdit" contenteditable="true">精修后将在这里显示 [交管] / [船方] 对话轮次。</div>
+              <div class="dialogue-box text-box" id="continuousDialogues" hidden>兼容旧版连续测试集结果。</div>
+              <div class="flow" id="flow"><div class="flow-step active">语音接入</div><div class="flow-step">语音听写</div><div class="flow-step">风险研判</div><div class="flow-step">处置分流</div><div class="flow-step">语音播报</div><div class="flow-step">事件归档</div></div>
+              <div class="ais-detail" id="aisDetail"></div>
+              <div class="mini-actions"><button class="secondary" id="askShipBtn">询问船舶</button><button class="secondary" id="queryTrackBtn">查询轨迹</button><button class="secondary" id="markAlertBtn">标记预警</button><button class="secondary" id="copilotReviewBtn">人工复核</button><button class="secondary" id="approveEventBtn">批准</button><button class="secondary" id="rejectEventBtn">驳回</button><button class="secondary" id="closeBusinessEventBtn">关闭事件</button></div>
+            </details>
           </div>
         </section>
 
         <section class="panel agent-action-panel">
-          <div class="panel-head"><h2>分类、处置与记录</h2><span class="pill">闭环执行</span></div>
-          <div class="agent-panel-body">
-            <div class="pipeline" id="dispositionPipeline">
-              <div class="pipeline-stage" id="pipeStage1">
-                <span class="step-title"><span class="step-no">1</span>语音输入</span>
-                <b class="step-main" id="pipeVoiceMain">等待语音</b>
-                <small class="step-sub" id="pipeVoiceSub">监听甚高频，等待话轮</small>
-              </div>
-              <div class="pipeline-stage" id="pipeStage2">
-                <span class="step-title"><span class="step-no">2</span>风险级别分类</span>
-                <b class="step-main" id="pipeRiskMain">待分类</b>
-                <small class="step-sub" id="pipeRiskSub">识别后判定风险等级</small>
-              </div>
-              <div class="pipeline-stage" id="pipeStage3">
-                <span class="step-title"><span class="step-no">3</span>处置</span>
-                <b class="step-main" id="pipeActionMain">待处置</b>
-                <small class="step-sub" id="pipeActionSub">按风险分流处置动作</small>
-              </div>
-              <div class="pipeline-stage" id="pipeStage4">
-                <span class="step-title"><span class="step-no">4</span>闭环归档</span>
-                <b class="step-main" id="pipeArchiveMain">未闭环</b>
-                <small class="step-sub" id="pipeArchiveSub">事件闭合后精修归档</small>
-              </div>
-            </div>
-            <div class="stage-detail" id="pipelineStageDetail" hidden>
-              <div class="stage-detail-head"><b id="stageDetailTitle">阶段明细</b><span id="stageDetailClose" class="stage-detail-close">×</span></div>
-              <small id="stageDetailBody">点击上方任一阶段查看明细。</small>
-            </div>
-            <div class="high-risk-zone" id="highRiskZone">
-              <div class="hr-head">
-                <span class="hr-title">⚠ 高危事件处置</span>
-                <span class="pill" id="highRiskShip">目标船待确认</span>
-              </div>
-              <small class="hr-sub" id="highRiskSub">检测到高危/遇险信号，建议立即对目标船周边水域进行点验核查。</small>
-              <div class="hr-actions">
-                <button class="red" id="pipelineInspectBtn">周边船舶点验</button>
-                <button class="secondary" id="pipelineGoInspectBtn">前往点验界面</button>
-                <button class="secondary" id="pipelineTakeoverBtn">人工接管</button>
-              </div>
-              <div class="hr-result" id="highRiskInspectResult" hidden>
-                <div class="hr-result-head"><b id="highRiskResultTitle">周边点验结果</b><span class="pill" id="highRiskResultCount">0 艘</span></div>
-                <div class="hr-result-list" id="highRiskResultList"></div>
-              </div>
-              <div class="hr-broadcast" id="highRiskBroadcast" hidden>
-                <div class="hr-result-head"><b>高危点验预播报模板</b><span class="pill" id="highRiskBroadcastChannel">VHF 16频道</span></div>
-                <textarea id="highRiskBroadcastText" rows="3"></textarea>
-                <div class="hr-actions">
-                  <button class="red" id="highRiskBroadcastBtn">一键播报</button>
-                  <button class="secondary" id="highRiskBroadcastCopyBtn">复制模板</button>
-                  <button class="secondary" id="highRiskBroadcastInspectBtn">同步到点验界面</button>
-                </div>
-                <audio id="ttsAudioPlayer" controls hidden></audio>
-              </div>
-            </div>
+          <div class="panel-head"><h2>海图态势与处置</h2><span class="pill">模拟AIS</span></div>
+          <div class="agent-panel-body situation-body">
             <div class="action-card voice-map-card">
-              <div class="stream-head">
-                <h3>船舶位置态势</h3>
-                <span class="pill" id="voiceMapStatus">等待识别船舶</span>
-              </div>
+              <div class="stream-head"><h3>船舶位置态势</h3><span class="pill" id="voiceMapStatus">等待识别船舶</span></div>
               <div class="voice-mini-map" id="voiceMiniMap"></div>
-              <small class="voice-map-hint">识别出船名后在图中高亮（绿色）；高危事件高亮为红色并显示点验半径圈，周边命中船舶为橙色。</small>
+              <div class="map-facts"><span>当前船舶<b id="mapFocusShip">未可靠关联</b></span><span>所在水域<b id="mapFocusArea">待确认</b></span><span>点验半径<b id="mapInspectionRadius">3000m</b></span></div>
+              <small class="voice-map-hint">红色为当前高危船舶，蓝色为周边点验船舶；未知船名不会生成估算位置。</small>
             </div>
-            <div class="classification-streams">
-              <div class="classification-stream" id="streamEmergency"><b>高危告警</b><strong id="riskLabel">否</strong><span>等待事件输入</span></div>
-              <div class="classification-stream" id="streamAutoReply"><b>自动回复</b><strong id="autoLabel">待定</strong><span>等待事件输入</span></div>
-              <div class="classification-stream" id="streamHumanReview"><b>人工复核</b><strong id="manualLabel">待命</strong><span>等待事件输入</span></div>
-              <div class="classification-stream" id="streamMonitoring"><b>持续监听</b><strong id="monitorLabel">开启</strong><span>等待事件输入</span></div>
+            <div class="situation-actions">
+              <button class="red" id="rightInspectBtn">周边船舶点验</button>
+              <button class="green" id="rightBroadcastBtn">同步广播</button>
+              <button class="secondary" id="rightCopyBtn">复制广播话术</button>
+              <button class="secondary" id="rightTakeoverBtn">人工接管</button>
+              <button id="rightArchiveBtn">保存上报</button>
+              <button class="secondary" id="rightClearAlertBtn">解除告警</button>
             </div>
-            <div class="business-event-card">
-              <div class="stream-head">
-                <h3>当前业务事件</h3>
-                <span class="pill" id="businessEventState">IDLE_LISTENING</span>
-              </div>
-              <div class="business-grid">
-                <div class="business-kv"><span>事件ID</span><b id="activeEventIdText">暂无</b></div>
-                <div class="business-kv"><span>船舶</span><b id="activeEventShip">待确认</b></div>
-                <div class="business-kv"><span>意图</span><b id="activeEventIntent">待识别</b></div>
-                <div class="business-kv"><span>风险</span><b id="activeEventRisk">INFO</b></div>
-                <div class="business-kv"><span>轮次数</span><b id="activeEventUtterances">0</b></div>
-                <div class="business-kv"><span>动作</span><b id="activeEventAction">等待</b></div>
-              </div>
-              <div class="mini-actions">
-                <button class="secondary" id="approveEventBtn">批准</button>
-                <button class="secondary" id="rejectEventBtn">驳回</button>
-                <button class="secondary" id="closeBusinessEventBtn">关闭事件</button>
-              </div>
-            </div>
-            <div class="action-card">
-              <h3>动态动作队列</h3>
-              <table class="action-queue">
-                <thead><tr><th>动作</th><th>状态</th><th>触发</th><th>置信度</th><th>时间</th></tr></thead>
-                <tbody id="actionQueueBody">
-                  <tr><td>监听甚高频</td><td>运行中</td><td>16频道</td><td>--</td><td>当前</td></tr>
-                  <tr><td>风险分类</td><td>等待中</td><td>语音识别</td><td>--</td><td>--</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="inspector-panel">
-              <div class="stream-head">
-                <h3>事件检查器</h3>
-                <span class="pill" id="inspectorStatus">未选择事件</span>
-              </div>
-              <b id="inspectorTitle">点击音频片段或思维轨迹查看详情</b>
-              <span id="inspectorSummary">这里将展示原始转写、置信度、意图、风险评分、船舶匹配和动作建议。</span>
-              <small id="inspectorDetail">当前没有选中的 agent 事件。</small>
-            </div>
-            <div class="action-card">
-              <h3>决策依据</h3>
-              <div class="evidence" id="evidenceList"></div>
-              <small id="riskReason">未命中高危信号</small>
-              <small id="autoReason">等待识别结果</small>
-              <small id="manualReason">复杂业务进入人工复核</small>
-            </div>
-            <div class="action-card">
-              <h3>建议话术</h3>
-              <div class="reply-box" id="replyText" contenteditable="true">等待生成回复内容</div>
-            </div>
-            <div class="action-card">
-              <h3>业务事件归档</h3>
-              <div class="event-archive-list" id="businessEventArchive">
-                <div class="archive-item"><b>暂无闭合事件</b>持续守听后，闭合业务事件会自动进入这里。</div>
-              </div>
-            </div>
-            <div class="operator-actions">
-              <button class="red" id="manualBtn">接管响应</button>
-              <button class="green" id="speakBtn">广播话术</button>
-              <button id="saveFeedbackBtn">保存复核</button>
-              <button class="secondary" id="copyBtn">复制结果</button>
-            </div>
+            <div class="association-note" id="associationNote">未收到可靠 AIS 关联，地图仅展示当前 15 艘模拟船舶。</div>
           </div>
         </section>
 
-        <section class="panel agent-timeline-panel">
-          <div class="panel-head"><h2>全局事件时间线</h2><span class="pill">系统记忆</span></div>
-          <div class="timeline-scroll" id="agentTimeline">
-            <div class="timeline-item"><b>10:01 甚高频信号</b><span>等待语音触发</span></div>
-            <div class="timeline-item"><b>10:02 语音识别</b><span>转写结果生成</span></div>
-            <div class="timeline-item"><b>10:03 意图识别</b><span>业务类型识别</span></div>
-            <div class="timeline-item"><b>10:03 决策分流</b><span>动作队列更新</span></div>
-            <div class="timeline-item"><b>10:04 船位关联</b><span>船舶态势关联</span></div>
+        <section class="panel agent-timeline-panel event-queue-panel">
+          <div class="panel-head"><h2>事件队列与历史记录</h2><span class="pill">高危优先</span></div>
+          <div class="event-table-wrap">
+            <table class="event-queue-table"><thead><tr><th>时间</th><th>船名</th><th>事件类型</th><th>风险等级</th><th>当前状态</th><th>处置动作</th><th>ASR耗时</th><th>LLM耗时</th><th>总耗时</th></tr></thead><tbody id="eventQueueBody"><tr><td colspan="9">暂无事件，系统持续监听中</td></tr></tbody></table>
+          </div>
+          <div class="compat-runtime-nodes" aria-hidden="true">
+            <div class="classification-streams"><div class="classification-stream" id="streamEmergency"><b>高危告警</b><strong id="riskLabel">否</strong></div><div class="classification-stream" id="streamAutoReply"><b>自动回复</b><strong id="autoLabel">待定</strong></div><div class="classification-stream" id="streamHumanReview"><b>人工复核</b><strong id="manualLabel">待命</strong></div><div class="classification-stream" id="streamMonitoring"><b>持续监听</b><strong id="monitorLabel">开启</strong></div></div>
+            <table><tbody id="actionQueueBody"></tbody></table>
+            <div id="businessEventArchive"></div>
+            <div id="agentTimeline"></div>
+            <span id="inspectorStatus"></span><b id="inspectorTitle"></b><span id="inspectorSummary"></span><small id="inspectorDetail"></small>
           </div>
         </section>
       </section>
@@ -1955,6 +1977,7 @@
       eventState: "IDLE_LISTENING",
       activeBusinessEvent: null,
       businessEvents: [],
+      selectedBusinessEventId: "",
       eventCloseTimer: null,
       streaming: {
         activeSource: "",
@@ -2194,6 +2217,7 @@
       renderAgentInspector();
       renderActiveBusinessEvent();
       renderBusinessEventArchive();
+      renderEventQueue();
       renderDispositionPipeline();
       renderVoiceMiniMap();
     }
@@ -2201,12 +2225,15 @@
       const wrap = $("voiceMiniMap");
       if (!wrap) return;
       const ships = state.ships.length ? state.ships : fallbackShips;
-      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
-      const matchName = event?.matchedShip || event?.shipName || "";
+      const event = displayBusinessEvent();
+      const matched = trustedAisShip(event, ships);
+      const matchName = matched?.ship_name || "";
       const ctx = event?.inspectionContext || {};
       const isHighRisk = Boolean(event) && eventRiskTier(event).key === "emergency";
       const nearbyNames = new Set((ctx.matched_ships || []).map((s) => s?.ship_name).filter(Boolean));
-      const centerName = ctx.center_ship?.ship_name || matchName;
+      const centerName = ships.some((ship) => ship.ship_name === ctx.center_ship?.ship_name)
+        ? ctx.center_ship.ship_name
+        : matchName;
       wrap.innerHTML = "";
 
       const centerShip = ships.find((s) => s.ship_name === centerName);
@@ -2241,22 +2268,18 @@
         wrap.appendChild(dot);
       });
 
-      if (matchName && !matchedOnMap) {
-        const dot = document.createElement("div");
-        dot.className = `vmap-dot ${isHighRisk ? "risk" : "match"}`;
-        dot.style.left = "50%"; dot.style.top = "46%";
-        dot.title = matchName;
-        const label = document.createElement("span");
-        label.className = "vmap-label";
-        label.textContent = `${matchName}（位置估算）`;
-        dot.appendChild(label);
-        wrap.appendChild(dot);
-      }
-
       if ($("voiceMapStatus")) {
         $("voiceMapStatus").textContent = matchName
           ? `已高亮：${matchName}${isHighRisk ? ` · 点验半径 ${Number(ctx.radius_m || 3000)}m` : ""}`
-          : (ships.length ? `${ships.length} 艘在港船舶` : "等待识别船舶");
+          : (event?.shipCandidate ? "未知船名，待人工确认" : (ships.length ? `${ships.length} 艘在港船舶` : "等待识别船舶"));
+      }
+      if ($("mapFocusShip")) $("mapFocusShip").textContent = matchName || "未可靠关联";
+      if ($("mapFocusArea")) $("mapFocusArea").textContent = matched?.position_label || "待确认";
+      if ($("mapInspectionRadius")) $("mapInspectionRadius").textContent = `${Number(ctx.radius_m || 3000)}m`;
+      if ($("associationNote")) {
+        $("associationNote").textContent = matchName
+          ? `已通过受控船名库关联 ${matchName}，地图位置来自当前模拟 AIS 数据。`
+          : `未收到可靠 AIS 关联${event?.shipCandidate ? `；ASR疑似船名“${event.shipCandidate}”仅供人工复核` : ""}，不生成虚假位置。`;
       }
     }
     function eventRiskTier(event) {
@@ -2274,7 +2297,7 @@
       return { key: "monitor", label: "一般监听", cls: "active", action: "持续监听并归档" };
     }
     function renderDispositionPipeline() {
-      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
+      const event = displayBusinessEvent();
       const archived = Boolean(event && (event.status === "ARCHIVED" || event.status === "EVENT_CLOSED"));
       const draft = (event?.utterances?.at(-1)?.text) || ($("asrText")?.textContent && $("asrText").textContent !== "等待语音输入" ? $("asrText").textContent : "");
       const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
@@ -2312,7 +2335,8 @@
       if (zone) {
         if (tier.key === "emergency") {
           zone.classList.add("show");
-          if ($("highRiskShip")) $("highRiskShip").textContent = event.shipName || event.matchedShip || "目标船待确认";
+          const matched = trustedAisShip(event);
+          if ($("highRiskShip")) $("highRiskShip").textContent = matched?.ship_name || "目标船待确认";
           if ($("highRiskSub")) $("highRiskSub").textContent = `检测到高危/遇险信号（${event.summary?.slice(0, 36) || tier.label}），建议立即对目标船周边水域进行点验核查。`;
         } else {
           zone.classList.remove("show");
@@ -2423,15 +2447,7 @@
       }
     }
     function extractShipFromText(text = "") {
-      const known = [...new Set([
-        ...state.ships.map((ship) => ship.ship_name),
-        ...fallbackShips.map((ship) => ship.ship_name),
-        "锦龙228", "港顺177", "宁远梅山", "货轮876", "湘远15",
-      ].filter(Boolean))].sort((a, b) => b.length - a.length);
-      const hit = known.find((name) => text.includes(name));
-      if (hit) return hit;
-      const match = text.match(/([\u4e00-\u9fa5A-Za-z]{1,6}\d{2,4})/);
-      return match ? match[1] : "";
+      return knownShipNames().find((name) => text.includes(name)) || "";
     }
     function knownShipNames() {
       return [...new Set([
@@ -2442,6 +2458,24 @@
     }
     function extractKnownShip(text = "") {
       return knownShipNames().find((name) => name && text.includes(name)) || "";
+    }
+    function extractShipCandidateFromText(text = "") {
+      const known = extractKnownShip(text);
+      if (known) return known;
+      const match = String(text || "").match(/([\u4e00-\u9fa5A-Za-z]{1,8}\d{2,4})/);
+      return match ? match[1] : "";
+    }
+    function trustedAisShip(event, ships = state.ships.length ? state.ships : fallbackShips) {
+      const candidate = event?.aisContext?.ship_name || event?.matchedShip || "";
+      if (!candidate) return null;
+      return ships.find((ship) => ship.ship_name === candidate) || null;
+    }
+    function displayBusinessEvent() {
+      if (state.selectedBusinessEventId) {
+        const selected = state.businessEvents.find((event) => event.eventId === state.selectedBusinessEventId);
+        if (selected) return selected;
+      }
+      return state.activeBusinessEvent || state.businessEvents[0] || null;
     }
     function isMeaningfulUtterance(text = "") {
       const cleaned = String(text || "").replace(/[\s，。、？！,.?!~…·:：;；"'“”‘’()（）]/g, "");
@@ -2461,6 +2495,8 @@
         endTime: null,
         sourceType,
         shipName: "",
+        shipCandidate: "",
+        rawText: "",
         mmsi: "",
         intent: "monitoring_only",
         riskLevel: "INFO",
@@ -2474,11 +2510,13 @@
         exportedAudioUrl: "",
         aisContext: {},
         inspectionContext: {},
+        timings: {},
         autoReplySpoken: false,
         runToken: state.streaming.runToken,
       };
       if (chunk) event.audioChunks.push(chunk);
       state.activeBusinessEvent = event;
+      state.selectedBusinessEventId = "";
       state.activeEventId = event.eventId;
       setEventState("EVENT_ACTIVE", `${sourceType === "mic" ? "现场麦克风" : "长音频回放"}创建业务事件`);
       return event;
@@ -2490,6 +2528,7 @@
       if (!active || active.status === "EVENT_CLOSED" || active.status === "ARCHIVED") {
         const event = createBusinessEvent(chunk.sourceType, chunk);
         event.shipName = ship || "";
+        event.shipCandidate = extractShipCandidateFromText(text);
         return event;
       }
       const activeKnownShip = extractKnownShip(active.shipName || "");
@@ -2503,6 +2542,7 @@
       if (!active.audioChunks.some((item) => item.chunkId === chunk.chunkId)) active.audioChunks.push(chunk);
       if (knownShip && !activeKnownShip) active.shipName = knownShip;
       else if (ship && !active.shipName) active.shipName = ship;
+      if (!active.shipCandidate) active.shipCandidate = extractShipCandidateFromText(text);
       return active;
     }
     function classifyUtterance(text = "") {
@@ -2530,7 +2570,7 @@
       return classifyUtterance(text);
     }
     function detectEarlyRisk(text = "") {
-      const terms = ["Mayday", "求救", "着火", "冒烟", "进水", "碰撞", "失控", "搁浅", "人员落水"];
+      const terms = ["Mayday", "求救", "着火", "严重火灾", "冒烟", "进水", "碰撞", "失控", "失仓", "搁浅", "人员落水", "落水"];
       const hit = terms.find((term) => text.toLowerCase().includes(term.toLowerCase()));
       return { isHighRisk: Boolean(hit), term: hit || "" };
     }
@@ -2585,13 +2625,18 @@
       const event = ensureBusinessEvent(chunk, text);
       const classification = classifyDecisionPayload(payload, text);
       const decisionEvent = payload.decisionEvent || payload.event || {};
-      if (decisionEvent.ais_context) {
+      if (decisionEvent.ais_context?.ship_name) {
         event.aisContext = decisionEvent.ais_context;
         event.matchedShip = decisionEvent.ais_context.ship_name || event.matchedShip;
+        event.shipName = decisionEvent.ais_context.ship_name;
       }
       if (decisionEvent.inspection_context) event.inspectionContext = decisionEvent.inspection_context;
+      const rawText = String(payload.text || text || "").trim();
       const ship = extractShipFromText(text);
-      if (ship) event.shipName = ship;
+      event.rawText = rawText;
+      event.shipCandidate = extractShipCandidateFromText(rawText) || event.shipCandidate;
+      if (ship && !event.shipName) event.shipName = ship;
+      if (payload.timings) event.timings = { ...event.timings, ...payload.timings };
       event.utterances.push({
         text,
         chunkId: chunk.chunkId,
@@ -2886,15 +2931,43 @@
       });
     }
     function renderActiveBusinessEvent() {
-      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
+      const event = displayBusinessEvent();
       const latestAction = event?.actions?.at(-1);
+      const matched = trustedAisShip(event);
+      const candidate = event?.shipCandidate || "";
+      const tier = eventRiskTier(event);
+      const latestUtterance = event?.utterances?.at(-1);
+      const timings = event?.timings || {};
+      const asrMs = Number(timings.asr_ms || 0);
+      const llmMs = Number(timings.postprocess_ms || timings.llm_ms || 0);
+      const totalMs = Number(timings.server_total_ms || timings.recognition_total_ms || 0);
       if ($("businessEventState")) $("businessEventState").textContent = state.activeBusinessEvent ? state.eventState : (event ? "最近归档事件" : state.eventState);
       $("activeEventIdText").textContent = event?.eventId || "暂无";
-      $("activeEventShip").textContent = event?.shipName || "待确认";
+      $("activeEventShip").textContent = matched?.ship_name || (candidate ? `${candidate}（待确认）` : "待确认船舶");
       $("activeEventIntent").textContent = event ? readableEventIntent(event) : "待识别";
       $("activeEventRisk").textContent = event?.riskLevel || "INFO";
       $("activeEventUtterances").textContent = String(event?.utterances?.length || 0);
       $("activeEventAction").textContent = latestAction ? `${latestAction.action} · ${latestAction.status || "待处理"}` : "等待";
+      if ($("currentEventLevel")) {
+        $("currentEventLevel").textContent = event ? tier.label : "等待事件";
+        $("currentEventLevel").className = `event-level-badge ${event ? tier.key : "neutral"}`;
+      }
+      if ($("currentEventHero")) $("currentEventHero").className = `current-event-hero ${event ? tier.key : ""}`;
+      if ($("currentEventPosition")) $("currentEventPosition").textContent = matched?.position_label || "船位尚未可靠关联";
+      if ($("currentEventScore")) $("currentEventScore").textContent = Number(event?.riskScore || 0).toFixed(2);
+      if ($("currentEventText")) $("currentEventText").textContent = event?.rawText || latestUtterance?.text || event?.summary || "系统持续监听中，等待有效甚高频业务语音。";
+      if ($("currentAsrLatency")) $("currentAsrLatency").textContent = asrMs ? `${Math.round(asrMs)}ms` : "--";
+      if ($("currentLlmLatency")) $("currentLlmLatency").textContent = llmMs ? `${Math.round(llmMs)}ms` : "--";
+      if ($("currentTotalLatency")) $("currentTotalLatency").textContent = totalMs ? `${Math.round(totalMs)}ms` : "--";
+      if ($("shipText")) $("shipText").textContent = matched?.ship_name || "未知船名";
+      if ($("shipAliasText")) {
+        $("shipAliasText").textContent = candidate
+          ? (matched ? `${candidate} → ${matched.ship_name}` : `${candidate} → 待人工确认`)
+          : (matched ? `已确认 ${matched.ship_name}` : "等待识别");
+      }
+      if ($("aisRuntimeText")) $("aisRuntimeText").textContent = matched ? `已关联 ${matched.ship_name}` : "未可靠关联AIS";
+      if ($("aisRuntimeStatus")) $("aisRuntimeStatus").textContent = matched ? "已关联" : "待人工确认";
+      if ($("asrConfidenceText")) $("asrConfidenceText").textContent = latestUtterance?.confidence ? String(latestUtterance.confidence) : "--";
     }
     function renderBusinessEventArchive() {
       const list = $("businessEventArchive");
@@ -2908,6 +2981,50 @@
           ${event.roleDialogueText ? `<div class="archive-dialogue">${event.roleDialogueText}</div>` : ""}
         </div>
       `).join("") : '<div class="archive-item"><b>暂无闭合事件</b>持续守听后，闭合业务事件会自动进入这里。</div>';
+    }
+    function renderEventQueue() {
+      const body = $("eventQueueBody");
+      if (!body) return;
+      const events = [state.activeBusinessEvent, ...state.businessEvents]
+        .filter(Boolean)
+        .filter((event, index, rows) => rows.findIndex((item) => item.eventId === event.eventId) === index)
+        .sort((left, right) => {
+          const priority = { emergency: 0, manual: 1, auto: 2, monitor: 3 };
+          const tierDiff = priority[eventRiskTier(left).key] - priority[eventRiskTier(right).key];
+          return tierDiff || Number(right.startTime || 0) - Number(left.startTime || 0);
+        })
+        .slice(0, 12);
+      if (!events.length) {
+        body.innerHTML = '<tr><td colspan="9">暂无事件，系统持续监听中</td></tr>';
+        return;
+      }
+      body.innerHTML = events.map((event) => {
+        const tier = eventRiskTier(event);
+        const matched = trustedAisShip(event);
+        const latestAction = event.actions?.at(-1);
+        const timings = event.timings || {};
+        const selected = displayBusinessEvent()?.eventId === event.eventId ? " selected" : "";
+        return `<tr class="${tier.key}${selected}" data-business-event-id="${event.eventId}">
+          <td>${new Date(event.startTime || Date.now()).toLocaleTimeString()}</td>
+          <td>${matched?.ship_name || event.shipCandidate || "未知船名"}</td>
+          <td>${readableEventIntent(event)}</td>
+          <td><span class="queue-risk ${tier.key}">${event.riskLevel || "INFO"}</span></td>
+          <td>${event.status || state.eventState}</td>
+          <td>${latestAction?.action || tier.action}</td>
+          <td>${timings.asr_ms ? `${Math.round(timings.asr_ms)}ms` : "--"}</td>
+          <td>${timings.postprocess_ms || timings.llm_ms ? `${Math.round(timings.postprocess_ms || timings.llm_ms)}ms` : "--"}</td>
+          <td>${timings.server_total_ms || timings.recognition_total_ms ? `${Math.round(timings.server_total_ms || timings.recognition_total_ms)}ms` : "--"}</td>
+        </tr>`;
+      }).join("");
+      document.querySelectorAll("#eventQueueBody [data-business-event-id]").forEach((row) => {
+        row.addEventListener("click", () => {
+          state.selectedBusinessEventId = row.dataset.businessEventId || "";
+          renderActiveBusinessEvent();
+          renderDispositionPipeline();
+          renderVoiceMiniMap();
+          renderEventQueue();
+        });
+      });
     }
     function readableEventIntent(event) {
       const businessType = event?.intent === "emergency"
@@ -3125,18 +3242,21 @@
       })[status] || status || "待处理";
     }
     function showAis(context) {
-      state.currentAis = context || null;
-      if (!context || !Object.keys(context).length) {
+      const ships = state.ships.length ? state.ships : fallbackShips;
+      const trusted = context?.ship_name ? ships.find((ship) => ship.ship_name === context.ship_name) : null;
+      state.currentAis = trusted || null;
+      if (!trusted) {
         $("aisText").textContent = "未关联";
-        $("aisRuntimeText").textContent = "未关联";
-        $("aisRuntimeStatus").textContent = "未关联";
+        $("aisRuntimeText").textContent = "未可靠关联AIS";
+        $("aisRuntimeStatus").textContent = "待人工确认";
         $("aisDetail").className = "ais-detail";
         return;
       }
-      $("aisText").textContent = `已关联 ${context.ship_name || context.mmsi || "船位目标"}`;
-      $("aisRuntimeText").textContent = `已关联 ${context.ship_name || context.mmsi || "船位目标"}`;
+      const merged = { ...trusted, ...context };
+      $("aisText").textContent = `已关联 ${merged.ship_name}`;
+      $("aisRuntimeText").textContent = `已关联 ${merged.ship_name}`;
       $("aisRuntimeStatus").textContent = "已关联";
-      $("aisDetail").innerHTML = `<b>${context.ship_name || "船位目标"}</b><br>识别码 ${context.mmsi || "-"} · 呼号 ${context.callsign || "-"}<br>${context.position_label || "位置待更新"} · 航速 ${context.sog_kn ?? "-"}节 · 航向 ${context.heading_deg ?? context.cog_deg ?? "-"}°`;
+      $("aisDetail").innerHTML = `<b>${merged.ship_name}</b><br>识别码 ${merged.mmsi || "-"} · 呼号 ${merged.callsign || "-"}<br>${merged.position_label || "位置待更新"} · 航速 ${merged.sog_kn ?? "-"}节 · 航向 ${merged.heading_deg ?? merged.cog_deg ?? "-"}°`;
     }
     function applyInspectionContext(event = {}) {
       const context = event.inspection_context || {};
@@ -3225,12 +3345,18 @@
       }).catch((error) => toast(`点验界面加载失败：${error.message}`, true));
     }
     async function runHighRiskInspection() {
-      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
-      const shipName = event?.shipName || event?.matchedShip || "";
+      const event = displayBusinessEvent();
+      const shipName = trustedAisShip(event)?.ship_name || "";
       const ctx = event?.inspectionContext || {};
-      let centerName = ctx.center_ship?.ship_name || shipName;
+      let centerName = trustedAisShip({ aisContext: ctx.center_ship })?.ship_name || shipName;
       let ships = [];
       let radiusM = ctx.radius_m || 0;
+
+      if (!centerName) {
+        renderHighRiskInspectResult("目标船待确认", [], radiusM);
+        toast("船名尚未可靠关联AIS，请先人工确认或前往点验界面手动选船", true);
+        return;
+      }
 
       if (ctx.triggered && (ctx.matched_ships?.length || ctx.center_ship)) {
         ships = [ctx.center_ship, ...(ctx.matched_ships || [])].filter(Boolean);
@@ -3262,8 +3388,8 @@
         syncHighRiskToInspectionPage();
         return;
       }
-      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
-      const shipName = event?.shipName || event?.matchedShip || "";
+      const event = displayBusinessEvent();
+      const shipName = trustedAisShip(event)?.ship_name || "";
       setPage("inspection");
       try {
         await loadShips();
@@ -3276,7 +3402,7 @@
     function showStageDetail(stageKey) {
       const box = $("pipelineStageDetail");
       if (!box) return;
-      const event = state.activeBusinessEvent || state.businessEvents[0] || null;
+      const event = displayBusinessEvent();
       const titleMap = { voice: "① 语音输入明细", risk: "② 风险级别分类明细", action: "③ 处置明细", archive: "④ 闭环归档明细" };
       let body = "暂无事件数据。";
       if (event) {
@@ -3300,14 +3426,14 @@
     }
     function selectAgentShip(shipName) {
       const ships = state.ships.length ? state.ships : fallbackShips;
-      const ship = ships.find((item) => item.ship_name === shipName) || fallbackShips.find((item) => item.ship_name === shipName) || {
-        ship_id: shipName,
-        ship_name: shipName,
-        mmsi: "",
-        ship_type: "待核验船舶",
-        sog_kn: "-",
-        position_label: "当前通信目标",
-      };
+      const ship = ships.find((item) => item.ship_name === shipName) || null;
+      if (!ship) {
+        $("aisText").textContent = "未知船名，待人工确认";
+        $("aisRuntimeText").textContent = "未可靠关联AIS";
+        $("aisRuntimeStatus").textContent = "待人工确认";
+        state.currentAis = null;
+        return;
+      }
       document.querySelectorAll(".agent-ship").forEach((item) => item.classList.toggle("active", item.title === shipName));
       $("shipText").textContent = ship.ship_name;
       $("shipEdit").value = ship.ship_name;
@@ -3353,8 +3479,14 @@
     function showEntities(segments, event) {
       const entities = segments.flatMap((segment) => segment.entities || []);
       const ship = entities.find((item) => item.entity_type === "ship");
-      $("shipText").textContent = ship?.canonical || event?.ais_context?.ship_name || "待匹配";
-      showAis(event?.ais_context || ship?.metadata || null);
+      const matchedName = event?.ais_context?.ship_name || "";
+      $("shipText").textContent = matchedName || "未知船名";
+      if ($("shipAliasText")) {
+        $("shipAliasText").textContent = ship?.canonical
+          ? (matchedName ? `${ship.matched_text || ship.canonical} → ${matchedName}` : `${ship.canonical} → 待人工确认`)
+          : "等待识别";
+      }
+      showAis(event?.ais_context || null);
     }
     function splitDialogueSentences(source) {
       return String(source || "")
@@ -3480,6 +3612,34 @@
         "事件已进入值班员复核与归档流程",
       ]);
       const event = chooseEvent(task.events || []);
+      const businessType = event?.business_type || "other_business";
+      const intent = businessType === "emergency_risk" ? "emergency"
+        : businessType === "routine_report" ? "auto_reply"
+          : businessType === "departure_request" ? "human_approval" : "monitoring_only";
+      const taskBusinessEvent = {
+        eventId: event?.event_id || event?.id || `file_${Date.now()}`,
+        status: "EVENT_CLOSED",
+        startTime: Date.now(),
+        endTime: Date.now(),
+        sourceType: "audio_upload",
+        shipName: event?.ais_context?.ship_name || "",
+        shipCandidate: extractShipCandidateFromText(rawText || resolvedText),
+        rawText: rawText || resolvedText,
+        intent,
+        riskLevel: event?.risk_level || "INFO",
+        riskScore: Number(event?.confidence || (businessType === "emergency_risk" ? .92 : businessType === "departure_request" ? .68 : .18)),
+        utterances: segments.map((segment) => ({ text: segment.resolved_text || segment.text || "", confidence: segment.confidence || event?.confidence || "--", startMs: segment.start_ms || 0, endMs: segment.end_ms || 0 })),
+        audioChunks: [],
+        matchedShip: event?.ais_context?.ship_name || "",
+        actions: [{ action: event?.is_auto_reply ? "自动回复" : event?.requires_human_review ? "人工复核" : "监听归档", status: event?.review_status || "已记录", trigger: intentLabel(businessType), confidence: event?.confidence || "--", time: nowLabel(), suggested_action: event?.suggestion || "" }],
+        summary: event?.summary || resolvedText || rawText,
+        closeReason: "上传音频识别完成",
+        aisContext: event?.ais_context || {},
+        inspectionContext: event?.inspection_context || {},
+        timings: task?.meta?.timings || event?.timings || {},
+      };
+      state.businessEvents = [taskBusinessEvent, ...state.businessEvents.filter((item) => item.eventId !== taskBusinessEvent.eventId)];
+      state.selectedBusinessEventId = taskBusinessEvent.eventId;
       showEntities(segments, event);
       applyDecision(event || { event_type: "一般业务", risk_level: "INFO", evidence: ["未命中自动规则，已进入人工复核队列"] });
       $("dialogueEdit").textContent = buildDialogueReview(segments, event);
@@ -4630,6 +4790,7 @@
       state.streaming.activeSource = "";
       state.businessEvents = [];
       state.activeBusinessEvent = null;
+      state.selectedBusinessEventId = "";
       clearTimeout(state.eventCloseTimer);
       const audio = $("audioPlayer");
       audio.pause();
@@ -5321,6 +5482,13 @@
     $("highRiskBroadcastCopyBtn").addEventListener("click", () => { navigator.clipboard.writeText($("highRiskBroadcastText").value || ""); toast("高危点验播报模板已复制"); });
     $("highRiskBroadcastInspectBtn").addEventListener("click", () => syncHighRiskToInspectionPage());
     $("pipelineTakeoverBtn").addEventListener("click", async () => { setAgent("人工接管", "risk"); await updateActiveStatus("confirmed"); toast("高危事件已转人工接管"); });
+    $("rightInspectBtn").addEventListener("click", () => runHighRiskInspection());
+    $("rightBroadcastBtn").addEventListener("click", () => speakText($("highRiskBroadcastText")?.value || $("replyText").textContent).catch((error) => toast(error.message, true)));
+    $("rightCopyBtn").addEventListener("click", () => { navigator.clipboard.writeText($("highRiskBroadcastText")?.value || $("replyText").textContent || ""); toast("广播话术已复制"); });
+    $("rightTakeoverBtn").addEventListener("click", () => $("manualBtn").click());
+    $("rightArchiveBtn").addEventListener("click", () => $("archiveBtn").click());
+    $("rightClearAlertBtn").addEventListener("click", async () => { setAgent("告警已解除", "green"); await updateActiveStatus("archived"); toast("当前告警已解除并归档"); });
+    $("markHandledBtn").addEventListener("click", async () => { await updateActiveStatus("archived"); setAgent("处置完成", "green"); toast("当前事件已标记处理完成"); });
     [["pipeStage1", "voice"], ["pipeStage2", "risk"], ["pipeStage3", "action"], ["pipeStage4", "archive"]].forEach(([id, key]) => {
       const el = $(id);
       if (el) el.addEventListener("click", () => showStageDetail(key));
