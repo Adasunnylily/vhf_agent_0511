@@ -1407,7 +1407,7 @@
     }
 
     /* Voice duty workstation: listening -> event command -> situation -> queue. */
-    body.agent-shell .topbar { min-height: 74px; padding: 14px 22px; }
+    body.agent-shell .topbar { min-height: 64px; padding: 12px 20px; }
     body.agent-shell .topbar h1 { font-size: 24px; }
     .voice-page.streaming-agent {
       grid-template-columns: minmax(300px, .82fr) minmax(560px, 1.55fr) minmax(330px, .9fr);
@@ -1450,6 +1450,20 @@
     .event-score strong { display: block; margin-top: 3px; font-size: 30px; color: #0754c9; }
     .current-event-hero.emergency .event-score strong { color: #be123c; }
     .event-quote { min-height: 58px; padding: 14px 16px; border-radius: 16px; background: rgba(232,242,253,.76); color: #173b62; font-size: 15px; font-weight: 700; line-height: 1.7; }
+    .event-operator-hint {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 13px;
+      border-radius: 16px;
+      background: #f8fbff;
+      border: 1px solid rgba(184,210,240,.72);
+      color: #60758f;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .event-operator-hint b { color: #102d4d; }
     .event-summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
     .event-summary-grid div { padding: 10px; border-radius: 14px; background: rgba(255,255,255,.76); border: 1px solid rgba(184,210,240,.7); }
     .event-summary-grid span { display: block; color: #71849a; font-size: 11px; }
@@ -1460,6 +1474,7 @@
     .command-center-body .pipeline { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
     .command-center-body .pipeline-stage { min-height: 112px; }
     .recommendation-card { display: grid; gap: 12px; padding: 16px; border: 1px solid rgba(184,210,240,.78); border-radius: 20px; background: rgba(255,255,255,.86); }
+    .recommendation-card.emergency-focus { border-color: rgba(239,68,68,.34); background: #fff7f8; }
     .recommendation-lines { display: grid; gap: 5px; color: #60758f; font-size: 12px; }
     .primary-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .primary-actions button { min-width: 110px; }
@@ -1475,6 +1490,17 @@
     .situation-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
     .situation-actions button { min-height: 44px; }
     .association-note { padding: 12px; border-radius: 15px; background: #f4f8fd; color: #60758f; font-size: 12px; line-height: 1.6; }
+    .situation-summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(247,250,254,.94);
+      border: 1px solid rgba(184,210,240,.72);
+    }
+    .situation-summary span { display: block; color: #71849a; font-size: 11px; }
+    .situation-summary b { display: block; margin-top: 5px; color: #173b62; font-size: 13px; }
     .event-queue-panel { min-height: 230px; }
     .event-table-wrap { overflow: auto; padding: 0 16px 16px; }
     .event-queue-table { width: 100%; border-collapse: separate; border-spacing: 0 7px; font-size: 12px; }
@@ -1507,7 +1533,7 @@
     <aside class="rail">
       <div class="brand">
         <div class="logo">听</div>
-        <div><b>海事交管智能体</b></div>
+        <div><b>海事VHF</b><span>智能监测系统</span></div>
       </div>
       <nav class="nav">
         <button class="nav-btn active" data-page="voice">语音交互</button>
@@ -1543,7 +1569,7 @@
 
       <section class="page voice-page streaming-agent active" id="voicePage">
         <section class="panel agent-map-panel">
-          <div class="panel-head"><h2>语音来源与实时转写</h2><span class="pill green">持续守听</span></div>
+          <div class="panel-head"><h2>实时语音流</h2><span class="pill green">持续守听</span></div>
           <div class="agent-panel-body">
             <div class="stream-card voice-input-card">
               <div class="stream-head">
@@ -1654,7 +1680,7 @@
 
             <div class="stream-card">
               <div class="stream-head">
-                <h3>实时草稿转写</h3>
+                <h3>实时转写与船名状态</h3>
                 <div class="mini-actions">
                   <span class="pill" id="decisionStatus">监听中</span>
                   <button class="secondary" id="clearVoiceWorkspaceBtn" type="button">清空本次测试</button>
@@ -1684,12 +1710,13 @@
                 <label>船名复核<input id="shipEdit" placeholder="人工确认船名" /></label>
                 <label>船位关联复核<select id="aisEdit"><option value="">未关联船位</option></select></label>
               </div>
+              <div id="transcriptStream" hidden></div>
             </div>
           </div>
         </section>
 
         <section class="panel agent-core-panel">
-          <div class="panel-head"><h2>当前事件主控台</h2><span class="pill" id="businessEventState">IDLE_LISTENING</span></div>
+          <div class="panel-head"><h2>事件主控台</h2><span class="pill" id="businessEventState">IDLE_LISTENING</span></div>
           <div class="agent-panel-body command-center-body">
             <div class="current-event-hero" id="currentEventHero">
               <div class="event-hero-head">
@@ -1708,6 +1735,7 @@
                 <div><span>当前动作</span><b id="activeEventAction">等待</b></div>
                 <div><span>话轮数</span><b id="activeEventUtterances">0</b></div>
               </div>
+              <div class="event-operator-hint"><span><b>值班提示：</b><span id="operatorNextStep">等待有效语音；系统会在识别后给出处置建议。</span></span><span id="operatorShipLink">船位未关联</span></div>
               <div class="latency-strip">
                 <span>ASR <b id="currentAsrLatency">--</b></span>
                 <span>LLM分类 <b id="currentLlmLatency">--</b></span>
@@ -1775,6 +1803,12 @@
             <div class="action-card voice-map-card">
               <div class="stream-head"><h3>船舶位置态势</h3><span class="pill" id="voiceMapStatus">等待识别船舶</span></div>
               <div class="voice-mini-map" id="voiceMiniMap"></div>
+              <div class="situation-summary">
+                <div><span>AIS关联</span><b id="situationAisStatus">未可靠关联</b></div>
+                <div><span>周边目标</span><b id="situationNearbyCount">15 艘模拟船</b></div>
+                <div><span>建议动作</span><b id="situationSuggestedAction">持续监听</b></div>
+                <div><span>处置状态</span><b id="situationReviewStatus">待事件输入</b></div>
+              </div>
               <div class="map-facts"><span>当前船舶<b id="mapFocusShip">未可靠关联</b></span><span>所在水域<b id="mapFocusArea">待确认</b></span><span>点验半径<b id="mapInspectionRadius">3000m</b></span></div>
               <small class="voice-map-hint">红色为当前高危船舶，蓝色为周边点验船舶；未知船名不会生成估算位置。</small>
             </div>
@@ -2281,6 +2315,10 @@
           ? `已通过受控船名库关联 ${matchName}，地图位置来自当前模拟 AIS 数据。`
           : `未收到可靠 AIS 关联${event?.shipCandidate ? `；ASR疑似船名“${event.shipCandidate}”仅供人工复核` : ""}，不生成虚假位置。`;
       }
+      if ($("situationAisStatus")) $("situationAisStatus").textContent = matchName ? `关联成功：${matchName}` : "未可靠关联";
+      if ($("situationNearbyCount")) $("situationNearbyCount").textContent = isHighRisk ? `${nearbyNames.size || 0} 艘待点验` : `${ships.length} 艘模拟船`;
+      if ($("situationSuggestedAction")) $("situationSuggestedAction").textContent = isHighRisk ? "立即点验并广播" : (matchName ? "持续关注该船" : "等待人工确认船名");
+      if ($("situationReviewStatus")) $("situationReviewStatus").textContent = isHighRisk ? "高危待闭环" : (event ? "事件处理中" : "待事件输入");
     }
     function eventRiskTier(event) {
       const level = String(event?.riskLevel || event?.risk_level || "").toUpperCase();
@@ -2956,6 +2994,18 @@
       if ($("currentEventPosition")) $("currentEventPosition").textContent = matched?.position_label || "船位尚未可靠关联";
       if ($("currentEventScore")) $("currentEventScore").textContent = Number(event?.riskScore || 0).toFixed(2);
       if ($("currentEventText")) $("currentEventText").textContent = event?.rawText || latestUtterance?.text || event?.summary || "系统持续监听中，等待有效甚高频业务语音。";
+      if ($("operatorNextStep")) {
+        $("operatorNextStep").textContent = event
+          ? (tier.key === "emergency"
+            ? "立即确认高危、启动周边船舶点验，并同步广播/人工接管。"
+            : tier.key === "manual"
+              ? "需要人工审核后回复，建议先核对船名、位置和申请动作。"
+              : tier.key === "auto"
+                ? "常规报告可生成标准回复，确认无误后同步广播并归档。"
+                : "持续监听并记录，暂不触发主动处置。")
+          : "等待有效语音；系统会在识别后给出处置建议。";
+      }
+      if ($("operatorShipLink")) $("operatorShipLink").textContent = matched ? `已关联 ${matched.ship_name}` : "未知船名，待人工确认";
       if ($("currentAsrLatency")) $("currentAsrLatency").textContent = asrMs ? `${Math.round(asrMs)}ms` : "--";
       if ($("currentLlmLatency")) $("currentLlmLatency").textContent = llmMs ? `${Math.round(llmMs)}ms` : "--";
       if ($("currentTotalLatency")) $("currentTotalLatency").textContent = totalMs ? `${Math.round(totalMs)}ms` : "--";
@@ -2968,6 +3018,8 @@
       if ($("aisRuntimeText")) $("aisRuntimeText").textContent = matched ? `已关联 ${matched.ship_name}` : "未可靠关联AIS";
       if ($("aisRuntimeStatus")) $("aisRuntimeStatus").textContent = matched ? "已关联" : "待人工确认";
       if ($("asrConfidenceText")) $("asrConfidenceText").textContent = latestUtterance?.confidence ? String(latestUtterance.confidence) : "--";
+      const recCard = document.querySelector(".recommendation-card");
+      if (recCard) recCard.classList.toggle("emergency-focus", tier.key === "emergency");
     }
     function renderBusinessEventArchive() {
       const list = $("businessEventArchive");
