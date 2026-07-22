@@ -584,6 +584,16 @@ async def search_knowledge(q: str = "") -> Dict[str, object]:
     return {"query": q, "count": len(items), "items": items[:20]}
 
 
+@router.get("/knowledge/rag")
+async def retrieve_knowledge_context(q: str = "", top_k: int = 5) -> Dict[str, object]:
+    return knowledge_repository.rag_context(q, top_k=top_k)
+
+
+@router.get("/knowledge/graph")
+async def get_knowledge_graph(q: str = "", limit: int = 30) -> Dict[str, object]:
+    return knowledge_repository.graph(q, limit=limit)
+
+
 @router.post("/knowledge/documents/import")
 async def import_knowledge_document(
     file: UploadFile = File(...),

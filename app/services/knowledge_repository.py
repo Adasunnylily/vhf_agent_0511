@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -102,6 +103,38 @@ class KnowledgeRepository:
                 scored.append((score, entry))
         return [entry for _, entry in sorted(scored, key=lambda item: item[0], reverse=True)]
 
+    def rag_context(self, query: str, top_k: int = 5) -> Dict[str, object]:
+        """Lightweight LangChain-style retrieval chain without adding server dependencies."""
+        chunks = self._rank_chunks(query, top_k=max(1, top_k))
+        context = "\n\n".join(
+            f"[{index + 1}] {chunk['title']}｜{chunk['category']}｜{chunk['source']}\n{chunk['text']}"
+            for index, chunk in enumerate(chunks)
+        )
+        answer = self._extractive_answer(query, chunks)
+        return {
+            "query": query,
+            "answer": answer,
+            "context": context,
+            "items": chunks,
+            "graph": self.graph(query),
+        }
+
+    def graph(self, query: str = "", limit: int = 30) -> Dict[str, object]:
+        triples = self._extract_triples()
+        if query.strip():
+            tokens = self._tokens(query)
+            triples = [
+                item
+                for item in triples
+                if any(token in f"{item['source']} {item['relation']} {item['target']}" for token in tokens)
+            ] or triples
+        triples = triples[: max(1, limit)]
+        node_names = []
+        for item in triples:
+            node_names.extend([item["source"], item["target"]])
+        nodes = [{"id": name, "label": name} for name in dict.fromkeys(node_names)]
+        return {"nodes": nodes, "edges": triples}
+
     def import_document(self, source: BinaryIO, filename: str, category: str = "法规资料") -> Dict[str, str]:
         suffix = Path(filename).suffix.lower()
         target = self.docs_dir / f"{uuid.uuid4().hex[:12]}{suffix or '.bin'}"
@@ -119,6 +152,104 @@ class KnowledgeRepository:
         self._entries.append(entry)
         self._save()
         return entry
+
+    @staticmethod
+    def _tokens(text: str) -> List[str]:
+        raw = re.findall(r"[A-Za-z0-9]+|[\u4e00-\u9fa5]{2,}", text.lower())
+        stop = {"当前", "这个", "什么", "如何", "需要", "进行", "船舶", "交管"}
+        domain_terms = [
+            "离泊", "起锚", "靠泊", "靠妥", "抛锚", "申请", "处置", "高危", "险情",
+            "事故", "异常", "人工", "复核", "自动回复", "报告", "引航", "遇险", "火灾",
+            "碰撞", "进水", "失控", "落水", "点验", "广播", "守听",
+        ]
+        tokens = [token for token in raw if token not in stop]
+        for term in domain_terms:
+            if term in text:
+                tokens.append(term)
+        return list(dict.fromkeys(tokens))
+
+    def _chunks(self) -> List[Dict[str, str]]:
+        rows: List[Dict[str, str]] = []
+        for entry in self._entries:
+            content = str(entry.get("content") or "")
+            parts = [part.strip() for part in re.split(r"(?<=[。！？；;\n])", content) if part.strip()]
+            if not parts:
+                parts = [content[:600]]
+            buffer = ""
+            chunk_index = 0
+            for part in parts:
+                if len(buffer) + len(part) > 520 and buffer:
+                    rows.append(self._chunk_entry(entry, buffer, chunk_index))
+                    chunk_index += 1
+                    buffer = part
+                else:
+                    buffer = f"{buffer}{part}"
+            if buffer:
+                rows.append(self._chunk_entry(entry, buffer, chunk_index))
+        return rows
+
+    @staticmethod
+    def _chunk_entry(entry: Dict[str, str], text: str, chunk_index: int) -> Dict[str, str]:
+        return {
+            "id": f"{entry.get('id', 'kb')}_chunk_{chunk_index}",
+            "doc_id": str(entry.get("id") or ""),
+            "title": str(entry.get("title") or "未命名资料"),
+            "category": str(entry.get("category") or "法规资料"),
+            "source": str(entry.get("source") or ""),
+            "text": text.strip(),
+        }
+
+    def _rank_chunks(self, query: str, top_k: int = 5) -> List[Dict[str, str]]:
+        tokens = self._tokens(query)
+        if not tokens:
+            return self._chunks()[:top_k]
+        scored = []
+        for chunk in self._chunks():
+            haystack = f"{chunk['title']} {chunk['category']} {chunk['source']} {chunk['text']}".lower()
+            score = sum(haystack.count(token) for token in tokens)
+            if query.strip().lower() in haystack:
+                score += 4
+            if score:
+                scored.append((score, chunk))
+        return [chunk for _, chunk in sorted(scored, key=lambda item: item[0], reverse=True)[:top_k]]
+
+    @staticmethod
+    def _extractive_answer(query: str, chunks: List[Dict[str, str]]) -> str:
+        if not chunks:
+            return "未检索到直接相关规则，请补充法规资料或换关键词检索。"
+        lines = [f"基于知识库检索，和“{query or '当前问题'}”最相关的依据如下："]
+        for index, chunk in enumerate(chunks[:3], start=1):
+            lines.append(f"{index}. {chunk['title']}：{chunk['text'][:180]}")
+        return "\n".join(lines)
+
+    def _extract_triples(self) -> List[Dict[str, str]]:
+        triples: List[Dict[str, str]] = []
+        patterns = [
+            (r"(高危|险情|事故|异常情况|离泊|起锚|靠妥|抛锚|引航|过桥|自动回复)(?:[^。；\n]{0,18})(应|必须|优先|需要)([^。；\n]{2,32})", "处置要求"),
+            (r"(船舶|危险品船舶|拖带船队|客船|外国籍船舶)(?:[^。；\n]{0,18})(适用|包括|报告)([^。；\n]{2,32})", "适用规则"),
+            (r"(VHF|CH10|CH16|交管中心|报告线)(?:[^。；\n]{0,18})(报告|通信|守听)([^。；\n]{0,32})", "通信规则"),
+        ]
+        for entry in self._entries:
+            content = str(entry.get("content") or "")
+            for pattern, relation in patterns:
+                for match in re.finditer(pattern, content):
+                    source = match.group(1).strip()
+                    target = f"{match.group(2)}{match.group(3)}".strip()
+                    triples.append(
+                        {
+                            "source": source,
+                            "relation": relation,
+                            "target": target,
+                            "doc_id": str(entry.get("id") or ""),
+                            "title": str(entry.get("title") or ""),
+                        }
+                    )
+        if triples:
+            return triples
+        return [
+            {"source": entry["title"], "relation": "属于", "target": entry["category"], "doc_id": entry["id"], "title": entry["title"]}
+            for entry in self._entries
+        ]
 
     def _load_or_seed(self) -> List[Dict[str, str]]:
         if self.index_path.exists():

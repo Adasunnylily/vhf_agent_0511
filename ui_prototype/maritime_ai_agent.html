@@ -715,7 +715,6 @@
     }
     .source-divider::before,
     .source-divider::after { content: ""; flex: 1; height: 1px; background: rgba(145,190,236,.42); }
-    .source-runtime-summary { margin-top: 0; }
     .legacy-controls { display: none !important; }
     .business-event-card {
       border-radius: 20px;
@@ -769,6 +768,49 @@
     .monitor-page .wide { grid-column: 1 / 3; }
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
     .knowledge-search { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-bottom: 14px; }
+    .knowledge-search.three { grid-template-columns: 1fr auto auto; }
+    .ship-form-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .ship-form-grid input,
+    .ship-form-grid select {
+      min-height: 38px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 0 10px;
+      background: rgba(255,255,255,.9);
+      color: var(--text);
+    }
+    .ship-form-grid button { min-height: 38px; border-radius: 12px; }
+    .rag-answer {
+      white-space: pre-wrap;
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+      background: rgba(236,247,255,.9);
+      border: 1px solid rgba(145,190,236,.62);
+      color: #173b62;
+      line-height: 1.65;
+    }
+    .kg-wrap {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .kg-edge {
+      border-radius: 14px;
+      padding: 10px;
+      background: rgba(255,255,255,.84);
+      border: 1px solid rgba(184,210,240,.64);
+      color: #173b62;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .kg-edge b { color: #0754c9; }
     .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .subtle { color: var(--muted); font-size: 13px; line-height: 1.6; }
 
@@ -922,6 +964,7 @@
       display: grid;
       gap: 8px;
     }
+    .voice-input-card .chunk-rail { display: none; }
     .chunk-list {
       display: grid;
       gap: 8px;
@@ -1545,7 +1588,6 @@
       </nav>
       <div class="rail-foot">
         <span class="pill green">在线</span>
-        <span>原型联调版 · 2026.06.21 · 服务端TTS + 点验同步 v5</span>
         <span id="clock">--:--:--</span>
       </div>
     </aside>
@@ -1615,7 +1657,6 @@
                 <div class="stream-test-card source-mode-panel" id="micModePanel">
                   <div class="source-mode-heading">
                     <b>现场麦克风实时守听</b>
-                    <span>连续采集16k PCM，每200ms通过HTTP送入后端；结果监控使用WebSocket。</span>
                   </div>
                   <span id="liveMicStatus">待启动 · 请允许浏览器使用麦克风</span>
                   <span id="micLatencyBreakdown">链路耗时：等待有效语音</span>
@@ -1637,17 +1678,11 @@
                 <div class="stream-test-card source-mode-panel active" id="replayModePanel">
                   <div class="source-mode-heading">
                     <b>长音频模拟流式守听</b>
-                    <span>播放原音的同时，使用Qwen按VAD话轮增量转写；事件结束后统一精修、分类和归档。</span>
                   </div>
                   <button class="server-demo-btn" id="serverReplayBtn">直接播放服务器演示长音频（推荐）</button>
                   <div class="source-divider">或选择本地音频（大文件需要先上传）</div>
                   <div class="source-file-row">
                     <input id="audioFile" type="file" accept="audio/*" />
-                    <select id="replaySpeed">
-                      <option value="1" selected>原速 1x</option>
-                      <option value="2">加速 2x</option>
-                      <option value="4">加速 4x</option>
-                    </select>
                   </div>
                   <audio class="audio-player" id="audioPlayer" controls></audio>
                   <span id="replayStatus">请选择长音频，然后开始流式演示</span>
@@ -1662,11 +1697,6 @@
                     <div class="stream-metric"><small>识别方式</small><strong id="replayEngineLabel">Qwen准实时</strong></div>
                   </div>
                 </div>
-              </div>
-              <div class="stream-metrics source-runtime-summary">
-                <div class="stream-metric"><small>当前语音来源</small><strong id="streamSourceStatus">待命</strong></div>
-                <div class="stream-metric"><small>处理积压</small><strong id="streamBacklog">0</strong></div>
-                <div class="stream-metric"><small>业务链路</small><strong>分析并归档</strong></div>
               </div>
               <div class="legacy-controls" aria-hidden="true">
                 <select id="inputMode"><option value="stream" selected>模拟流式</option><option value="mic">现场麦克风</option><option value="upload">上传录音</option></select>
@@ -1915,6 +1945,20 @@
         <section class="panel wide">
           <div class="panel-head"><h2>船舶监控</h2><span class="pill">仅展示 15 艘有名字船舶</span><button class="secondary" id="refreshShips">刷新船位目标</button></div>
           <div class="panel-body">
+            <div class="ship-form-grid">
+              <input id="newShipName" placeholder="船名，例如 锦华662" />
+              <input id="newShipMmsi" placeholder="MMSI，可选" />
+              <select id="newShipType"><option>集装箱船</option><option>散货船</option><option>杂货船</option><option>油船</option><option>拖船</option><option>公务船</option></select>
+              <input id="newShipPosition" placeholder="位置标签，例如 北仑港外航道" />
+              <input id="newShipLng" placeholder="经度，例如 121.9168" />
+              <input id="newShipLat" placeholder="纬度，例如 29.9547" />
+              <input id="newShipDraft" placeholder="吃水米，默认 8" />
+              <input id="newShipTonnage" placeholder="吨位，默认 10000" />
+              <input id="newShipSpeed" placeholder="航速节，默认 0" />
+              <input id="newShipHeading" placeholder="航向度，默认 0" />
+              <input id="newShipDestination" placeholder="目的港，可选" />
+              <button id="addShipBtn">新增船舶</button>
+            </div>
             <div class="list" id="shipList"></div>
           </div>
         </section>
@@ -1950,12 +1994,14 @@
         <section class="panel wide">
           <div class="panel-head"><h2>知识库</h2><span class="pill">交管规则 · 国际规范</span></div>
           <div class="panel-body">
-            <div class="knowledge-search"><input id="knowledgeQuery" placeholder="检索交管规则、航行法规和风险处置要求" /><button id="knowledgeSearchBtn">检索</button></div>
+            <div class="knowledge-search three"><input id="knowledgeQuery" placeholder="检索交管规则、航行法规和风险处置要求" /><button id="knowledgeSearchBtn">检索</button><button class="secondary" id="knowledgeRagBtn">RAG问答</button></div>
             <div class="knowledge-search">
               <input id="knowledgeCategory" placeholder="资料分类，例如：交管规定" value="交管规定" />
               <input id="knowledgeFile" type="file" />
               <button id="knowledgeImportBtn">导入资料</button>
             </div>
+            <div class="rag-answer" id="knowledgeRagAnswer">输入问题后点击“RAG问答”，系统会从交管规则、IMO规范和已导入资料中检索依据。</div>
+            <div class="kg-wrap" id="knowledgeGraph"></div>
             <div class="list" id="knowledgeList"></div>
           </div>
         </section>
@@ -4203,8 +4249,6 @@
       if ($("streamChunkCount")) $("streamChunkCount").textContent = String(state.streaming.chunkSeq);
       if ($("latestLatency")) $("latestLatency").textContent = latest ? `${latest.totalMs}ms` : "--";
       if ($("avgLatency")) $("avgLatency").textContent = avg ? `${avg}ms` : "--";
-      if ($("streamBacklog")) $("streamBacklog").textContent = String(backlog);
-      if ($("streamSourceStatus")) $("streamSourceStatus").textContent = state.streaming.activeSource || "待命";
     }
     function recordChunkLatency(chunk) {
       chunk.renderedAt = performance.now();
@@ -4728,7 +4772,7 @@
       updateInputVisualMode("stream");
       const runToken = beginStreamingRun("长音频回放");
       const chunkSizeMs = Number($("replayChunkMs")?.value || 1000);
-      const speed = Number($("replaySpeed")?.value || 1);
+      const speed = 1;
       const audio = $("audioPlayer");
       const fileName = serverDemo ? "服务器演示长音频" : file.name;
       audio.src = serverDemo
@@ -5069,6 +5113,36 @@
         await loadShips();
         toast("船舶已删除");
       } catch (error) { toast(`删除船舶失败：${error.message}`, true); }
+    }
+    async function addShipFromMonitor() {
+      const shipName = $("newShipName").value.trim();
+      const lng = Number($("newShipLng").value);
+      const lat = Number($("newShipLat").value);
+      if (!shipName) return toast("请填写船名", true);
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return toast("请填写有效经纬度", true);
+      try {
+        await request("/api/inspection/ships", {
+          method: "POST",
+          body: form({
+            ship_name: shipName,
+            ship_type: $("newShipType").value || "未知船型",
+            mmsi: $("newShipMmsi").value.trim(),
+            position_label: $("newShipPosition").value.trim() || "手动新增船位",
+            lng,
+            lat,
+            draft_m: Number($("newShipDraft").value) || 8,
+            tonnage_t: Number($("newShipTonnage").value) || 10000,
+            sog_kn: Number($("newShipSpeed").value) || 0,
+            cog_deg: Number($("newShipHeading").value) || 0,
+            heading_deg: Number($("newShipHeading").value) || 0,
+            destination: $("newShipDestination").value.trim(),
+            ais_source: "manual_monitor_page",
+          }),
+        });
+        ["newShipName", "newShipMmsi", "newShipPosition", "newShipLng", "newShipLat", "newShipDraft", "newShipTonnage", "newShipSpeed", "newShipHeading", "newShipDestination"].forEach((id) => { $(id).value = ""; });
+        await loadShips();
+        toast("船舶已新增，并同步到船名候选库");
+      } catch (error) { toast(`新增船舶失败：${error.message}`, true); }
     }
     function areaGeometryText() {
       return state.areaGeometry.length ? JSON.stringify({ type: state.areaMode, points: state.areaGeometry, line_buffer_m: Number($("lineBuffer").value) || 500 }) : "";
@@ -5490,7 +5564,35 @@
       try {
         const payload = await request(`/api/knowledge/search?q=${encodeURIComponent($("knowledgeQuery").value)}`);
         $("knowledgeList").innerHTML = (payload.items || []).map((item) => `<div class="event-row"><b>${item.title}</b><span>${item.category || "法规资料"}</span><span>${item.content || item.summary || ""}</span></div>`).join("") || '<div class="event-row"><b>暂无匹配资料</b><span>可通过后端接口导入审核过的规则文档</span></div>';
+        await loadKnowledgeGraph();
       } catch (error) { $("knowledgeList").innerHTML = '<div class="event-row"><b>知识库暂不可用</b><span>请检查后端服务</span></div>'; }
+    }
+    function renderKnowledgeGraph(graph) {
+      const edges = graph?.edges || [];
+      $("knowledgeGraph").innerHTML = edges.length ? edges.slice(0, 12).map((edge) => `
+        <div class="kg-edge">
+          <b>${edge.source || "规则"}</b>
+          <span> ${edge.relation || "关联"} </span>
+          <b>${edge.target || "处置要求"}</b>
+          <span>${edge.title ? `｜${edge.title}` : ""}</span>
+        </div>
+      `).join("") : '<div class="kg-edge"><b>暂无图谱关系</b><span>导入规则文档后自动抽取</span></div>';
+    }
+    async function loadKnowledgeGraph() {
+      try {
+        const payload = await request(`/api/knowledge/graph?q=${encodeURIComponent($("knowledgeQuery").value)}&limit=24`);
+        renderKnowledgeGraph(payload);
+      } catch (error) {
+        $("knowledgeGraph").innerHTML = '<div class="kg-edge"><b>知识图谱暂不可用</b><span>请检查后端服务</span></div>';
+      }
+    }
+    async function runKnowledgeRag() {
+      try {
+        const payload = await request(`/api/knowledge/rag?q=${encodeURIComponent($("knowledgeQuery").value)}&top_k=5`);
+        $("knowledgeRagAnswer").textContent = payload.answer || "未生成回答。";
+        renderKnowledgeGraph(payload.graph || {});
+        $("knowledgeList").innerHTML = (payload.items || []).map((item) => `<div class="event-row"><b>${item.title}</b><span>${item.category || "法规资料"} · ${item.source || ""}</span><span>${item.text || ""}</span></div>`).join("") || '<div class="event-row"><b>暂无检索片段</b><span>请换关键词或导入资料</span></div>';
+      } catch (error) { toast(`RAG检索失败：${error.message}`, true); }
     }
     async function importKnowledgeDocument() {
       const file = $("knowledgeFile").files[0];
@@ -5502,6 +5604,7 @@
       $("knowledgeFile").value = "";
       toast("知识库资料已导入");
       await searchKnowledge();
+      await loadKnowledgeGraph();
     }
 
     document.querySelectorAll(".nav-btn").forEach((btn) => btn.addEventListener("click", () => setPage(btn.dataset.page)));
@@ -5575,11 +5678,13 @@
     }));
       $("sceneType").addEventListener("change", () => { $("noticeText").value = `各船注意，你船已进入${$("areaName").value}，请遵守${$("sceneType").value}相关要求，保持安全航速并守听甚高频。`; });
     $("refreshShips").addEventListener("click", loadShips);
+    $("addShipBtn").addEventListener("click", () => addShipFromMonitor().catch((error) => toast(`新增船舶失败：${error.message}`, true)));
     $("refreshEvents").addEventListener("click", loadEvents);
     $("exportFeedbackBtn").addEventListener("click", () => {
       window.open(`${API_BASE}/api/feedback.csv`, "_blank");
     });
     $("knowledgeSearchBtn").addEventListener("click", searchKnowledge);
+    $("knowledgeRagBtn").addEventListener("click", () => runKnowledgeRag().catch((error) => toast(`RAG检索失败：${error.message}`, true)));
     $("knowledgeImportBtn").addEventListener("click", () => importKnowledgeDocument().catch((error) => toast(`导入失败：${error.message}`, true)));
     $("refreshAreasBtn").addEventListener("click", loadAreas);
     $("saveSettingsBtn").addEventListener("click", () => {
