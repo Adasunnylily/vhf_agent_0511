@@ -1753,7 +1753,7 @@
                   <div class="stream-metrics">
                     <div class="stream-metric"><small>回放位置</small><strong id="replayPosition">00:00</strong></div>
                     <div class="stream-metric"><small>首字延迟</small><strong id="latestLatency">--</strong></div>
-                    <div class="stream-metric"><small>识别方式</small><strong id="replayEngineLabel">Qwen准实时</strong></div>
+                    <div class="stream-metric"><small>识别方式</small><strong id="replayEngineLabel">Qwen3-ASR-Flash</strong></div>
                   </div>
                 </div>
               </div>
@@ -1781,10 +1781,10 @@
                 <div class="entity" id="aisToggle"><span>船位关联</span><b id="aisRuntimeText">待匹配</b></div>
                 <div class="entity"><span>船名</span><b id="shipText">待匹配</b></div>
                 <div class="entity"><span>船位状态</span><b id="aisRuntimeStatus">未关联</b></div>
-                <div class="entity"><span>ASR置信度</span><b id="asrConfidenceText">--</b></div>
-                <div class="entity"><span>风险评分</span><b id="copilotRiskScore">0.12</b></div>
-                <div class="entity"><span>限制区</span><b id="copilotZone">未进入</b></div>
               </div>
+              <span id="asrConfidenceText" hidden>--</span>
+              <span id="copilotRiskScore" hidden>0.12</span>
+              <span id="copilotZone" hidden>未进入</span>
               <div class="review-grid">
                 <label>意图复核
                   <select id="intentEdit">
@@ -1804,7 +1804,7 @@
         </section>
 
         <section class="panel agent-core-panel">
-          <div class="panel-head"><h2>事件主控台</h2><span class="pill" id="businessEventState">IDLE_LISTENING</span></div>
+          <div class="panel-head"><h2>事件主控台</h2><span class="pill" id="businessEventState">监听中</span></div>
           <div class="agent-panel-body command-center-body">
             <div class="current-event-hero" id="currentEventHero">
               <div class="event-hero-head">
@@ -1824,7 +1824,7 @@
                 <div><span>话轮数</span><b id="activeEventUtterances">0</b></div>
               </div>
               <div class="event-operator-hint"><span><b>值班提示：</b><span id="operatorNextStep">等待有效语音；系统会在识别后给出处置建议。</span></span><span id="operatorShipLink">船位未关联</span></div>
-              <div class="latency-strip">
+              <div class="latency-strip" hidden>
                 <span>ASR <b id="currentAsrLatency">--</b></span>
                 <span>LLM分类 <b id="currentLlmLatency">--</b></span>
                 <span>总耗时 <b id="currentTotalLatency">--</b></span>
@@ -4945,7 +4945,7 @@
             : form({ file, channel_id: channelId(), playback_speed: speed }),
         });
         state.streaming.replay.trueStreaming = true;
-        if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Paraformer真流式";
+        if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Paraformer";
         $("replayStatus").textContent = `Paraformer WebSocket 真流式守听已启动 · ${fileName} · ${speed}x`;
         appendGlobalTimeline({ time: nowLabel(), title: "识别链路", detail: "Paraformer partial + VAD话轮 + 事件结束后精修" });
       } catch (streamError) {
@@ -4956,7 +4956,7 @@
             : form({ file, channel_id: channelId(), denoise_mode: "off", asr_mode: "quality" }),
         });
         state.streaming.replay.trueStreaming = false;
-        if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen准实时";
+        if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen3-ASR-Flash";
         $("replayStatus").textContent = `真流式不可用，已降级为Qwen高精度准实时 · ${fileName}`;
         appendGlobalTimeline({ time: nowLabel(), title: "识别模式降级", detail: streamError.message });
       }
@@ -4990,7 +4990,7 @@
       state.streaming.replay = null;
       state.streaming.activeSource = "";
       $("replayStatus").textContent = "回放已停止";
-      if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen准实时";
+      if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen3-ASR-Flash";
       setLevel(.35);
       renderStreamingStatus();
     }
