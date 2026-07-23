@@ -769,6 +769,52 @@
     .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
     .knowledge-search { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-bottom: 14px; }
     .knowledge-search.three { grid-template-columns: 1fr auto auto; }
+    .knowledge-console {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 14px;
+    }
+    .knowledge-chat {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .chat-bubble {
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(255,255,255,.9);
+      border: 1px solid rgba(184,210,240,.68);
+      color: #173b62;
+      line-height: 1.65;
+      white-space: pre-wrap;
+    }
+    .chat-bubble.assistant {
+      background: linear-gradient(135deg, rgba(236,247,255,.96), rgba(246,251,255,.96));
+      border-color: rgba(63,143,245,.28);
+    }
+    .chat-bubble small { display: block; color: var(--muted); margin-bottom: 5px; }
+    .knowledge-manage {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .knowledge-manage textarea {
+      min-height: 120px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      padding: 10px;
+      color: var(--text);
+      background: rgba(255,255,255,.92);
+      resize: vertical;
+    }
+    .knowledge-manage input {
+      min-height: 38px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 0 10px;
+      color: var(--text);
+      background: rgba(255,255,255,.92);
+    }
     .ship-form-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -811,6 +857,19 @@
       line-height: 1.5;
     }
     .kg-edge b { color: #0754c9; }
+    .knowledge-doc-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .knowledge-doc-actions button {
+      width: auto;
+      min-height: 0;
+      padding: 7px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
     .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .subtle { color: var(--muted); font-size: 13px; line-height: 1.6; }
 
@@ -1679,7 +1738,7 @@
                   <div class="source-mode-heading">
                     <b>长音频模拟流式守听</b>
                   </div>
-                  <button class="server-demo-btn" id="serverReplayBtn">直接播放服务器演示长音频（推荐）</button>
+                  <button class="server-demo-btn" id="serverReplayBtn">长音频</button>
                   <div class="source-divider">或选择本地音频（大文件需要先上传）</div>
                   <div class="source-file-row">
                     <input id="audioFile" type="file" accept="audio/*" />
@@ -1994,15 +2053,26 @@
         <section class="panel wide">
           <div class="panel-head"><h2>知识库</h2><span class="pill">交管规则 · 国际规范</span></div>
           <div class="panel-body">
-            <div class="knowledge-search three"><input id="knowledgeQuery" placeholder="检索交管规则、航行法规和风险处置要求" /><button id="knowledgeSearchBtn">检索</button><button class="secondary" id="knowledgeRagBtn">RAG问答</button></div>
-            <div class="knowledge-search">
-              <input id="knowledgeCategory" placeholder="资料分类，例如：交管规定" value="交管规定" />
-              <input id="knowledgeFile" type="file" />
-              <button id="knowledgeImportBtn">导入资料</button>
+            <div class="knowledge-console">
+              <div class="knowledge-chat">
+                <div class="knowledge-search three"><input id="knowledgeQuery" placeholder="向知识库提问，例如：离泊申请如何处置？" /><button id="knowledgeRagBtn">发送</button><button class="secondary" id="knowledgeSearchBtn">检索</button></div>
+                <div class="chat-bubble"><small>值班员</small><span id="knowledgeUserPrompt">等待输入问题。</span></div>
+                <div class="chat-bubble assistant" id="knowledgeRagAnswer"><small>知识库助手</small>输入问题后点击“发送”，系统会检索交管规则、IMO规范和已导入资料，并给出带依据的回答。</div>
+                <div class="list" id="knowledgeList"></div>
+              </div>
+              <div class="knowledge-manage">
+                <input id="knowledgeManualTitle" placeholder="新增知识标题，例如 离泊申请处置规则" />
+                <input id="knowledgeCategory" placeholder="资料分类，例如：交管规定" value="交管规定" />
+                <textarea id="knowledgeManualContent" placeholder="粘贴人工维护的规则、流程、话术或法规摘要"></textarea>
+                <button id="knowledgeAddBtn">新增知识</button>
+                <div class="knowledge-search">
+                  <input id="knowledgeFile" type="file" />
+                  <button id="knowledgeImportBtn">上传资料</button>
+                </div>
+                <h3>关键词知识图谱</h3>
+                <div class="kg-wrap" id="knowledgeGraph"></div>
+              </div>
             </div>
-            <div class="rag-answer" id="knowledgeRagAnswer">输入问题后点击“RAG问答”，系统会从交管规则、IMO规范和已导入资料中检索依据。</div>
-            <div class="kg-wrap" id="knowledgeGraph"></div>
-            <div class="list" id="knowledgeList"></div>
           </div>
         </section>
       </section>
@@ -3091,7 +3161,7 @@
           const tierDiff = priority[eventRiskTier(left).key] - priority[eventRiskTier(right).key];
           return tierDiff || Number(right.startTime || 0) - Number(left.startTime || 0);
         })
-        .slice(0, 12);
+        .slice(0, 6);
       if (!events.length) {
         body.innerHTML = '<tr><td colspan="9">暂无事件，系统持续监听中</td></tr>';
         return;
@@ -4772,7 +4842,7 @@
       updateInputVisualMode("stream");
       const runToken = beginStreamingRun("长音频回放");
       const chunkSizeMs = Number($("replayChunkMs")?.value || 1000);
-      const speed = 1;
+      const speed = serverDemo ? 0.5 : 1;
       const audio = $("audioPlayer");
       const fileName = serverDemo ? "服务器演示长音频" : file.name;
       audio.src = serverDemo
@@ -4787,6 +4857,11 @@
       state.streaming.chunkSeq = 0;
       state.streaming.queue = [];
       state.streaming.latencies = [];
+      state.businessEvents = [];
+      state.activeBusinessEvent = null;
+      state.selectedBusinessEventId = "";
+      state.actionQueue = [];
+      state.globalTimeline = [];
       state.streaming.replay = {
         file,
         serverDemo,
@@ -5563,9 +5638,24 @@
     async function searchKnowledge() {
       try {
         const payload = await request(`/api/knowledge/search?q=${encodeURIComponent($("knowledgeQuery").value)}`);
-        $("knowledgeList").innerHTML = (payload.items || []).map((item) => `<div class="event-row"><b>${item.title}</b><span>${item.category || "法规资料"}</span><span>${item.content || item.summary || ""}</span></div>`).join("") || '<div class="event-row"><b>暂无匹配资料</b><span>可通过后端接口导入审核过的规则文档</span></div>';
+        renderKnowledgeItems(payload.items || []);
         await loadKnowledgeGraph();
       } catch (error) { $("knowledgeList").innerHTML = '<div class="event-row"><b>知识库暂不可用</b><span>请检查后端服务</span></div>'; }
+    }
+    function renderKnowledgeItems(items) {
+      $("knowledgeList").innerHTML = items.length ? items.map((item) => `
+        <div class="event-row" data-kb-id="${item.id || item.doc_id || ""}">
+          <b>${item.title || "未命名资料"}</b>
+          <span>${item.category || "法规资料"}${item.source ? ` · ${item.source}` : ""}</span>
+          <span>${item.content || item.text || item.summary || ""}</span>
+          ${item.id ? `<div class="knowledge-doc-actions"><button class="secondary delete-knowledge" data-kb-id="${item.id}">删除</button></div>` : ""}
+        </div>
+      `).join("") : '<div class="event-row"><b>暂无匹配资料</b><span>可上传资料或新增人工知识。</span></div>';
+      document.querySelectorAll(".delete-knowledge").forEach((button) => {
+        button.addEventListener("click", async () => {
+          await deleteKnowledgeEntry(button.dataset.kbId);
+        });
+      });
     }
     function renderKnowledgeGraph(graph) {
       const edges = graph?.edges || [];
@@ -5588,11 +5678,36 @@
     }
     async function runKnowledgeRag() {
       try {
+        $("knowledgeUserPrompt").textContent = $("knowledgeQuery").value || "请根据知识库给出值班处置依据。";
         const payload = await request(`/api/knowledge/rag?q=${encodeURIComponent($("knowledgeQuery").value)}&top_k=5`);
-        $("knowledgeRagAnswer").textContent = payload.answer || "未生成回答。";
+        $("knowledgeRagAnswer").innerHTML = `<small>知识库助手</small>${payload.answer || "未生成回答。"}`;
         renderKnowledgeGraph(payload.graph || {});
-        $("knowledgeList").innerHTML = (payload.items || []).map((item) => `<div class="event-row"><b>${item.title}</b><span>${item.category || "法规资料"} · ${item.source || ""}</span><span>${item.text || ""}</span></div>`).join("") || '<div class="event-row"><b>暂无检索片段</b><span>请换关键词或导入资料</span></div>';
+        renderKnowledgeItems(payload.items || []);
       } catch (error) { toast(`RAG检索失败：${error.message}`, true); }
+    }
+    async function addKnowledgeEntry() {
+      const title = $("knowledgeManualTitle").value.trim();
+      const content = $("knowledgeManualContent").value.trim();
+      if (!content) return toast("请填写知识内容", true);
+      await request("/api/knowledge/documents", {
+        method: "POST",
+        body: form({
+          title: title || "人工维护知识",
+          content,
+          category: $("knowledgeCategory").value || "人工维护",
+          source: "manual_ui",
+        }),
+      });
+      $("knowledgeManualTitle").value = "";
+      $("knowledgeManualContent").value = "";
+      toast("知识已新增");
+      await searchKnowledge();
+    }
+    async function deleteKnowledgeEntry(entryId) {
+      if (!entryId) return;
+      await request(`/api/knowledge/documents/${encodeURIComponent(entryId)}`, { method: "DELETE" });
+      toast("知识条目已删除");
+      await searchKnowledge();
     }
     async function importKnowledgeDocument() {
       const file = $("knowledgeFile").files[0];
@@ -5685,6 +5800,7 @@
     });
     $("knowledgeSearchBtn").addEventListener("click", searchKnowledge);
     $("knowledgeRagBtn").addEventListener("click", () => runKnowledgeRag().catch((error) => toast(`RAG检索失败：${error.message}`, true)));
+    $("knowledgeAddBtn").addEventListener("click", () => addKnowledgeEntry().catch((error) => toast(`新增知识失败：${error.message}`, true)));
     $("knowledgeImportBtn").addEventListener("click", () => importKnowledgeDocument().catch((error) => toast(`导入失败：${error.message}`, true)));
     $("refreshAreasBtn").addEventListener("click", loadAreas);
     $("saveSettingsBtn").addEventListener("click", () => {

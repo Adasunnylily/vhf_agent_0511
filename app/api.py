@@ -607,6 +607,31 @@ async def import_knowledge_document(
     return {"item": item}
 
 
+@router.post("/knowledge/documents")
+async def add_knowledge_entry(
+    title: str = Form(...),
+    content: str = Form(...),
+    category: str = Form("人工维护"),
+    source: str = Form("manual"),
+) -> Dict[str, object]:
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="知识内容不能为空。")
+    item = knowledge_repository.add_entry(
+        title=title,
+        content=content,
+        category=category,
+        source=source,
+    )
+    return {"item": item}
+
+
+@router.delete("/knowledge/documents/{entry_id}")
+async def delete_knowledge_entry(entry_id: str) -> Dict[str, object]:
+    if not knowledge_repository.delete_entry(entry_id):
+        raise HTTPException(status_code=404, detail="未找到该知识条目。")
+    return {"ok": True, "id": entry_id}
+
+
 @router.post("/demo/scenario/{scenario_id}")
 async def run_demo_scenario(
     scenario_id: str,

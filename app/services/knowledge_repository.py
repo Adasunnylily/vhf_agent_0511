@@ -153,6 +153,41 @@ class KnowledgeRepository:
         self._save()
         return entry
 
+    def add_entry(
+        self,
+        title: str,
+        content: str,
+        category: str = "人工维护",
+        source: str = "manual",
+    ) -> Dict[str, str]:
+        entry = {
+            "id": f"kb_{uuid.uuid4().hex[:12]}",
+            "title": title.strip() or "未命名知识",
+            "category": category.strip() or "人工维护",
+            "source": source.strip() or "manual",
+            "content": content.strip(),
+            "file_path": "",
+        }
+        self._entries.append(entry)
+        self._save()
+        return entry
+
+    def delete_entry(self, entry_id: str) -> bool:
+        before = len(self._entries)
+        removed = [entry for entry in self._entries if str(entry.get("id") or "") == entry_id]
+        self._entries = [entry for entry in self._entries if str(entry.get("id") or "") != entry_id]
+        if len(self._entries) == before:
+            return False
+        for entry in removed:
+            file_path = str(entry.get("file_path") or "")
+            if file_path:
+                try:
+                    Path(file_path).unlink(missing_ok=True)
+                except Exception:
+                    pass
+        self._save()
+        return True
+
     @staticmethod
     def _tokens(text: str) -> List[str]:
         raw = re.findall(r"[A-Za-z0-9]+|[\u4e00-\u9fa5]{2,}", text.lower())
