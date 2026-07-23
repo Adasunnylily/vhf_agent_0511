@@ -167,23 +167,23 @@ def _build_role_mapped_dialogue_review(asr_sentences: List[dict]) -> str:
     pending_reply_speaker = ""
     rows: List[str] = []
     for sentence in asr_sentences:
-        content = str(sentence.get("text") or "").strip()
-        if not content:
-            continue
-        speaker = _infer_speaker(content, last_ship, last_speaker, pending_reply_speaker)
-        ship = _extract_ship_name(content)
-        if ship:
-            last_ship = ship
-            if speaker.startswith("疑似船方"):
-                speaker = ship
-        rows.append(f"{speaker}：{content}。")
-        relay_target = _extract_relay_target(content)
-        if relay_target:
-            pending_reply_speaker = relay_target
-        elif pending_reply_speaker and speaker == pending_reply_speaker:
-            pending_reply_speaker = ""
-        if speaker != "待确认说话人":
-            last_speaker = speaker
+        for content in _split_speaker_turns(str(sentence.get("text") or "")):
+            if not content:
+                continue
+            speaker = _infer_speaker(content, last_ship, last_speaker, pending_reply_speaker)
+            ship = _extract_ship_name(content)
+            if ship:
+                last_ship = ship
+                if speaker.startswith("疑似船方"):
+                    speaker = ship
+            rows.append(f"{speaker}：{content}。")
+            relay_target = _extract_relay_target(content)
+            if relay_target:
+                pending_reply_speaker = relay_target
+            elif pending_reply_speaker and speaker == pending_reply_speaker:
+                pending_reply_speaker = ""
+            if speaker != "待确认说话人":
+                last_speaker = speaker
     if not rows:
         return "等待 ASR 后生成对话轮次复核模板"
     return "\n".join(rows)
@@ -196,8 +196,26 @@ def format_diarization_speaker_label(speaker: object) -> str:
 
 
 def _split_sentences(text: str) -> List[str]:
-    normalized = re.sub(r"[。！？；;\n]+", "。", text or "")
+    normalized = _normalize_punctuation(text)
     return [part.strip(" ，,。") for part in normalized.split("。") if part.strip(" ，,。")]
+
+
+def _split_speaker_turns(text: str) -> List[str]:
+    normalized = _normalize_punctuation(text)
+    normalized = re.sub(r"(请讲)(?=(呃|啊|嗯|交管|[\u4e00-\u9fa5A-Za-z0-9]{2,12}))", r"\1。", normalized)
+    normalized = re.sub(r"((?:好，)?注意安全)(?=(好的|谢谢|哎|诶|嗯|啊))", r"\1。", normalized)
+    normalized = re.sub(r"(收到，再会|再会)(?=(好的|谢谢|哎|诶|嗯|啊))", r"\1。", normalized)
+    return [part.strip(" ，,。") for part in normalized.split("。") if part.strip(" ，,。")]
+
+
+def _normalize_punctuation(text: str) -> str:
+    normalized = str(text or "")
+    normalized = re.sub(r"[，,]\s*([。！？；;])", r"\1", normalized)
+    normalized = re.sub(r"([。！？；;])\s*[，,]", r"\1", normalized)
+    normalized = re.sub(r"[。]{2,}", "。", normalized)
+    normalized = re.sub(r"[，,]{2,}", "，", normalized)
+    normalized = re.sub(r"[。！？；;\n]+", "。", normalized)
+    return normalized
 
 
 def _extract_ship_name(text: str) -> str:
@@ -219,9 +237,6 @@ def _infer_speaker(
     pending_reply_speaker: str = "",
 ) -> str:
     normalized = sentence.strip(" ，,。")
-    if _is_vts_control_sentence(normalized):
-        return "宁波交管"
-
     if pending_reply_speaker and _is_short_radio_reply(normalized):
         return pending_reply_speaker
 
@@ -231,6 +246,9 @@ def _infer_speaker(
 
     if _is_ship_ack_to_vts(normalized):
         return last_ship or _last_ship_speaker(last_speaker) or "疑似船方A"
+
+    if _is_vts_control_sentence(normalized):
+        return "宁波交管"
 
     ship = _extract_ship_name(normalized)
     if ship and re.search(r"(宁波交管|舟山交管|交管)", normalized):

@@ -1769,7 +1769,7 @@
 
             <div class="stream-card">
               <div class="stream-head">
-                <h3>实时转写与船名状态</h3>
+                <h3>实时语音转写</h3>
                 <div class="mini-actions">
                   <span class="pill" id="decisionStatus">监听中</span>
                   <button class="secondary" id="clearVoiceWorkspaceBtn" type="button">清空本次测试</button>
@@ -1780,7 +1780,6 @@
                 <div class="entity"><span>意图</span><b id="intentText">待识别</b></div>
                 <div class="entity" id="aisToggle"><span>船位关联</span><b id="aisRuntimeText">待匹配</b></div>
                 <div class="entity"><span>船名</span><b id="shipText">待匹配</b></div>
-                <div class="entity"><span>船名纠错</span><b id="shipAliasText">等待识别</b></div>
                 <div class="entity"><span>船位状态</span><b id="aisRuntimeStatus">未关联</b></div>
                 <div class="entity"><span>ASR置信度</span><b id="asrConfidenceText">--</b></div>
                 <div class="entity"><span>风险评分</span><b id="copilotRiskScore">0.12</b></div>
@@ -1887,7 +1886,7 @@
         </section>
 
         <section class="panel agent-action-panel">
-          <div class="panel-head"><h2>海图态势与处置</h2><span class="pill">模拟AIS</span></div>
+          <div class="panel-head"><h2>海图态势与处置</h2><span class="pill">AIS</span></div>
           <div class="agent-panel-body situation-body">
             <div class="action-card voice-map-card">
               <div class="stream-head"><h3>船舶位置态势</h3><span class="pill" id="voiceMapStatus">等待识别船舶</span></div>
@@ -1899,7 +1898,7 @@
                 <div><span>处置状态</span><b id="situationReviewStatus">待事件输入</b></div>
               </div>
               <div class="map-facts"><span>当前船舶<b id="mapFocusShip">未可靠关联</b></span><span>所在水域<b id="mapFocusArea">待确认</b></span><span>点验半径<b id="mapInspectionRadius">3000m</b></span></div>
-              <small class="voice-map-hint">红色为当前高危船舶，蓝色为周边点验船舶；未知船名不会生成估算位置。</small>
+              <small class="voice-map-hint">红色为当前高危船舶，蓝色为周边点验船舶。</small>
             </div>
             <div class="situation-actions">
               <button class="red" id="rightInspectBtn">周边船舶点验</button>
@@ -2595,10 +2594,23 @@
     }
     function setEventState(nextState, detail = "") {
       state.eventState = nextState;
-      if ($("businessEventState")) $("businessEventState").textContent = nextState;
+      if ($("businessEventState")) $("businessEventState").textContent = eventStateLabel(nextState);
       if (nextState !== "UTTERANCE_STREAMING") {
         appendGlobalTimeline({ time: nowLabel(), title: `状态切换 ${nextState}`, detail });
       }
+    }
+    function eventStateLabel(stateValue = "") {
+      return ({
+        IDLE_LISTENING: "监听中",
+        SPEECH_DETECTED: "检测到语音",
+        UTTERANCE_STREAMING: "实时转写",
+        UTTERANCE_FINALIZED: "话轮完成",
+        EVENT_ACTIVE: "事件处理中",
+        ACTION_TRIGGERED: "已触发处置",
+        WAITING_FOR_MORE_SPEECH: "等待后续语音",
+        EVENT_CLOSED: "事件已闭合",
+        ARCHIVED: "已归档",
+      })[stateValue] || stateValue || "待命";
     }
     function extractShipFromText(text = "") {
       return knownShipNames().find((name) => text.includes(name)) || "";
@@ -3019,8 +3031,8 @@
       const turns = String(dialogueText).split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
         const cleaned = line.replace(/^[-*\s]+|\*\*/g, "");
         const match = cleaned.match(/^(?:\[([^\]]+)\]|([^：:]{1,30}))\s*[：:]\s*(.+)$/);
-        if (!match) return { speaker: "待确认", text: cleaned };
-        return { speaker: (match[1] || match[2] || "待确认").trim(), text: match[3].trim() };
+        if (!match) return { speaker: "待确认", text: normalizeVhfPunctuation(cleaned) };
+        return { speaker: (match[1] || match[2] || "待确认").trim(), text: normalizeVhfPunctuation(match[3].trim()) };
       });
       const isShore = (speaker) => /(交管|VTS|岸台|中心)/i.test(speaker);
       const isUnknown = (speaker) => /(待确认|未知|speaker)/i.test(speaker);
@@ -3035,14 +3047,41 @@
       }).join("\n");
     }
     function buildFallbackDialogueText(utterances = []) {
+      const memory = { lastShip: "" };
       const rows = utterances
         .map((item) => String(item?.text || "").trim())
         .filter(Boolean)
+        .flatMap((text) => splitSpeakerTurns(text))
         .map((text) => {
-          const speaker = /(交管|VTS|请讲|保持守听|收到)/.test(text) && !extractShipFromText(text) ? "交管" : "待确认";
+          const speaker = inferFallbackSpeaker(text, memory);
+          if (speaker && speaker !== "交管" && speaker !== "待确认") memory.lastShip = speaker;
           return `[${speaker}]：${text}`;
         });
       return rows.join("\n");
+    }
+    function normalizeVhfPunctuation(text = "") {
+      return String(text || "")
+        .replace(/[，,]\s*([。！？；;])/g, "$1")
+        .replace(/([。！？；;])\s*[，,]/g, "$1")
+        .replace(/[。]{2,}/g, "。")
+        .replace(/[，,]{2,}/g, "，")
+        .replace(/[。！？；;\n]+/g, "。")
+        .replace(/^[，,。\\s]+|[，,。\\s]+$/g, "");
+    }
+    function splitSpeakerTurns(text = "") {
+      const normalized = normalizeVhfPunctuation(text)
+        .replace(/(请讲)(?=(呃|啊|嗯|交管|[\u4e00-\u9fa5A-Za-z0-9]{2,12}))/g, "$1。")
+        .replace(/((?:好，)?注意安全)(?=(好的|谢谢|哎|诶|嗯|啊))/g, "$1。")
+        .replace(/(收到，再会|再会)(?=(好的|谢谢|哎|诶|嗯|啊))/g, "$1。");
+      return normalized.split("。").map((item) => item.trim()).filter(Boolean);
+    }
+    function inferFallbackSpeaker(sentence, memory = {}) {
+      const text = normalizeVhfPunctuation(sentence);
+      if (/谢谢交管|谢谢老师|谢谢，?交管|好的好的，?谢谢|明白，?谢谢/.test(text)) return memory.lastShip || "船方";
+      if (/^(嗯|啊|好)?，?请讲$|^收到$|^收到，再会$|^注意安全$|^好，?注意安全$|^再会$/.test(text)) return "交管";
+      if (/交管.*(报告|申请|靠妥|靠泊|离泊|抛锚|起锚|开航|解缆|备车)|向您报告|向你报告|申请|靠妥|靠泊|离泊|抛锚|起锚|开航|解缆|备车/.test(text)) return extractShipFromText(text) || memory.lastShip || "船方";
+      if (/交管|VTS|收到|请讲|注意安全|保持守听/.test(text) && !extractShipFromText(text)) return "交管";
+      return extractShipFromText(text) || memory.lastShip || "待确认";
     }
     async function archiveBusinessEvent(event) {
       const businessType = event.intent === "emergency"
@@ -3095,7 +3134,7 @@
       const asrMs = Number(timings.asr_ms || 0);
       const llmMs = Number(timings.postprocess_ms || timings.llm_ms || 0);
       const totalMs = Number(timings.server_total_ms || timings.recognition_total_ms || 0);
-      if ($("businessEventState")) $("businessEventState").textContent = state.activeBusinessEvent ? state.eventState : (event ? "最近归档事件" : state.eventState);
+      if ($("businessEventState")) $("businessEventState").textContent = state.activeBusinessEvent ? eventStateLabel(state.eventState) : (event ? "最近归档事件" : eventStateLabel(state.eventState));
       $("activeEventIdText").textContent = event?.eventId || "暂无";
       $("activeEventShip").textContent = matched?.ship_name || (candidate ? `${candidate}（待确认）` : "待确认船舶");
       $("activeEventIntent").textContent = event ? readableEventIntent(event) : "待识别";
@@ -3670,9 +3709,12 @@
     }
     function inferDialogueSpeaker(sentence, memory) {
       if (/台风|气象|预警|警报|广播|各船注意|请注意避让/.test(sentence)) return "安全广播";
-      if (/交管|VTS|收到|请讲|注意安全|保持守听|等待指令/.test(sentence)) return "宁波交管";
+      if (/谢谢交管|谢谢老师|谢谢，?交管|好的好的，?谢谢|明白，?谢谢/.test(sentence)) return memory.lastShip || "疑似船方A";
+      if (/^(嗯|啊|好)?，?请讲$|^收到$|^收到，再会$|^注意安全$|^好，?注意安全$|^再会$/.test(sentence)) return "宁波交管";
       const explicit = knownShipNames().find((name) => sentence.includes(name));
       if (explicit) return explicit;
+      if (/交管.*(报告|申请|靠妥|靠泊|离泊|抛锚|起锚|开航|解缆|备车)|向您报告|向你报告|申请|靠妥|靠泊|离泊|抛锚|起锚|开航|解缆|备车/.test(sentence)) return memory.lastShip || "疑似船方A";
+      if (/交管|VTS|收到|请讲|注意安全|保持守听|等待指令/.test(sentence)) return "宁波交管";
       const callMatch = sentence.match(/^([\u4e00-\u9fa5A-Za-z0-9]{2,8})(?:，|,|你|叫|问一下|请讲)/);
       const candidate = callMatch?.[1] || "";
       if (candidate && !/哪一个|这里|没有|好的|收到|老师|后面/.test(candidate)) {
@@ -4842,7 +4884,7 @@
       updateInputVisualMode("stream");
       const runToken = beginStreamingRun("长音频回放");
       const chunkSizeMs = Number($("replayChunkMs")?.value || 1000);
-      const speed = serverDemo ? 0.5 : 1;
+      const speed = 1;
       const audio = $("audioPlayer");
       const fileName = serverDemo ? "服务器演示长音频" : file.name;
       audio.src = serverDemo
