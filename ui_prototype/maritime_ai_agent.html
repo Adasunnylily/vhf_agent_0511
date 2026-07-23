@@ -842,11 +842,23 @@
       line-height: 1.65;
     }
     .kg-wrap {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
+      position: relative;
+      min-height: 300px;
       margin-bottom: 12px;
+      border-radius: 18px;
+      border: 1px solid rgba(145,190,236,.58);
+      background:
+        radial-gradient(circle at 22% 18%, rgba(44,142,255,.16), transparent 28%),
+        linear-gradient(135deg, rgba(248,252,255,.94), rgba(232,244,255,.9));
+      overflow: hidden;
     }
+    .kg-svg { width: 100%; min-height: 300px; display: block; }
+    .kg-node { filter: drop-shadow(0 8px 16px rgba(17,90,190,.16)); }
+    .kg-node circle { fill: #ffffff; stroke: #1677ff; stroke-width: 2; }
+    .kg-node text { fill: #173b62; font-size: 12px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; }
+    .kg-link { stroke: rgba(22,119,255,.42); stroke-width: 1.8; }
+    .kg-link-label { fill: #60758f; font-size: 11px; text-anchor: middle; paint-order: stroke; stroke: rgba(255,255,255,.86); stroke-width: 4px; }
+    .kg-empty,
     .kg-edge {
       border-radius: 14px;
       padding: 10px;
@@ -857,6 +869,21 @@
       line-height: 1.5;
     }
     .kg-edge b { color: #0754c9; }
+    .rag-citations {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .rag-citation {
+      border-radius: 14px;
+      border: 1px solid rgba(184,210,240,.68);
+      background: rgba(255,255,255,.78);
+      padding: 10px;
+      color: #173b62;
+      line-height: 1.5;
+    }
+    .rag-citation b { color: #0754c9; }
+    .rag-citation small { color: var(--muted); margin: 4px 0 0; }
     .knowledge-doc-actions {
       display: flex;
       gap: 8px;
@@ -5684,13 +5711,21 @@
         await loadKnowledgeGraph();
       } catch (error) { $("knowledgeList").innerHTML = '<div class="event-row"><b>知识库暂不可用</b><span>请检查后端服务</span></div>'; }
     }
+    function escapeHtml(value = "") {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
     function renderKnowledgeItems(items) {
       $("knowledgeList").innerHTML = items.length ? items.map((item) => `
-        <div class="event-row" data-kb-id="${item.id || item.doc_id || ""}">
-          <b>${item.title || "未命名资料"}</b>
-          <span>${item.category || "法规资料"}${item.source ? ` · ${item.source}` : ""}</span>
-          <span>${item.content || item.text || item.summary || ""}</span>
-          ${item.id ? `<div class="knowledge-doc-actions"><button class="secondary delete-knowledge" data-kb-id="${item.id}">删除</button></div>` : ""}
+        <div class="event-row" data-kb-id="${escapeHtml(item.id || item.doc_id || "")}">
+          <b>${escapeHtml(item.title || "未命名资料")}</b>
+          <span>${escapeHtml(item.category || "法规资料")}${item.source ? ` · ${escapeHtml(item.source)}` : ""}${item.relevance ? ` · 相关性 ${escapeHtml(item.relevance)}` : ""}</span>
+          <span>${escapeHtml(item.content || item.text || item.summary || "")}</span>
+          ${item.id ? `<div class="knowledge-doc-actions"><button class="secondary delete-knowledge" data-kb-id="${escapeHtml(item.id)}">删除</button></div>` : ""}
         </div>
       `).join("") : '<div class="event-row"><b>暂无匹配资料</b><span>可上传资料或新增人工知识。</span></div>';
       document.querySelectorAll(".delete-knowledge").forEach((button) => {
@@ -5700,15 +5735,66 @@
       });
     }
     function renderKnowledgeGraph(graph) {
+      const nodes = graph?.nodes || [];
       const edges = graph?.edges || [];
-      $("knowledgeGraph").innerHTML = edges.length ? edges.slice(0, 12).map((edge) => `
-        <div class="kg-edge">
-          <b>${edge.source || "规则"}</b>
-          <span> ${edge.relation || "关联"} </span>
-          <b>${edge.target || "处置要求"}</b>
-          <span>${edge.title ? `｜${edge.title}` : ""}</span>
+      if (!nodes.length || !edges.length) {
+        $("knowledgeGraph").innerHTML = '<div class="kg-empty"><b>暂无图谱关系</b><span>导入规则文档后自动抽取</span></div>';
+        return;
+      }
+      const width = 760;
+      const height = 320;
+      const selectedNodes = nodes.slice(0, 14);
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const radius = Math.min(width, height) * .36;
+      const points = selectedNodes.map((node, index) => {
+        const angle = -Math.PI / 2 + (Math.PI * 2 * index) / Math.max(1, selectedNodes.length);
+        return {
+          id: node.id,
+          label: node.label || node.id,
+          x: centerX + Math.cos(angle) * radius,
+          y: centerY + Math.sin(angle) * radius,
+        };
+      });
+      const pointMap = new Map(points.map((point) => [point.id, point]));
+      const visibleEdges = edges.filter((edge) => pointMap.has(edge.source) && pointMap.has(edge.target)).slice(0, 18);
+      const lines = visibleEdges.map((edge) => {
+        const source = pointMap.get(edge.source);
+        const target = pointMap.get(edge.target);
+        const mx = (source.x + target.x) / 2;
+        const my = (source.y + target.y) / 2;
+        return `
+          <line class="kg-link" x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" />
+          <text class="kg-link-label" x="${mx}" y="${my - 4}">${escapeHtml(edge.relation || "关联")}</text>
+        `;
+      }).join("");
+      const circles = points.map((point, index) => {
+        const label = String(point.label || "").length > 8 ? `${String(point.label).slice(0, 8)}…` : point.label;
+        return `
+          <g class="kg-node" transform="translate(${point.x}, ${point.y})">
+            <circle r="${index === 0 ? 34 : 28}" />
+            <text>${escapeHtml(label)}</text>
+          </g>
+        `;
+      }).join("");
+      $("knowledgeGraph").innerHTML = `<svg class="kg-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="知识图谱">${lines}${circles}</svg>`;
+    }
+    function renderRagAnswer(payload) {
+      const answer = escapeHtml(payload.answer || "未生成回答。");
+      const generator = payload.llm_used ? `LLM生成 · ${escapeHtml(payload.generator || "")}` : "检索摘要兜底";
+      const citations = payload.citations || [];
+      const citationHtml = citations.length ? `
+        <div class="rag-citations">
+          ${citations.map((item) => `
+            <div class="rag-citation">
+              <b>[${escapeHtml(item.index || "")}] ${escapeHtml(item.title || "未命名资料")}</b>
+              <span>${escapeHtml(item.category || "资料")}${item.source ? ` · ${escapeHtml(item.source)}` : ""} · 相关性 ${escapeHtml(item.relevance || "--")}</span>
+              <small>${escapeHtml(item.snippet || "")}</small>
+            </div>
+          `).join("")}
         </div>
-      `).join("") : '<div class="kg-edge"><b>暂无图谱关系</b><span>导入规则文档后自动抽取</span></div>';
+      ` : "";
+      $("knowledgeRagAnswer").innerHTML = `<small>知识库助手 · ${generator}</small>${answer}${citationHtml}`;
     }
     async function loadKnowledgeGraph() {
       try {
@@ -5722,7 +5808,7 @@
       try {
         $("knowledgeUserPrompt").textContent = $("knowledgeQuery").value || "请根据知识库给出值班处置依据。";
         const payload = await request(`/api/knowledge/rag?q=${encodeURIComponent($("knowledgeQuery").value)}&top_k=5`);
-        $("knowledgeRagAnswer").innerHTML = `<small>知识库助手</small>${payload.answer || "未生成回答。"}`;
+        renderRagAnswer(payload);
         renderKnowledgeGraph(payload.graph || {});
         renderKnowledgeItems(payload.items || []);
       } catch (error) { toast(`RAG检索失败：${error.message}`, true); }

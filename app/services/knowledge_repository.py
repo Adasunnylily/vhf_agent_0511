@@ -1,11 +1,23 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import uuid
 from pathlib import Path
 from typing import BinaryIO, Dict, List
+
+
+DEFAULT_RAG_PROMPT = """你是海事VHF智能值班知识库助手。
+
+请严格基于提供的知识片段回答问题，不要编造未出现在资料中的法规条款、编号或事实。
+回答要求：
+1. 先给出直接结论，说明值班员应该如何处置。
+2. 再给出依据，引用片段编号，例如“依据[1][3]”。
+3. 如果资料不足，明确说“知识库资料不足”，并建议补充哪些材料。
+4. 输出中文，语气简明、值班可执行。
+"""
 
 
 DEFAULT_ENTRIES = [
@@ -104,18 +116,22 @@ class KnowledgeRepository:
         return [entry for _, entry in sorted(scored, key=lambda item: item[0], reverse=True)]
 
     def rag_context(self, query: str, top_k: int = 5) -> Dict[str, object]:
-        """Lightweight LangChain-style retrieval chain without adding server dependencies."""
+        """LangChain-style retrieve-then-generate chain without adding server dependencies."""
         chunks = self._rank_chunks(query, top_k=max(1, top_k))
         context = "\n\n".join(
             f"[{index + 1}] {chunk['title']}｜{chunk['category']}｜{chunk['source']}\n{chunk['text']}"
             for index, chunk in enumerate(chunks)
         )
-        answer = self._extractive_answer(query, chunks)
+        llm_payload = self._llm_answer(query, chunks, context)
+        answer = llm_payload.get("answer") or self._extractive_answer(query, chunks)
         return {
             "query": query,
             "answer": answer,
             "context": context,
             "items": chunks,
+            "citations": self._citations(chunks),
+            "generator": llm_payload.get("generator") or "extractive_fallback",
+            "llm_used": bool(llm_payload.get("llm_used")),
             "graph": self.graph(query),
         }
 
@@ -237,7 +253,11 @@ class KnowledgeRepository:
     def _rank_chunks(self, query: str, top_k: int = 5) -> List[Dict[str, str]]:
         tokens = self._tokens(query)
         if not tokens:
-            return self._chunks()[:top_k]
+            chunks = self._chunks()[:top_k]
+            for index, chunk in enumerate(chunks):
+                chunk["score"] = str(max(1, top_k - index))
+                chunk["relevance"] = f"{max(20, 90 - index * 10)}%"
+            return chunks
         scored = []
         for chunk in self._chunks():
             haystack = f"{chunk['title']} {chunk['category']} {chunk['source']} {chunk['text']}".lower()
@@ -246,7 +266,79 @@ class KnowledgeRepository:
                 score += 4
             if score:
                 scored.append((score, chunk))
-        return [chunk for _, chunk in sorted(scored, key=lambda item: item[0], reverse=True)[:top_k]]
+        ranked = sorted(scored, key=lambda item: item[0], reverse=True)[:top_k]
+        max_score = max((score for score, _ in ranked), default=1)
+        rows = []
+        for score, chunk in ranked:
+            enriched = dict(chunk)
+            enriched["score"] = str(score)
+            enriched["relevance"] = f"{round(score / max_score * 100)}%"
+            rows.append(enriched)
+        return rows
+
+    def _llm_answer(self, query: str, chunks: List[Dict[str, str]], context: str) -> Dict[str, object]:
+        mode = os.getenv("VHF_KNOWLEDGE_RAG_MODE", "llm").strip().lower()
+        if mode in {"off", "retrieval", "extractive"} or not chunks:
+            return {}
+        api_key_env = os.getenv(
+            "VHF_KNOWLEDGE_RAG_API_KEY_ENV",
+            os.getenv("VHF_DECISION_API_KEY_ENV", "DASHSCOPE_API_KEY"),
+        )
+        api_key = os.getenv(api_key_env)
+        if not api_key:
+            return {}
+        try:
+            from openai import OpenAI
+        except ImportError:
+            return {}
+
+        model = os.getenv("VHF_KNOWLEDGE_RAG_MODEL", os.getenv("VHF_DECISION_MODEL", "qwen-max"))
+        base_url = os.getenv(
+            "VHF_KNOWLEDGE_RAG_BASE_URL",
+            os.getenv("VHF_DECISION_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+        )
+        timeout_s = int(os.getenv("VHF_KNOWLEDGE_RAG_TIMEOUT_S", "30"))
+        prompt = os.getenv("VHF_KNOWLEDGE_RAG_PROMPT", DEFAULT_RAG_PROMPT)
+        try:
+            client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout_s)
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {
+                        "role": "user",
+                        "content": (
+                            f"问题：{query or '请给出当前值班处置依据'}\n\n"
+                            f"检索到的知识片段：\n{context}\n\n"
+                            "请给出面向海事值班员的简明回答。"
+                        ),
+                    },
+                ],
+                temperature=0.1,
+                stream=False,
+            )
+            content = ""
+            if getattr(response, "choices", None):
+                content = response.choices[0].message.content or ""
+            return {"answer": content.strip(), "generator": model, "llm_used": bool(content.strip())}
+        except Exception as exc:
+            return {"generator": f"llm_failed:{type(exc).__name__}", "llm_used": False}
+
+    @staticmethod
+    def _citations(chunks: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        rows: List[Dict[str, str]] = []
+        for index, chunk in enumerate(chunks, start=1):
+            rows.append(
+                {
+                    "index": str(index),
+                    "title": str(chunk.get("title") or ""),
+                    "category": str(chunk.get("category") or ""),
+                    "source": str(chunk.get("source") or ""),
+                    "relevance": str(chunk.get("relevance") or ""),
+                    "snippet": str(chunk.get("text") or "")[:220],
+                }
+            )
+        return rows
 
     @staticmethod
     def _extractive_answer(query: str, chunks: List[Dict[str, str]]) -> str:
