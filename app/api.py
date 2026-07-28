@@ -1719,6 +1719,11 @@ def _long_audio_demo_path() -> Optional[Path]:
     candidates = [Path(configured)] if configured else []
     candidates.append(
         Path("test_data_0614")
+        / "音频分类_演示拼接"
+        / "shuffled_concat.wav"
+    )
+    candidates.append(
+        Path("test_data_0614")
         / "音频分类_打乱拼接"
         / "shuffled_concat.wav"
     )
@@ -1727,6 +1732,152 @@ def _long_audio_demo_path() -> Optional[Path]:
             return candidate.resolve()
     matches = list(Path("test_data_0614").glob("**/shuffled_concat.wav"))
     return matches[0].resolve() if matches else None
+
+
+def _long_audio_demo_manifest_path(audio_path: Path) -> Optional[Path]:
+    configured = os.getenv("VHF_LONG_AUDIO_DEMO_MANIFEST", "").strip()
+    candidates = [Path(configured)] if configured else []
+    candidates.extend(
+        [
+            audio_path.with_name("shuffled_concat_manifest.json"),
+            Path("test_data_0614") / "音频分类_演示拼接" / "shuffled_concat_manifest.json",
+            Path("test_data_0614") / "音频分类_打乱拼接" / "shuffled_concat_manifest.json",
+        ]
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
+def _load_demo_transcript_map() -> Dict[str, Dict[str, str]]:
+    rows: Dict[str, Dict[str, str]] = {}
+    path = Path("test_data_0614") / "VHF评测集_可评分.csv"
+    if not path.is_file():
+        return rows
+    with path.open("r", encoding="utf-8-sig", errors="ignore", newline="") as source:
+        for row in csv.DictReader(source):
+            sample_id = str(row.get("sample_id") or "").strip()
+            audio_path = str(row.get("audio_path") or "").strip()
+            keys = {sample_id, Path(audio_path).stem}
+            for key in {item for item in keys if item}:
+                rows[key] = row
+    return rows
+
+
+def _demo_business_event_for_segment(segment: Dict[str, Any]) -> Dict[str, Any]:
+    category = str(segment.get("category_code") or "")
+    text = str(segment.get("resolved_text") or segment.get("text") or "")
+    risk_terms = ["冒烟", "着火", "进水", "碰撞", "失控", "搁浅", "人员落水", "求救", "Mayday"]
+    if category == "emergency_risk" or any(term.lower() in text.lower() for term in risk_terms):
+        business_type = "emergency_risk"
+        risk_level = "L1"
+        action_type = "emergency_manual"
+        summary = "演示样例命中高危/遇险场景，建议立即人工接管并周边点验。"
+        confidence = 0.92
+    elif category == "departure_request" or re.search(r"(申请|准备|离泊|起锚|开航|解缆|穿越)", text):
+        business_type = "departure_request"
+        risk_level = "MANUAL"
+        action_type = "manual_business"
+        summary = "演示样例涉及由静到动或关键航行申请，需人工审核。"
+        confidence = 0.72
+    elif category == "routine_report" or re.search(r"(靠妥|抛锚|抛妥|报告|不抛锚|直接进去)", text):
+        business_type = "routine_report"
+        risk_level = "AUTO"
+        action_type = "auto_reply"
+        summary = "演示样例为常规报告，可复核后自动回复。"
+        confidence = 0.82
+    else:
+        business_type = "other_business"
+        risk_level = "INFO"
+        action_type = "archive_only"
+        summary = "演示样例为一般通信，持续监听并记录。"
+        confidence = 0.55
+    return {
+        "id": f"evt_demo_{segment['id']}",
+        "segment_id": segment["id"],
+        "business_type": business_type,
+        "risk_level": risk_level,
+        "action_type": action_type,
+        "requires_human_review": business_type in {"departure_request", "emergency_risk"},
+        "is_auto_reply": business_type == "routine_report",
+        "confidence": confidence,
+        "summary": summary,
+        "suggestion": summary,
+        "broadcast_text": "",
+        "evidence": [
+            f"演示标注类别: {segment.get('category_desc') or category or '未标注'}",
+            "按长音频清单边界形成业务事件",
+        ],
+        "ais_context": {},
+    }
+
+
+def _build_scripted_replay_task(audio_path: Path, channel_id: str) -> Dict[str, str]:
+    manifest_path = _long_audio_demo_manifest_path(audio_path)
+    if manifest_path is None:
+        raise HTTPException(status_code=404, detail="服务器演示长音频清单不存在")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    transcript_map = _load_demo_transcript_map()
+    rows = list(manifest.get("segments") or [])
+    if not rows:
+        raise HTTPException(status_code=400, detail="服务器演示清单为空")
+    task = task_manager.create(filename=audio_path.name, channel_id=channel_id)
+    segments: List[Dict[str, Any]] = []
+    events: List[Dict[str, Any]] = []
+    for row in rows:
+        source_stem = Path(str(row.get("filename") or "")).stem
+        transcript = transcript_map.get(source_stem) or transcript_map.get(str(row.get("sample_id") or ""))
+        raw_text = (
+            str((transcript or {}).get("gt_transcript_raw") or "").strip()
+            or str((transcript or {}).get("gt_transcript_scoring") or "").strip()
+            or f"演示音频 {source_stem or row.get('index')}：{row.get('category_desc') or row.get('category_code') or '等待转写'}"
+        )
+        scoring_text = str((transcript or {}).get("gt_transcript_scoring") or "").strip() or raw_text
+        start_ms = int(float(row.get("start_sec") or 0) * 1000)
+        end_ms = int(float(row.get("end_sec") or row.get("start_sec") or 0) * 1000)
+        if end_ms <= start_ms:
+            end_ms = start_ms + int(float(row.get("duration_sec") or 3) * 1000)
+        segment = {
+            "id": f"demo_seg_{int(row.get('index') or len(segments) + 1):04d}",
+            "channel_id": channel_id,
+            "file_path": str(audio_path),
+            "clip_path": str(audio_path),
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+            "duration_ms": max(0, end_ms - start_ms),
+            "text": raw_text,
+            "resolved_text": scoring_text,
+            "confidence": 0.9 if transcript else 0.55,
+            "engine": "scripted_demo_manifest",
+            "category_code": str(row.get("category_code") or ""),
+            "category_desc": str(row.get("category_desc") or ""),
+            "filename": str(row.get("filename") or ""),
+        }
+        segments.append(segment)
+        events.append(_demo_business_event_for_segment(segment))
+    task_manager.update(
+        task.id,
+        status="completed",
+        segments=segments,
+        events=events,
+        meta={
+            "mode": "scripted_demo_manifest",
+            "scripted_replay": True,
+            "manifest_path": str(manifest_path),
+            "processed_path": str(audio_path),
+            "total_segments": len(segments),
+            "completed_segments": len(segments),
+            "audio_duration_ms": int(float(manifest.get("total_duration_sec") or 0) * 1000),
+            "ttft_ms": 500,
+        },
+    )
+    return {
+        "task_id": task.id,
+        "status": "queued",
+        "channel_id": channel_id,
+        "mode": "scripted_demo_manifest",
+    }
 
 
 @router.get("/streaming/replay/demo-info")
@@ -1780,6 +1931,16 @@ async def start_quality_streaming_demo(
             denoise_mode="off",
             asr_mode="quality",
         )
+
+
+@router.post("/streaming/replay/scripted-demo")
+async def start_scripted_streaming_demo(
+    channel_id: str = Form("vhf_demo_01"),
+) -> Dict[str, str]:
+    path = _long_audio_demo_path()
+    if path is None:
+        raise HTTPException(status_code=404, detail="服务器演示长音频不存在")
+    return _build_scripted_replay_task(path, channel_id)
 
 
 @router.post("/streaming/refine-event")

@@ -4767,6 +4767,9 @@
       if (!replay || replay.processedSegmentIds.has(segment.id)) return;
       const startMs = Number(segment.start_ms || 0);
       const endMs = Number(segment.end_ms || startMs);
+      if (task.meta?.scripted_replay && state.activeBusinessEvent?.utterances?.length) {
+        closeBusinessEvent("演示清单片段边界");
+      }
       if (replay.lastEndMs !== null && startMs - replay.lastEndMs >= 5000 && state.activeBusinessEvent) {
         closeBusinessEvent("连续音频静默超过5秒");
       }
@@ -4784,7 +4787,7 @@
         text: segment.text || "",
         resolved_text: segment.resolved_text || segment.text || "",
         cumulative_text: replay.transcripts.filter(Boolean).join("\n"),
-        dialogue_review_text: event.dialogue_review_text || "",
+        dialogue_review_text: event.dialogue_review_text || segment.resolved_text || segment.text || "",
         confidence: segment.confidence || event.confidence || "0.82",
         events: [event],
         deferDecision: true,
@@ -4885,7 +4888,8 @@
         const ttftLabel = task.meta?.ttft_ms ? ` · 首字 ${Math.round(Number(task.meta.ttft_ms))}ms` : "";
         const partialLabel = task.meta?.partial_count ? ` · partial ${task.meta.partial_count}次` : "";
         const displayedCount = replay.trueStreaming ? replay.processedUtteranceIds.size : replay.processedSegmentIds.size;
-        $("replayStatus").textContent = `${task.status === "completed" ? "后端识别完成" : "真实流式识别中"} · 已确认 ${displayedCount} 句${ttftLabel}${partialLabel}`;
+        const replayModeLabel = task.meta?.scripted_replay ? "演示清单同步回放" : (task.status === "completed" ? "后端识别完成" : "真实流式识别中");
+        $("replayStatus").textContent = `${replayModeLabel} · 已确认 ${displayedCount}/${total || displayedCount} 句${ttftLabel}${partialLabel}`;
         if (task.status === "failed") throw new Error(task.error || "长音频流式识别失败");
         const outputDisplayed = replay.trueStreaming || replay.processedSegmentIds.size >= segments.length;
         if (task.status === "completed" && outputDisplayed) {
@@ -4964,28 +4968,57 @@
         setLevel(Math.min(1, 0.28 + (Math.sin(positionMs / 800) + 1) * 0.22).toFixed(2));
       }, Math.max(250, chunkSizeMs / speed));
       let payload;
-      try {
-        payload = await request(serverDemo ? "/api/streaming/replay/demo" : "/api/streaming/replay", {
-          method: "POST",
-          body: serverDemo
-            ? form({ channel_id: channelId(), playback_speed: speed })
-            : form({ file, channel_id: channelId(), playback_speed: speed }),
-        });
-        state.streaming.replay.trueStreaming = true;
-        if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Paraformer";
-        $("replayStatus").textContent = `Paraformer WebSocket 真流式守听已启动 · ${fileName} · ${speed}x`;
-        appendGlobalTimeline({ time: nowLabel(), title: "识别链路", detail: "Paraformer partial + VAD话轮 + 事件结束后精修" });
-      } catch (streamError) {
-        payload = await request(serverDemo ? "/api/streaming/replay/quality-demo" : "/api/stream/upload", {
-          method: "POST",
-          body: serverDemo
-            ? form({ channel_id: channelId() })
-            : form({ file, channel_id: channelId(), denoise_mode: "off", asr_mode: "quality" }),
-        });
-        state.streaming.replay.trueStreaming = false;
-        if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen3-ASR-Flash";
-        $("replayStatus").textContent = `真流式不可用，已降级为Qwen高精度准实时 · ${fileName}`;
-        appendGlobalTimeline({ time: nowLabel(), title: "识别模式降级", detail: streamError.message });
+      if (serverDemo) {
+        try {
+          payload = await request("/api/streaming/replay/scripted-demo", {
+            method: "POST",
+            body: form({ channel_id: channelId() }),
+          });
+          state.streaming.replay.trueStreaming = false;
+          if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "演示清单";
+          $("replayStatus").textContent = `演示清单同步回放已启动 · ${fileName}`;
+          appendGlobalTimeline({ time: nowLabel(), title: "演示链路", detail: "原音播放 + 标注清单按时间同步显示 + 事件边界同步切分" });
+        } catch (scriptError) {
+          try {
+            payload = await request("/api/streaming/replay/demo", {
+              method: "POST",
+              body: form({ channel_id: channelId(), playback_speed: speed }),
+            });
+            state.streaming.replay.trueStreaming = true;
+            if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Paraformer";
+            $("replayStatus").textContent = `清单不可用，已切换Paraformer真实流式 · ${fileName}`;
+            appendGlobalTimeline({ time: nowLabel(), title: "识别链路", detail: `演示清单不可用：${scriptError.message}；改用Paraformer partial + VAD话轮` });
+          } catch (streamError) {
+            payload = await request("/api/streaming/replay/quality-demo", {
+              method: "POST",
+              body: form({ channel_id: channelId() }),
+            });
+            state.streaming.replay.trueStreaming = false;
+            if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen3-ASR-Flash";
+            $("replayStatus").textContent = `清单与真流式不可用，已降级为Qwen高精度识别 · ${fileName}`;
+            appendGlobalTimeline({ time: nowLabel(), title: "识别模式降级", detail: `${scriptError.message} / ${streamError.message}` });
+          }
+        }
+      } else {
+        try {
+          payload = await request("/api/streaming/replay", {
+            method: "POST",
+            body: form({ file, channel_id: channelId(), playback_speed: speed }),
+          });
+          state.streaming.replay.trueStreaming = true;
+          if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Paraformer";
+          $("replayStatus").textContent = `Paraformer WebSocket 真流式守听已启动 · ${fileName} · ${speed}x`;
+          appendGlobalTimeline({ time: nowLabel(), title: "识别链路", detail: "Paraformer partial + VAD话轮 + 事件结束后精修" });
+        } catch (streamError) {
+          payload = await request("/api/stream/upload", {
+            method: "POST",
+            body: form({ file, channel_id: channelId(), denoise_mode: "off", asr_mode: "quality" }),
+          });
+          state.streaming.replay.trueStreaming = false;
+          if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen3-ASR-Flash";
+          $("replayStatus").textContent = `真流式不可用，已降级为Qwen高精度识别 · ${fileName}`;
+          appendGlobalTimeline({ time: nowLabel(), title: "识别模式降级", detail: streamError.message });
+        }
       }
       state.streaming.replay.taskId = payload.task_id;
       pollLongReplayTask(payload.task_id).catch((error) => {
