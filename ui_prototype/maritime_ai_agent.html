@@ -1714,6 +1714,59 @@
       background: #f8fafc;
       border-color: #e3e8ef;
     }
+    .voice-input-card .agent-wave-visual {
+      min-height: 142px;
+      padding: 10px;
+    }
+    .voice-page.mic-visual .voice-input-card .agent-wave-visual {
+      min-height: 172px;
+    }
+    .voice-input-card .stream-mic-dock {
+      width: 100%;
+      gap: 6px;
+      padding: 4px 0 0;
+    }
+    .voice-input-card .stream-mic-dock .mic-stage {
+      width: 100%;
+      gap: 6px;
+    }
+    .voice-input-card .stream-mic-dock .wave {
+      flex: 1 1 44px;
+      min-width: 34px;
+      max-width: 58px;
+      height: 42px;
+    }
+    .voice-input-card .stream-mic-dock .agent-orb {
+      flex: 0 0 auto;
+      width: 76px;
+      height: 76px;
+    }
+    .voice-input-card .stream-mic-dock .agent-orb::before { inset: -9px; }
+    .voice-input-card .stream-mic-dock .agent-orb::after { inset: -16px; }
+    .voice-input-card .stream-mic-dock .agent-orb svg {
+      width: 34px;
+      height: 34px;
+    }
+    .voice-input-card .stream-mic-dock .agent-core-meta {
+      width: 100%;
+      text-align: center;
+      color: #66788a;
+    }
+    .voice-input-card .stream-mic-dock .agent-core-meta b {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      color: #132238;
+      font-size: 14px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .voice-input-card .stream-mic-dock .agent-core-meta span {
+      display: block;
+      color: #66788a;
+      font-size: 11px;
+      white-space: normal;
+    }
     .agent-wave-lines { height: 72px; }
     .agent-core-meta b { font-size: 15px; color: #132238; }
     .agent-core-meta span { color: #66788a; }
@@ -2131,7 +2184,8 @@
                   <span id="micLatencyBreakdown">链路耗时：等待有效语音</span>
                   <div class="stream-control-row">
                     <select id="liveChunkMs">
-                      <option value="2000" selected>2秒临时预览</option>
+                      <option value="1000" selected>1秒临时预览</option>
+                      <option value="2000">2秒临时预览</option>
                       <option value="3000">3秒临时预览</option>
                       <option value="5000">5秒临时预览</option>
                     </select>
@@ -2191,8 +2245,8 @@
                 <div class="entity" id="aisToggle"><span>船位关联</span><b id="aisRuntimeText">待匹配</b></div>
                 <div class="entity"><span>船名</span><b id="shipText">待匹配</b></div>
                 <div class="entity"><span>船位状态</span><b id="aisRuntimeStatus">未关联</b></div>
-                <div class="entity"><span>识别修正</span><b id="shipAliasText">等待识别</b></div>
               </div>
+              <span id="shipAliasText" hidden>等待识别</span>
               <span id="asrConfidenceText" hidden>--</span>
               <span id="copilotRiskScore" hidden>0.12</span>
               <span id="copilotZone" hidden>未进入</span>
@@ -2326,7 +2380,6 @@
                 <div><span>处置状态</span><b id="situationReviewStatus">待事件输入</b></div>
               </div>
               <div class="map-facts"><span>当前船舶<b id="mapFocusShip">未可靠关联</b></span><span>所在水域<b id="mapFocusArea">待确认</b></span><span>点验半径<b id="mapInspectionRadius">3000m</b></span></div>
-              <small class="voice-map-hint">红色为当前高危船舶，蓝色为周边点验船舶。</small>
               <div class="nearby-vessel-list" id="nearbyVesselList"></div>
             </div>
             <div class="situation-actions">
@@ -3425,7 +3478,6 @@
       event.closeReason = reason;
       event.exportedAudioUrl = event.audioChunks.find((chunk) => chunk.audio_url)?.audio_url || "chunks://collected";
       setEventState("EVENT_CLOSED", reason);
-      state.activeBusinessEvent = null;
       appendAgentEvent({ stage: "event_refining", title: "事件结束后精修", detail: "正在重建说话人轮次并重新分类", intent: event.intent, risk_score: event.riskScore.toFixed(2) });
       appendGlobalTimeline({ time: nowLabel(), title: "业务事件结束", detail: `${reason} · 进入说话人和分类精修` });
       refineAndArchiveBusinessEvent(event);
@@ -3559,7 +3611,10 @@
       }
       event.status = "ARCHIVED";
       state.businessEvents = [event, ...state.businessEvents].slice(0, 30);
-      if (!state.activeBusinessEvent) setEventState("ARCHIVED", `${event.eventId} 已归档`);
+      if (state.activeBusinessEvent?.eventId === event.eventId) {
+        state.activeBusinessEvent = event;
+      }
+      setEventState("ARCHIVED", `${event.eventId} 已归档`);
       appendGlobalTimeline({ time: nowLabel(), title: "业务事件归档", detail: event.summary || event.closeReason });
       try {
         await archiveBusinessEvent(event);

@@ -2249,7 +2249,7 @@ def push_mic_pcm(
     sample_rate: int = Form(16000),
     preview_window_ms: int = Form(3000),
     vad_silence_ms: int = Form(900),
-    vad_rms_threshold: float = Form(350.0),
+    vad_rms_threshold: float = Form(180.0),
 ) -> Dict[str, object]:
     request_started = time.perf_counter()
     pcm_bytes = file.file.read()
@@ -2262,7 +2262,7 @@ def push_mic_pcm(
     # RMS gate would treat real speech as silence ("说话没反应"). We calibrate a
     # per-session noise floor and require speech to clearly exceed it.
     min_threshold = float(os.getenv("VHF_MIC_RMS_THRESHOLD", str(vad_rms_threshold)))
-    min_threshold = max(60.0, min(min_threshold, 350.0))
+    min_threshold = max(35.0, min(min_threshold, 260.0))
 
     with mic_lock:
         session = mic_sessions.get(session_id)
@@ -2304,8 +2304,8 @@ def push_mic_pcm(
         preview_due = (
             has_speech
             and not is_final
-            and utterance_ms >= max(1500, preview_window_ms)
-            and utterance_ms - last_preview_ms >= max(1500, preview_window_ms)
+            and utterance_ms >= max(1000, preview_window_ms)
+            and utterance_ms - last_preview_ms >= max(1000, preview_window_ms)
         )
         if not is_final and not preview_due:
             return {
