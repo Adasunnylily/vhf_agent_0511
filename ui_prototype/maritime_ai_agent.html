@@ -1889,6 +1889,38 @@
     }
     .event-summary-grid div.tech-only { display: none; }
     .event-operator-hint { padding: 9px 10px; border-radius: 12px; background: #f8fafc; border-color: #e3e8ef; }
+    .parallel-assessment-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .assessment-card {
+      display: grid;
+      gap: 5px;
+      padding: 9px 10px;
+      border: 1px solid #e3e8ef;
+      border-radius: 12px;
+      background: #fff;
+      min-width: 0;
+    }
+    .assessment-card small {
+      color: #66788a;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .assessment-card b {
+      color: #132238;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .assessment-card span {
+      color: #66788a;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .latency-strip[hidden] { display: none !important; }
     .command-center-body .pipeline {
       grid-template-columns: repeat(5, 1fr);
       align-items: stretch;
@@ -2010,6 +2042,17 @@
       transform: rotate(-24deg);
       pointer-events: none;
     }
+    .voice-map-card .voice-mini-map::after {
+      content: "AIS SIMULATION · 演示数据";
+      position: absolute;
+      right: 12px;
+      bottom: 10px;
+      color: rgba(22,119,255,.38);
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: .06em;
+      pointer-events: none;
+    }
     .voice-map-hint { color: #66788a; }
     .vmap-dot {
       width: 14px;
@@ -2115,7 +2158,7 @@
         <div class="runtime-title">
           <h1 id="pageTitle">海事VHF语音监测智能体</h1>
           <div class="global-duty-line" id="globalDutyLine">
-            <b>VHF 16频道</b><span>|</span><span>持续守听</span><span>|</span><span>AIS在线</span><span>|</span><span id="topRiskCount">0起高危事件</span><span>|</span><span id="topManualCount">0起待确认</span><span>|</span><span id="topClock">--:--:--</span>
+            <b>VHF 16频道</b><span>|</span><span>持续守听</span><span>|</span><span>AIS模拟场景已连接</span><span>|</span><span id="topRiskCount">0起高危事件</span><span>|</span><span id="topManualCount">0起待确认</span><span>|</span><span id="topClock">--:--:--</span>
           </div>
         </div>
         <div class="right">
@@ -2203,6 +2246,11 @@
                     <b>长音频模拟流式守听</b>
                   </div>
                   <button class="server-demo-btn" id="serverReplayBtn">长音频</button>
+                  <div class="stream-control-row">
+                    <button class="secondary" id="fireScenarioBtn" type="button">火灾险情</button>
+                    <button class="secondary" id="reportScenarioBtn" type="button">动态报告</button>
+                    <button class="secondary" id="shipCallScenarioBtn" type="button">船间无应答</button>
+                  </div>
                   <div class="source-divider">或选择本地音频（大文件需要先上传）</div>
                   <div class="source-file-row">
                     <input id="audioFile" type="file" accept="audio/*" />
@@ -2283,17 +2331,22 @@
               <div class="event-quote" id="currentEventText">系统持续监听中，等待有效甚高频业务语音。</div>
               <div class="event-summary-grid">
                 <div><span>事件ID</span><b id="activeEventIdText">暂无</b></div>
-                <div><span>业务类型</span><b id="activeEventIntent">待识别</b></div>
+                <div><span>通信关系</span><b id="activeCommunicationRelation">尚未识别</b></div>
+                <div><span>业务意图</span><b id="activeEventIntent">待识别</b></div>
+                <div><span>处置策略</span><b id="activeActionPolicy">持续监听</b></div>
                 <div><span>风险等级</span><b id="activeEventRisk">INFO</b></div>
                 <div><span>当前动作</span><b id="activeEventAction">等待</b></div>
                 <div class="tech-only"><span>话轮数</span><b id="activeEventUtterances">0</b></div>
               </div>
-              <div class="event-operator-hint"><span><b>值班提示：</b><span id="operatorNextStep">等待有效语音；系统会在识别后给出处置建议。</span></span><span id="operatorShipLink">船位未关联</span></div>
-              <div class="latency-strip" hidden>
-                <span>ASR <b id="currentAsrLatency">--</b></span>
-                <span>LLM分类 <b id="currentLlmLatency">--</b></span>
-                <span>总耗时 <b id="currentTotalLatency">--</b></span>
+              <div class="parallel-assessment-grid">
+                <div class="assessment-card"><small>风险研判</small><b id="parallelRiskTitle">未发现明显风险</b><span id="parallelRiskDetail">等待有效语音与AIS态势。</span></div>
+                <div class="assessment-card"><small>业务研判</small><b id="parallelBusinessTitle">持续监听</b><span id="parallelBusinessDetail">等待通信关系和事项类型。</span></div>
+                <div class="assessment-card"><small>对象关联</small><b id="parallelObjectTitle">待关联</b><span id="parallelObjectDetail">等待船名、位置和模拟AIS匹配。</span></div>
               </div>
+              <div class="event-operator-hint"><span><b>值班提示：</b><span id="operatorNextStep">等待有效语音；系统会在识别后给出处置建议。</span></span><span id="operatorShipLink">船位未关联</span></div>
+              <span id="currentAsrLatency" hidden>--</span>
+              <span id="currentLlmLatency" hidden>--</span>
+              <span id="currentTotalLatency" hidden>--</span>
             </div>
 
             <div class="pipeline" id="dispositionPipeline">
@@ -2368,10 +2421,10 @@
         </section>
 
         <section class="panel agent-action-panel">
-          <div class="panel-head"><h2>海图态势与处置</h2><span class="pill">AIS</span></div>
+          <div class="panel-head"><h2>海图态势与处置</h2><span class="pill">模拟AIS</span></div>
           <div class="agent-panel-body situation-body">
             <div class="action-card voice-map-card">
-              <div class="stream-head"><h3>船舶位置态势</h3><span class="pill" id="voiceMapStatus">等待识别船舶</span></div>
+              <div class="stream-head"><h3>模拟AIS船舶态势</h3><span class="pill" id="voiceMapStatus">等待识别船舶</span></div>
               <div class="voice-mini-map" id="voiceMiniMap"></div>
               <div class="situation-summary">
                 <div><span>AIS关联</span><b id="situationAisStatus">未可靠关联</b></div>
@@ -2398,7 +2451,7 @@
         <section class="panel agent-timeline-panel event-queue-panel">
           <div class="panel-head"><h2>事件队列与历史记录</h2><span class="pill">高危优先</span></div>
           <div class="event-table-wrap">
-            <table class="event-queue-table"><thead><tr><th>时间</th><th>船名</th><th>事件类型</th><th>风险等级</th><th>当前状态</th><th>处置动作</th><th>ASR耗时</th><th>LLM耗时</th><th>总耗时</th></tr></thead><tbody id="eventQueueBody"><tr><td colspan="9">暂无事件，系统持续监听中</td></tr></tbody></table>
+            <table class="event-queue-table"><thead><tr><th>时间</th><th>事件名称</th><th>通信关系</th><th>业务意图</th><th>风险等级</th><th>处置策略</th><th>当前状态</th><th>AIS模式</th><th>总耗时</th></tr></thead><tbody id="eventQueueBody"><tr><td colspan="9">暂无事件，系统持续监听中</td></tr></tbody></table>
           </div>
           <div class="compat-runtime-nodes" aria-hidden="true">
             <div class="classification-streams"><div class="classification-stream" id="streamEmergency"><b>高危告警</b><strong id="riskLabel">否</strong></div><div class="classification-stream" id="streamAutoReply"><b>自动回复</b><strong id="autoLabel">待定</strong></div><div class="classification-stream" id="streamHumanReview"><b>人工复核</b><strong id="manualLabel">待命</strong></div><div class="classification-stream" id="streamMonitoring"><b>持续监听</b><strong id="monitorLabel">开启</strong></div></div>
@@ -2629,6 +2682,79 @@
       { ship_id: "mock_003", ship_name: "中国银川", mmsi: "413220003", ship_type: "杂货船", draft_m: 13.1, tonnage_t: 12500, sog_kn: 5.7, lng: 121.955688, lat: 29.996135, position_label: "金塘水道南口" },
       { ship_id: "mock_004", ship_name: "新平082", mmsi: "413220004", ship_type: "油船", draft_m: 9.0, tonnage_t: 10100, sog_kn: 7.5, lng: 121.889045, lat: 29.973402, position_label: "北仑港外航道" },
     ];
+    const COMMUNICATION_RELATION = {
+      VESSEL_TO_VTS: "vessel_to_vts",
+      VTS_TO_VESSEL: "vts_to_vessel",
+      VESSEL_TO_VESSEL: "vessel_to_vessel",
+      UNKNOWN: "unknown",
+    };
+    const BUSINESS_INTENT = {
+      DYNAMIC_REPORT: "dynamic_report",
+      OPERATION_APPLICATION: "operation_application",
+      EMERGENCY_REPORT: "emergency_report",
+      VESSEL_COORDINATION: "vessel_coordination",
+      COMMAND_ACK: "command_ack",
+      INFORMATION_QUERY: "information_query",
+      OTHER: "other",
+    };
+    const ACTION_POLICY = {
+      AUTO_REPLY: "auto_reply",
+      HUMAN_APPROVAL: "human_approval",
+      MONITOR_ONLY: "monitor_only",
+      RISK_INTERVENTION: "risk_intervention",
+      REQUEST_CLARIFICATION: "request_clarification",
+    };
+    const RISK_LEVEL = {
+      L1: "critical",
+      L2: "high",
+      L3: "medium",
+      L4: "low",
+      NONE: "none",
+    };
+    const AIS_SOURCE_MODE = {
+      SIMULATION: "simulation",
+      REPLAY: "replay",
+      LIVE: "live",
+    };
+    const DIGITAL_DUTY_LABELS = {
+      relation: {
+        vessel_to_vts: "船舶→交管",
+        vts_to_vessel: "交管→船舶",
+        vessel_to_vessel: "船舶↔船舶",
+        unknown: "尚未识别",
+      },
+      intent: {
+        dynamic_report: "航行动态报告",
+        operation_application: "作业/航行申请",
+        emergency_report: "险情报警",
+        vessel_coordination: "船间协调",
+        command_ack: "指令复诵确认",
+        information_query: "信息咨询",
+        other: "其他业务",
+      },
+      policy: {
+        auto_reply: "标准自动回复",
+        human_approval: "等待人工审批",
+        monitor_only: "持续监听",
+        risk_intervention: "风险干预",
+        request_clarification: "请求补充信息",
+      },
+      risk: {
+        L1: "L1最高风险",
+        L2: "L2高风险",
+        L3: "L3中风险",
+        L4: "L4低风险",
+        NONE: "未发现明显风险",
+        INFO: "未发现明显风险",
+        AUTO: "未发现明显风险",
+        MANUAL: "需人工确认",
+      },
+      ais: {
+        simulation: "模拟AIS",
+        replay: "AIS回放",
+        live: "实时AIS",
+      },
+    };
     function computeDefaultApiBase() {
       const query = new URLSearchParams(location.search).get("api") || "";
       if (query.trim()) return query.trim().replace(/\/+$/, "");
@@ -2818,18 +2944,22 @@
       return bucket;
     }
     function createActionFromPolicy(event) {
-      const risk = Number(event?.risk_score ?? 0);
-      const intent = event?.intent || event?.business_type || "other_business";
-      if (risk >= 0.85 || intent === "emergency_risk") {
-        return { action: "高危处置", trigger: "高危或遇险", status: "执行中", confidence: risk.toFixed(2), time: nowLabel(), suggested_action: "广播 + 人工接管" };
+      const risk = Number(event?.risk_score ?? event?.riskScore ?? 0);
+      const pseudoEvent = event?.utterances ? event : { intent: event?.intent || event?.business_type, business_type: event?.business_type, riskLevel: event?.risk_level, riskScore: risk, summary: event?.summary || event?.asr_text || "" };
+      const view = normalizeDigitalDutyEvent(pseudoEvent);
+      if (view.actionPolicy === ACTION_POLICY.RISK_INTERVENTION) {
+        return { action: "风险干预", trigger: "高危或异常态势", status: "等待人工确认", confidence: view.riskAssessment.riskScore.toFixed(2), time: nowLabel(), suggested_action: "人工接管 + 周边点验 + 同频广播" };
       }
-      if (risk >= 0.4 && risk < 0.85) {
-        return { action: "辅助研判", trigger: "中风险", status: "待执行", confidence: risk.toFixed(2), time: nowLabel(), suggested_action: "人工确认后播报" };
+      if (view.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL) {
+        return { action: "人工审批", trigger: "作业/航行申请", status: "等待审批", confidence: view.riskAssessment.confidence.toFixed(2), time: nowLabel(), suggested_action: "核验规则后批准/驳回" };
       }
-      if (event?.auto_reply_allowed || event?.is_auto_reply || intent === "routine_report") {
-        return { action: "自动回复", trigger: "常规业务", status: "已完成", confidence: risk.toFixed(2) || "0.32", time: nowLabel(), suggested_action: "标准 VTS 回复" };
+      if (view.actionPolicy === ACTION_POLICY.AUTO_REPLY) {
+        return { action: "标准自动回复", trigger: "航行动态报告", status: "待自动播报", confidence: view.riskAssessment.confidence.toFixed(2), time: nowLabel(), suggested_action: "匹配标准VTS回复模板" };
       }
-      return { action: "仅归档", trigger: "持续监听", status: "已完成", confidence: risk.toFixed(2) || "0.18", time: nowLabel(), suggested_action: "进入事件中心" };
+      if (view.actionPolicy === ACTION_POLICY.REQUEST_CLARIFICATION) {
+        return { action: "请求补充信息", trigger: "动态报告信息不完整", status: "待人工确认", confidence: view.riskAssessment.confidence.toFixed(2), time: nowLabel(), suggested_action: "请船方补充船位/动态/计划" };
+      }
+      return { action: "持续监听", trigger: "船间通信或其他业务", status: "记录中", confidence: view.riskAssessment.confidence.toFixed(2), time: nowLabel(), suggested_action: "异常后提示值班员介入" };
     }
     function appendGlobalTimeline(item) {
       if (!item) return;
@@ -2863,6 +2993,7 @@
       const matchName = matched?.ship_name || "";
       const ctx = event?.inspectionContext || {};
       const isHighRisk = Boolean(event) && eventRiskTier(event).key === "emergency";
+      const dutyView = event ? normalizeDigitalDutyEvent(event) : null;
       const nearbyNames = new Set((ctx.matched_ships || []).map((s) => s?.ship_name).filter(Boolean));
       const inspectedNames = new Set((ctx.inspected_ships || []).map((s) => s?.ship_name).filter(Boolean));
       const centerName = ships.some((ship) => ship.ship_name === ctx.center_ship?.ship_name)
@@ -2905,8 +3036,8 @@
 
       if ($("voiceMapStatus")) {
         $("voiceMapStatus").textContent = matchName
-          ? `已高亮：${matchName}${isHighRisk ? ` · 点验半径 ${Number(ctx.radius_m || 3000)}m` : ""}`
-          : (event?.shipCandidate ? "未知船名，待人工确认" : (ships.length ? `${ships.length} 艘在港船舶` : "等待识别船舶"));
+          ? `模拟AIS关联：${matchName}${isHighRisk ? ` · 点验半径 ${Number(ctx.radius_m || 3000)}m` : ""}`
+          : (event?.shipCandidate ? "未知船名，待人工确认" : (ships.length ? `模拟场景共${ships.length}艘船舶` : "等待识别船舶"));
       }
       if ($("mapFocusShip")) $("mapFocusShip").textContent = matchName || "未可靠关联";
       if ($("mapFocusArea")) $("mapFocusArea").textContent = matched?.position_label || "待确认";
@@ -2916,10 +3047,10 @@
           ? `已通过受控船名库关联 ${matchName}，地图位置来自当前模拟 AIS 数据。`
           : `未收到可靠 AIS 关联${event?.shipCandidate ? `；ASR疑似船名“${event.shipCandidate}”仅供人工复核` : ""}，不生成虚假位置。`;
       }
-      if ($("situationAisStatus")) $("situationAisStatus").textContent = matchName ? `关联成功：${matchName}` : "未可靠关联";
-      if ($("situationNearbyCount")) $("situationNearbyCount").textContent = isHighRisk ? `${nearbyNames.size || 0} 艘待点验` : `${ships.length} 艘模拟船`;
-      if ($("situationSuggestedAction")) $("situationSuggestedAction").textContent = isHighRisk ? "立即点验并广播" : (matchName ? "持续关注该船" : "等待人工确认船名");
-      if ($("situationReviewStatus")) $("situationReviewStatus").textContent = isHighRisk ? "高危待闭环" : (event ? "事件处理中" : "待事件输入");
+      if ($("situationAisStatus")) $("situationAisStatus").textContent = matchName ? `模拟AIS关联成功：${matchName}` : "未可靠关联";
+      if ($("situationNearbyCount")) $("situationNearbyCount").textContent = isHighRisk ? `${nearbyNames.size || 0} 艘空间点验对象` : `模拟场景共${ships.length}艘`;
+      if ($("situationSuggestedAction")) $("situationSuggestedAction").textContent = dutyView ? DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy] : "持续监听";
+      if ($("situationReviewStatus")) $("situationReviewStatus").textContent = isHighRisk ? "风险干预待确认" : (event ? getEventStatusLabel(event) : "待事件输入");
       if ($("nearbyVesselList")) {
         const nearby = (ctx.matched_ships?.length ? ctx.matched_ships : ships.filter((ship) => ship.ship_name !== matchName).slice(0, 4))
           .filter((ship) => ship?.ship_name)
@@ -2931,8 +3062,9 @@
               ? `${Math.max(.1, Number(ship.distance_m) / 1852).toFixed(1)}海里`
               : `${(0.7 + index * 0.4).toFixed(1)}海里`;
           const bearing = ship.relative_bearing || ["西南", "西侧", "东北", "南侧", "东南"][index % 5];
-          const status = inspectedNames.has(ship.ship_name) || state.selectedShipIds.has(ship.ship_id) ? "已点验" : "待确认";
-          return `<div class="nearby-vessel-row" data-ship-name="${escapeHtml(ship.ship_name)}"><b>${escapeHtml(ship.ship_name)}</b><span>${distance} · ${bearing}</span><span class="${status === "已点验" ? "done" : ""}">${status}</span></div>`;
+          const inspected = inspectedNames.has(ship.ship_name) || state.selectedShipIds.has(ship.ship_id);
+          const status = inspected ? "空间点验已确认 · VHF未呼叫 · 应答未知" : "空间点验待确认 · VHF未呼叫 · 应答未知";
+          return `<div class="nearby-vessel-row" data-ship-name="${escapeHtml(ship.ship_name)}"><b>${escapeHtml(ship.ship_name)}</b><span>${distance} · ${bearing}</span><span class="${inspected ? "done" : ""}">${status}</span></div>`;
         }).join("") : '<div class="nearby-vessel-row"><b>暂无周边船舶</b><span>等待点验范围</span><span>--</span></div>';
         document.querySelectorAll("#nearbyVesselList [data-ship-name]").forEach((row) => {
           row.addEventListener("click", () => selectAgentShip(row.dataset.shipName || ""));
@@ -2940,16 +3072,22 @@
       }
     }
     function eventRiskTier(event) {
-      const level = String(event?.riskLevel || event?.risk_level || "").toUpperCase();
-      const intent = event?.intent || event?.business_type || "";
-      if (["L1", "L2", "L3"].includes(level) || intent === "emergency" || intent === "emergency_risk") {
-        return { key: "emergency", label: "高危险情", riskText: "高风险", cls: "risk", action: "高危处置：广播 + 人工接管" };
+      const view = event ? normalizeDigitalDutyEvent(event) : null;
+      const level = String(view?.riskAssessment?.riskLevel || event?.riskLevel || event?.risk_level || "").toUpperCase();
+      if (level === "L1") {
+        return { key: "emergency", label: "险情报警", riskText: "L1最高风险", cls: "risk", action: "风险干预：人工接管 + 周边点验 + 同频广播" };
       }
-      if (level === "MANUAL" || intent === "human_approval" || intent === "departure_request") {
-        return { key: "manual", label: "审批事件", riskText: "中风险", cls: "active", action: "人工复核后回复" };
+      if (["L2", "L3"].includes(level) || view?.actionPolicy === ACTION_POLICY.RISK_INTERVENTION) {
+        return { key: "emergency", label: "风险干预", riskText: DIGITAL_DUTY_LABELS.risk[level] || "中高风险", cls: "risk", action: "风险干预：提示值班员介入" };
       }
-      if (level === "AUTO" || intent === "auto_reply" || intent === "routine_report") {
-        return { key: "auto", label: "普通回复", riskText: "低风险", cls: "done", action: "标准 VTS 回复（待确认播报）" };
+      if (view?.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL) {
+        return { key: "manual", label: "业务申请", riskText: "需人工审批", cls: "active", action: "人工审批后TTS回复" };
+      }
+      if (view?.actionPolicy === ACTION_POLICY.AUTO_REPLY) {
+        return { key: "auto", label: "航行动态报告", riskText: "未发现明显风险", cls: "done", action: "标准自动回复 + 自动归档" };
+      }
+      if (view?.actionPolicy === ACTION_POLICY.REQUEST_CLARIFICATION) {
+        return { key: "manual", label: "动态报告待核验", riskText: "信息待补充", cls: "active", action: "请求补充信息" };
       }
       return { key: "monitor", label: "持续监听", riskText: "一般", cls: "active", action: "持续监听并归档" };
     }
@@ -2980,52 +3118,48 @@
       if (!event) return eventStateLabel(state.eventState);
       if (isClosedLoop(event)) return "闭环完成";
       if (isArchived(event)) return "已归档";
+      const view = normalizeDigitalDutyEvent(event);
+      if (view.status === "auto_reply_pending") return "待自动回复";
+      if (view.status === "human_approval") return "等待人工审批";
+      if (view.status === "awaiting_confirmation") return "等待人工确认";
+      if (view.status === "monitoring") return "持续监听";
       if (event.actions?.some((item) => /待审批|待接管|待人工|等待人工/.test(`${item.status || ""}${item.action || ""}`))) return "等待人工确认";
       if (event.actions?.length) return "处置中";
       if (event.riskLevel) return "已完成风险分类";
       return "已检测";
     }
     function getRiskTheme(event) {
+      const view = event ? normalizeDigitalDutyEvent(event) : null;
       const tier = eventRiskTier(event);
       return {
         ...tier,
-        score: Number(event?.riskScore || 0),
-        scoreText: Number(event?.riskScore || 0).toFixed(2),
+        score: Number(view?.riskAssessment?.riskScore || event?.riskScore || 0),
+        scoreText: Number(view?.riskAssessment?.riskScore || event?.riskScore || 0).toFixed(2),
       };
     }
     function getRiskEvidence(event, matched) {
       if (!event) return ["系统持续监听，等待有效业务语音。"];
-      const text = [event.rawText, event.summary, event.resolvedText].filter(Boolean).join(" ");
-      const evidence = [];
-      const terms = ["严重火灾", "火势已经失控", "火势失控", "生活区蔓延", "紧急救援", "Mayday", "求救", "着火", "冒烟", "进水", "碰撞", "失控", "失仓", "搁浅", "人员落水", "落水"];
-      terms.filter((term) => text.toLowerCase().includes(term.toLowerCase())).slice(0, 4).forEach((term) => {
-        evidence.push(`VHF语音：检测到“${term}”`);
-      });
-      if (event.intent === "human_approval" || /申请|离泊|起锚|开航|解缆|穿越/.test(text)) {
-        evidence.push("业务规则：涉及由静到动或关键航行申请，需人工确认");
-      }
-      if (event.intent === "auto_reply" || /靠妥|抛锚|抛妥|报告|不抛锚|直接进去/.test(text)) {
-        evidence.push("业务规则：常规报告类业务，可复核后标准回复");
-      }
-      evidence.push(matched ? `AIS动态：已可靠关联目标船“${matched.ship_name}”` : "AIS动态：未可靠关联目标船，需人工确认船名");
-      const nearbyCount = Number(event.inspectionContext?.matched_count || event.inspectionContext?.matched_ships?.length || 0);
-      if (nearbyCount) evidence.push(`AIS动态：周边3000米内存在 ${nearbyCount} 艘需点验船舶`);
+      const view = normalizeDigitalDutyEvent(event);
+      const evidence = [...view.riskAssessment.evidence, ...view.businessEvidence];
       if (event.closeReason) evidence.push(`事件边界：${event.closeReason}`);
-      return evidence.slice(0, 6);
+      return evidence.slice(0, 8);
     }
     function buildBroadcastDraft(event, matched) {
       if (!event) return "等待生成回复内容";
-      const ship = matched?.ship_name || event.shipName || event.shipCandidate || "相关船舶";
-      const area = matched?.position_label || event.aisContext?.position_label || "当前水域";
-      const tier = eventRiskTier(event);
-      if (tier.key === "emergency") {
+      const view = normalizeDigitalDutyEvent(event);
+      const ship = matched?.ship_name || view.targetVessel.name || "相关船舶";
+      const area = matched?.position_label || view.location || "当前水域";
+      if (view.actionPolicy === ACTION_POLICY.RISK_INTERVENTION) {
         return `各船注意，各船注意，${ship}于${area}发生高危险情，周边船舶请立即减速避让，保持安全距离，加强瞭望，保持VHF 16频道守听，并服从交管指挥。`;
       }
-      if (tier.key === "manual") {
+      if (view.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL) {
         return `${ship}，你的申请已收到，请保持VHF 16频道守听，等待交管确认。`;
       }
-      if (tier.key === "auto") {
-        return `${ship}，收到，请保持VHF 16频道守听，注意航道通航安全。`;
+      if (view.actionPolicy === ACTION_POLICY.AUTO_REPLY) {
+        return `${ship}，宁波交管收到。请按计划航行，加强瞭望，保持VHF 16频道守听。`;
+      }
+      if (view.actionPolicy === ACTION_POLICY.REQUEST_CLARIFICATION) {
+        return `${ship}，请补充报告船位、动态事项和下一步计划，保持VHF 16频道守听。`;
       }
       return "当前事件仅记录监听，暂不生成主动广播。";
     }
@@ -3057,22 +3191,36 @@
 
       const tier = eventRiskTier(event);
       const matched = trustedAisShip(event);
+      const view = normalizeDigitalDutyEvent(event);
       set("pipeVoiceMain", draft ? "已转写" : "监听中");
       set("pipeVoiceSub", draft ? draft.slice(0, 40) : `已接收 ${event.utterances?.length || 0} 个话轮`);
       setCls("pipeStage1", draft ? "done" : "active");
 
-      set("pipeRiskMain", tier.label);
-      set("pipeRiskSub", `风险等级 ${event.riskLevel || "INFO"} · 评分 ${Number(event.riskScore || 0).toFixed(2)}`);
-      setCls("pipeStage2", event.riskLevel ? (tier.key === "emergency" ? "risk" : "done") : "active");
+      if (view.actionPolicy === ACTION_POLICY.AUTO_REPLY) {
+        set("pipeRiskMain", "业务识别");
+        set("pipeRiskSub", "航行动态报告 · 安全门核验");
+      } else if (view.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL) {
+        set("pipeRiskMain", "业务识别");
+        set("pipeRiskSub", "作业/航行申请 · 等待审批");
+      } else if (view.businessIntent === BUSINESS_INTENT.VESSEL_COORDINATION) {
+        set("pipeRiskMain", "通信监听");
+        set("pipeRiskSub", "船间协调 · 检查异常通信");
+      } else {
+        set("pipeRiskMain", tier.label);
+        set("pipeRiskSub", `${view.riskAssessment.riskLevel} · 评分 ${view.riskAssessment.riskScore.toFixed(2)}`);
+      }
+      setCls("pipeStage2", view.actionPolicy === ACTION_POLICY.RISK_INTERVENTION ? "risk" : "done");
 
-      set("pipeAisMain", matched ? "已关联" : "待人工确认");
+      set("pipeAisMain", matched ? "模拟AIS已关联" : "待人工确认");
       set("pipeAisSub", matched ? matched.ship_name : (event.shipCandidate ? `疑似 ${event.shipCandidate}` : "未识别可靠船名"));
       setCls("pipeStage3", matched ? "done" : "active");
 
       const latestAction = event.actions?.at(-1);
-      set("pipeActionMain", latestAction?.action || tier.action.split("：")[0]);
-      set("pipeActionSub", latestAction ? `${latestAction.status || "待处理"} · ${latestAction.suggested_action || tier.action}` : tier.action);
-      setCls("pipeStage4", tier.key === "emergency" ? "risk" : (latestAction ? "active" : ""));
+      const actionMain = latestAction?.action || DIGITAL_DUTY_LABELS.policy[view.actionPolicy];
+      const actionSub = latestAction ? `${latestAction.status || "待处理"} · ${latestAction.suggested_action || tier.action}` : tier.action;
+      set("pipeActionMain", actionMain);
+      set("pipeActionSub", actionSub);
+      setCls("pipeStage4", view.actionPolicy === ACTION_POLICY.RISK_INTERVENTION ? "risk" : (view.actionPolicy === ACTION_POLICY.AUTO_REPLY ? "done" : "active"));
 
       set("pipeArchiveMain", closedLoop ? "闭环完成" : archived ? "已归档" : "待归档");
       set("pipeArchiveSub", closedLoop ? "广播/人工处置完成并归档" : archived ? "已记录，等待处置闭环确认" : "处置完成后保存上报");
@@ -3229,6 +3377,162 @@
       const candidate = event?.aisContext?.ship_name || event?.matchedShip || "";
       if (!candidate) return null;
       return ships.find((ship) => ship.ship_name === candidate) || null;
+    }
+    function eventTranscriptText(event) {
+      return [
+        event?.rawText,
+        event?.normalizedTranscript,
+        event?.resolvedText,
+        event?.summary,
+        ...(event?.utterances || []).map((item) => item?.text || ""),
+      ].filter(Boolean).join(" ");
+    }
+    function inferCommunicationRelation(text = "") {
+      const knownHits = knownShipNames().filter((name) => name && text.includes(name));
+      if (knownHits.length >= 2 && !/交管|VTS|中心|岸台/.test(text)) return COMMUNICATION_RELATION.VESSEL_TO_VESSEL;
+      if (/请讲|收到|注意安全|再会|保持守听/.test(text) && !/我是|我船|向您|申请|报告/.test(text)) return COMMUNICATION_RELATION.VTS_TO_VESSEL;
+      if (/交管|VTS|中心|向您|向你|申请|报告|我是|我船/.test(text)) return COMMUNICATION_RELATION.VESSEL_TO_VTS;
+      if (knownHits.length >= 2) return COMMUNICATION_RELATION.VESSEL_TO_VESSEL;
+      return COMMUNICATION_RELATION.UNKNOWN;
+    }
+    function inferBusinessIntent(text = "", legacyIntent = "") {
+      if (detectEarlyRisk(text).isHighRisk || legacyIntent === "emergency" || legacyIntent === "emergency_risk") return BUSINESS_INTENT.EMERGENCY_REPORT;
+      if (/申请|准备|离泊|起锚|开航|解缆|穿越申请|掉头申请/.test(text) || legacyIntent === "human_approval" || legacyIntent === "departure_request") return BUSINESS_INTENT.OPERATION_APPLICATION;
+      if (/已到达|靠妥|靠泊.*报告|抛妥|抛锚完毕|向您报告|向你报告|报告完毕|船舶动态|不抛锚了|直接进去|作业完毕/.test(text) || legacyIntent === "auto_reply" || legacyIntent === "routine_report") return BUSINESS_INTENT.DYNAMIC_REPORT;
+      if (/请问你船|你船|我船.*你船|避让|加车|减速|让清|叫/.test(text) && !/交管/.test(text)) return BUSINESS_INTENT.VESSEL_COORDINATION;
+      if (/收到|好的|明白|复诵|再会/.test(text)) return BUSINESS_INTENT.COMMAND_ACK;
+      if (/问一下|请问|什么动态|哪里去/.test(text)) return BUSINESS_INTENT.INFORMATION_QUERY;
+      return BUSINESS_INTENT.OTHER;
+    }
+    function inferOperationType(text = "", businessIntent = BUSINESS_INTENT.OTHER) {
+      if (/火灾|着火|冒烟/.test(text)) return "船舶火灾";
+      if (/进水/.test(text)) return "船舶进水";
+      if (/碰撞/.test(text)) return "碰撞险情";
+      if (/走锚|锚走|拖锚/.test(text)) return "疑似走锚";
+      if (/抢越船首|穿越船首/.test(text)) return "抢越船首";
+      if (/靠妥|靠泊|码头/.test(text) && businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT) return "靠泊动态报告";
+      if (/抛妥|抛锚完毕/.test(text)) return "锚泊动态报告";
+      if (/离泊|开航|解缆/.test(text)) return "离泊/开航申请";
+      if (/穿越/.test(text)) return "穿越申请/报告";
+      if (businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT) return "航行动态报告";
+      if (businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION) return "作业/航行申请";
+      if (businessIntent === BUSINESS_INTENT.VESSEL_COORDINATION) return "船间协调";
+      return "甚高频监听事件";
+    }
+    function detectRiskTags(text = "") {
+      const emergencyTypes = [];
+      const vesselAbnormalities = [];
+      const unsafeBehaviors = [];
+      const acousticAnomalies = [];
+      const communicationAnomalies = [];
+      if (/火灾|着火|冒烟/.test(text)) emergencyTypes.push("船舶火灾");
+      if (/爆炸/.test(text)) emergencyTypes.push("爆炸");
+      if (/碰撞/.test(text)) emergencyTypes.push("碰撞");
+      if (/搁浅/.test(text)) emergencyTypes.push("搁浅");
+      if (/进水/.test(text)) emergencyTypes.push("进水");
+      if (/失控/.test(text)) emergencyTypes.push("失控");
+      if (/落水|人员落水/.test(text)) emergencyTypes.push("人员落水");
+      if (/求救|救援|Mayday/i.test(text)) emergencyTypes.push("求救请求");
+      if (/走锚|拖锚|锚走/.test(text)) vesselAbnormalities.push("走锚");
+      if (/机器故障|主机故障|舵机故障/.test(text)) vesselAbnormalities.push("设备故障");
+      if (/异常航速|速度异常|加车|减速/.test(text)) vesselAbnormalities.push("航速异常待核验");
+      if (/抢越船首|穿越船首/.test(text)) unsafeBehaviors.push("抢越船首");
+      if (/追越/.test(text)) unsafeBehaviors.push("不当追越待核验");
+      if (/逆行/.test(text)) unsafeBehaviors.push("逆向航行");
+      if (/急|快|赶紧|失控|救援/.test(text)) acousticAnomalies.push("疑似紧张/急促");
+      if (/呼叫.*呼叫|请回答|没有回答|无应答/.test(text)) communicationAnomalies.push("呼叫无应答");
+      if (/(.+?)\\1/.test(text)) communicationAnomalies.push("重复呼叫待核验");
+      return { emergencyTypes, vesselAbnormalities, unsafeBehaviors, acousticAnomalies, communicationAnomalies };
+    }
+    function normalizeDigitalDutyEvent(event) {
+      const text = eventTranscriptText(event);
+      const matched = trustedAisShip(event);
+      const legacyIntent = event?.intent || event?.business_type || "";
+      const businessIntent = event?.businessIntent || inferBusinessIntent(text, legacyIntent);
+      const communicationRelation = event?.communicationRelation || inferCommunicationRelation(text);
+      const operationType = event?.operationType || inferOperationType(text, businessIntent);
+      const tags = detectRiskTags(text);
+      const hasEmergency = tags.emergencyTypes.length > 0 || businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT;
+      const hasUnsafe = tags.vesselAbnormalities.length > 0 || tags.unsafeBehaviors.length > 0 || tags.communicationAnomalies.length > 0;
+      const riskLevel = hasEmergency ? "L1" : hasUnsafe ? "L3" : (event?.riskLevel === "MANUAL" ? "L4" : "NONE");
+      const riskScore = hasEmergency ? Math.max(Number(event?.riskScore || 0), 0.92) : Math.max(Number(event?.riskScore || 0), hasUnsafe ? 0.55 : 0.08);
+      const requiredSlotsComplete = Boolean((matched || event?.shipName || event?.shipCandidate) && (matched?.position_label || /水道|港|码头|锚地|航道|泊位|报告线/.test(text)));
+      const replyTemplateMatched = businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT;
+      const canAutoReply = (
+        communicationRelation === COMMUNICATION_RELATION.VESSEL_TO_VTS &&
+        businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT &&
+        riskLevel === "NONE" &&
+        requiredSlotsComplete &&
+        replyTemplateMatched
+      );
+      let actionPolicy = ACTION_POLICY.MONITOR_ONLY;
+      if (riskLevel === "L1" || riskLevel === "L2" || businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT) actionPolicy = ACTION_POLICY.RISK_INTERVENTION;
+      else if (businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION) actionPolicy = ACTION_POLICY.HUMAN_APPROVAL;
+      else if (canAutoReply) actionPolicy = ACTION_POLICY.AUTO_REPLY;
+      else if (businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT) actionPolicy = ACTION_POLICY.REQUEST_CLARIFICATION;
+      const shipName = matched?.ship_name || event?.shipName || event?.shipCandidate || "未知船舶";
+      const location = matched?.position_label || event?.location || event?.aisContext?.position_label || "位置待核验";
+      const eventTitlePrefix = riskLevel === "L1" ? "L1" : actionPolicy === ACTION_POLICY.AUTO_REPLY ? "常规" : actionPolicy === ACTION_POLICY.HUMAN_APPROVAL ? "审批" : actionPolicy === ACTION_POLICY.RISK_INTERVENTION ? "风险" : "监听";
+      const eventTitle = event?.eventTitle || `${eventTitlePrefix} ${shipName}｜${location}｜${operationType}`;
+      const displayTitle = event?.displayTitle || `${shipName}${operationType}`;
+      const status = event?.status === "ARCHIVED" ? "archiving" : event?.status === "EVENT_CLOSED" ? "archiving" : actionPolicy === ACTION_POLICY.AUTO_REPLY ? "auto_reply_pending" : actionPolicy === ACTION_POLICY.HUMAN_APPROVAL ? "human_approval" : actionPolicy === ACTION_POLICY.RISK_INTERVENTION ? "awaiting_confirmation" : "monitoring";
+      const nearbyCount = Number(event?.inspectionContext?.matched_count || event?.inspectionContext?.matched_ships?.length || 0);
+      const riskEvidence = [
+        ...tags.emergencyTypes.map((item) => `VHF语义：${item}`),
+        ...tags.vesselAbnormalities.map((item) => `船舶状态异常：${item}`),
+        ...tags.unsafeBehaviors.map((item) => `不安全航行行为：${item}`),
+        ...tags.acousticAnomalies.map((item) => `声学异常：${item}`),
+        ...tags.communicationAnomalies.map((item) => `通信行为异常：${item}`),
+        matched ? `模拟AIS：关联目标船 ${matched.ship_name}` : "对象关联：未可靠关联目标船",
+        nearbyCount ? `模拟AIS：点验范围内 ${nearbyCount} 艘周边船` : "模拟AIS：等待周边点验",
+      ];
+      const businessEvidence = [
+        `通信关系：${DIGITAL_DUTY_LABELS.relation[communicationRelation]}`,
+        `业务意图：${DIGITAL_DUTY_LABELS.intent[businessIntent]}`,
+        `事项类型：${operationType}`,
+        canAutoReply ? "自动回复安全门：已满足" : actionPolicy === ACTION_POLICY.REQUEST_CLARIFICATION ? "自动回复安全门：信息或船位待补充" : `处置策略：${DIGITAL_DUTY_LABELS.policy[actionPolicy]}`,
+      ];
+      return {
+        eventId: event?.eventId || "",
+        eventTitle,
+        displayTitle,
+        eventSubtitle: `${location} · ${DIGITAL_DUTY_LABELS.risk[riskLevel] || riskLevel} · ${DIGITAL_DUTY_LABELS.policy[actionPolicy]}`,
+        communicationRelation,
+        businessIntent,
+        operationType,
+        actionPolicy,
+        riskAssessment: {
+          signalSources: ["VHF语义", "业务规则", "模拟AIS"],
+          emergencyTypes: tags.emergencyTypes,
+          vesselAbnormalities: tags.vesselAbnormalities,
+          unsafeBehaviors: tags.unsafeBehaviors,
+          acousticAnomalies: tags.acousticAnomalies,
+          communicationAnomalies: tags.communicationAnomalies,
+          navigationSituation: hasEmergency ? "事故已发生" : hasUnsafe ? "潜在冲突" : "正常态势",
+          riskLevel,
+          riskScore,
+          confidence: Math.max(Number(event?.confidence || 0), hasEmergency ? 0.92 : canAutoReply ? 0.86 : 0.72),
+          evidence: riskEvidence,
+        },
+        targetVessel: { name: shipName, matched, associationStatus: matched ? "confirmed" : "pending" },
+        location,
+        aisAssociation: {
+          sourceMode: AIS_SOURCE_MODE.SIMULATION,
+          sourceName: "金塘水道演示场景",
+          connectionStatus: "connected",
+          isLive: false,
+          matched: Boolean(matched),
+          vesselCount: (state.ships.length ? state.ships : fallbackShips).length,
+        },
+        rawTranscript: text,
+        normalizedTranscript: event?.resolvedText || text,
+        eventSummary: text || event?.summary || "系统持续监听中，等待有效甚高频业务语音。",
+        status,
+        canAutoReply,
+        requiredSlotsComplete,
+        replyTemplateMatched,
+        businessEvidence,
+      };
     }
     function displayBusinessEvent() {
       if (state.selectedBusinessEventId) {
@@ -3724,6 +4028,7 @@
       const latestAction = event?.actions?.at(-1);
       const matched = trustedAisShip(event);
       const candidate = event?.shipCandidate || "";
+      const dutyView = event ? normalizeDigitalDutyEvent(event) : null;
       const tier = eventRiskTier(event);
       const riskTheme = getRiskTheme(event);
       const latestUtterance = event?.utterances?.at(-1);
@@ -3733,29 +4038,36 @@
       const totalMs = Number(timings.server_total_ms || timings.recognition_total_ms || 0);
       if ($("businessEventState")) $("businessEventState").textContent = event ? getEventStatusLabel(event) : eventStateLabel(state.eventState);
       $("activeEventIdText").textContent = event?.eventId || "暂无";
-      $("activeEventShip").textContent = matched?.ship_name || (candidate ? `${candidate}（待确认）` : "待确认船舶");
-      $("activeEventIntent").textContent = event ? readableEventIntent(event) : "待识别";
-      $("activeEventRisk").textContent = event ? `${riskTheme.riskText} · ${event.riskLevel || "INFO"}` : "INFO";
+      $("activeEventShip").textContent = dutyView?.displayTitle || "待确认船舶";
+      if ($("activeCommunicationRelation")) $("activeCommunicationRelation").textContent = dutyView ? DIGITAL_DUTY_LABELS.relation[dutyView.communicationRelation] : "尚未识别";
+      $("activeEventIntent").textContent = dutyView ? DIGITAL_DUTY_LABELS.intent[dutyView.businessIntent] : "待识别";
+      if ($("activeActionPolicy")) $("activeActionPolicy").textContent = dutyView ? DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy] : "持续监听";
+      $("activeEventRisk").textContent = dutyView ? `${DIGITAL_DUTY_LABELS.risk[dutyView.riskAssessment.riskLevel] || dutyView.riskAssessment.riskLevel}` : "INFO";
       $("activeEventUtterances").textContent = String(event?.utterances?.length || 0);
       $("activeEventAction").textContent = event ? getEventStatusLabel(event) : "等待";
       if ($("currentEventLevel")) {
-        $("currentEventLevel").textContent = event ? `${tier.label} · ${getEventStatusLabel(event)}` : "等待事件";
+        $("currentEventLevel").textContent = event ? `${DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy]} · ${getEventStatusLabel(event)}` : "等待事件";
         $("currentEventLevel").className = `event-level-badge ${event ? tier.key : "neutral"}`;
       }
       if ($("currentEventHero")) $("currentEventHero").className = `current-event-hero ${event ? tier.key : ""}`;
-      if ($("currentEventPosition")) $("currentEventPosition").textContent = matched?.position_label || "船位尚未可靠关联";
+      if ($("currentEventPosition")) $("currentEventPosition").textContent = dutyView?.eventSubtitle || "船位尚未可靠关联";
       if ($("currentEventScore")) $("currentEventScore").innerHTML = event ? `<span class="event-risk-word">${riskTheme.riskText}</span>${riskTheme.scoreText}` : "0.00";
-      const eventText = event?.rawText || latestUtterance?.text || event?.summary || "系统持续监听中，等待有效甚高频业务语音。";
+      let eventText = dutyView?.eventSummary || event?.rawText || latestUtterance?.text || event?.summary || "系统持续监听中，等待有效甚高频业务语音。";
+      if (/^\\s*(Over\\.?|over\\.?|完毕)\\s*$/.test(eventText) && event?.utterances?.length > 1) {
+        eventText = event.utterances.slice(0, -1).map((item) => item.text).filter(Boolean).join(" ");
+      }
       if ($("currentEventText")) $("currentEventText").innerHTML = highlightRiskText(eventText);
       if ($("operatorNextStep")) {
         $("operatorNextStep").textContent = event
-          ? (tier.key === "emergency"
-            ? "立即确认高危、启动周边船舶点验，并同步广播/人工接管。"
-            : tier.key === "manual"
-              ? "需要人工审核后回复，建议先核对船名、位置和申请动作。"
-              : tier.key === "auto"
-                ? "常规报告可生成标准回复，确认无误后同步广播并归档。"
-                : "持续监听并记录，暂不触发主动处置。")
+          ? (dutyView.actionPolicy === ACTION_POLICY.RISK_INTERVENTION
+            ? "风险处置抢占当前流程：请人工接管、确认周边点验，并同步广播。"
+            : dutyView.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL
+              ? "业务申请必须人工审批：请核验船名、位置、规则条件和回复草案。"
+              : dutyView.actionPolicy === ACTION_POLICY.AUTO_REPLY
+                ? "航行动态报告已通过安全门：可执行标准自动回复并归档。"
+                : dutyView.actionPolicy === ACTION_POLICY.REQUEST_CLARIFICATION
+                  ? "动态报告信息不完整：建议请求船方补充船名、船位或动态事项。"
+                  : "船间通信或其他业务：持续监听并记录，异常后提示介入。")
           : "等待有效语音；系统会在识别后给出处置建议。";
       }
       if ($("operatorShipLink")) $("operatorShipLink").textContent = matched ? `已关联 ${matched.ship_name}` : "未知船名，待人工确认";
@@ -3777,9 +4089,15 @@
         const evidence = getRiskEvidence(event, matched);
         $("evidenceList").innerHTML = evidence.map((item) => `<span>${escapeHtml(item)}</span>`).join("");
       }
-      if ($("riskReason")) $("riskReason").textContent = event ? `风险判断：${tier.label}，${riskTheme.riskText} ${riskTheme.scoreText}` : "未命中高危信号";
-      if ($("autoReason")) $("autoReason").textContent = event ? `AIS关联：${matched ? `已确认 ${matched.ship_name}` : "待人工确认"}` : "等待识别结果";
-      if ($("manualReason")) $("manualReason").textContent = event ? `当前状态：${getEventStatusLabel(event)}` : "复杂业务进入人工复核";
+      if ($("riskReason")) $("riskReason").textContent = event ? `风险判断：${DIGITAL_DUTY_LABELS.risk[dutyView.riskAssessment.riskLevel] || dutyView.riskAssessment.riskLevel}，评分 ${dutyView.riskAssessment.riskScore.toFixed(2)}` : "未命中高危信号";
+      if ($("autoReason")) $("autoReason").textContent = event ? `业务研判：${DIGITAL_DUTY_LABELS.intent[dutyView.businessIntent]} · ${DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy]}` : "等待识别结果";
+      if ($("manualReason")) $("manualReason").textContent = event ? `对象关联：${matched ? `模拟AIS已确认 ${matched.ship_name}` : "待人工确认目标船"}` : "复杂业务进入人工复核";
+      if ($("parallelRiskTitle")) $("parallelRiskTitle").textContent = dutyView ? DIGITAL_DUTY_LABELS.risk[dutyView.riskAssessment.riskLevel] : "未发现明显风险";
+      if ($("parallelRiskDetail")) $("parallelRiskDetail").textContent = dutyView ? (dutyView.riskAssessment.evidence.slice(0, 2).join("；") || "无明显风险标签") : "等待有效语音与AIS态势。";
+      if ($("parallelBusinessTitle")) $("parallelBusinessTitle").textContent = dutyView ? DIGITAL_DUTY_LABELS.intent[dutyView.businessIntent] : "持续监听";
+      if ($("parallelBusinessDetail")) $("parallelBusinessDetail").textContent = dutyView ? `${DIGITAL_DUTY_LABELS.relation[dutyView.communicationRelation]} · ${dutyView.operationType} · ${DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy]}` : "等待通信关系和事项类型。";
+      if ($("parallelObjectTitle")) $("parallelObjectTitle").textContent = dutyView ? (matched ? `模拟AIS关联成功` : "待人工确认") : "待关联";
+      if ($("parallelObjectDetail")) $("parallelObjectDetail").textContent = dutyView ? `${dutyView.targetVessel.name} · ${dutyView.location} · ${DIGITAL_DUTY_LABELS.ais[dutyView.aisAssociation.sourceMode]}` : "等待船名、位置和模拟AIS匹配。";
       if ($("replyText") && ($("replyText").dataset.eventId !== (event?.eventId || "") || !$("replyText").dataset.edited || !$("replyText").textContent.trim() || $("replyText").textContent === "等待生成回复内容")) {
         $("replyText").textContent = buildBroadcastDraft(event, matched);
         $("replyText").dataset.eventId = event?.eventId || "";
@@ -3822,18 +4140,18 @@
       body.innerHTML = events.map((event) => {
         const tier = eventRiskTier(event);
         const matched = trustedAisShip(event);
-        const latestAction = event.actions?.at(-1);
+        const dutyView = normalizeDigitalDutyEvent(event);
         const timings = event.timings || {};
         const selected = displayBusinessEvent()?.eventId === event.eventId ? " selected" : "";
         return `<tr class="${tier.key}${selected}" data-business-event-id="${event.eventId}">
           <td>${new Date(event.startTime || Date.now()).toLocaleTimeString()}</td>
-          <td>${matched?.ship_name || event.shipCandidate || "未知船名"}</td>
-          <td>${readableEventIntent(event)}</td>
-          <td><span class="queue-risk ${tier.key}">${event.riskLevel || "INFO"}</span></td>
+          <td>${escapeHtml(dutyView.displayTitle || dutyView.eventTitle)}</td>
+          <td>${DIGITAL_DUTY_LABELS.relation[dutyView.communicationRelation]}</td>
+          <td>${DIGITAL_DUTY_LABELS.intent[dutyView.businessIntent]}</td>
+          <td><span class="queue-risk ${tier.key}">${DIGITAL_DUTY_LABELS.risk[dutyView.riskAssessment.riskLevel] || dutyView.riskAssessment.riskLevel}</span></td>
+          <td>${DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy]}</td>
           <td>${getEventStatusLabel(event)}</td>
-          <td>${latestAction?.action || tier.action}</td>
-          <td>${timings.asr_ms ? `${Math.round(timings.asr_ms)}ms` : "--"}</td>
-          <td>${timings.postprocess_ms || timings.llm_ms ? `${Math.round(timings.postprocess_ms || timings.llm_ms)}ms` : "--"}</td>
+          <td>${DIGITAL_DUTY_LABELS.ais[dutyView.aisAssociation.sourceMode]}</td>
           <td>${timings.server_total_ms || timings.recognition_total_ms ? `${Math.round(timings.server_total_ms || timings.recognition_total_ms)}ms` : "--"}</td>
         </tr>`;
       }).join("");
@@ -3848,6 +4166,7 @@
       });
     }
     function readableEventIntent(event) {
+      if (event) return DIGITAL_DUTY_LABELS.intent[normalizeDigitalDutyEvent(event).businessIntent] || "其他业务";
       const businessType = event?.intent === "emergency"
         ? "emergency_risk"
         : event?.intent === "auto_reply"
@@ -4842,6 +5161,71 @@
       await pollTask(payload.task_id);
       await loadEvents();
       toast("样例研判完成");
+    }
+    function runLocalDigitalDutyScenario(kind) {
+      updateInputVisualMode("stream");
+      resetVoiceWorkflow("正在载入数字值班员演示场景...");
+      const scenarios = {
+        fire: {
+          shipName: "中国银川",
+          text: "宁波交管，我是中国银川，我船发生严重火灾，火势已经失控，正在向生活区蔓延，请求紧急救援。船上六名船员已经撤离，暂无人员伤亡。Over.",
+          actions: [
+            { action: "风险干预", status: "等待人工确认", suggested_action: "人工接管 + 周边点验 + 同频广播", trigger: "L1最高风险", confidence: "0.92", time: nowLabel() },
+          ],
+          inspectionContext: {
+            radius_m: 3000,
+            matched_count: 1,
+            matched_ships: [{ ship_name: "汇通66", distance_nm: 1.2, relative_bearing: "西南", dataSource: "simulation" }],
+            inspected_ships: [],
+          },
+        },
+        report: {
+          shipName: "中国银川",
+          text: "宁波交管，中国银川已到达金塘水道南口，准备按计划靠泊，报告完毕。",
+          actions: [
+            { action: "标准自动回复", status: "待自动播报", suggested_action: "匹配标准VTS回复模板", trigger: "航行动态报告", confidence: "0.86", time: nowLabel() },
+          ],
+          inspectionContext: {},
+        },
+        ship_call: {
+          shipName: "中国银川",
+          text: "汇通66，汇通66，我是中国银川，请问你船航行意图。汇通66，请回答。",
+          actions: [
+            { action: "持续监听", status: "重点关注", suggested_action: "重复呼叫无应答，建议值班员关注会遇态势", trigger: "通信行为异常", confidence: "0.74", time: nowLabel() },
+          ],
+          inspectionContext: {
+            radius_m: 3000,
+            matched_count: 1,
+            matched_ships: [{ ship_name: "汇通66", distance_nm: 1.2, relative_bearing: "西南", dataSource: "simulation" }],
+            inspected_ships: [],
+          },
+        },
+      };
+      const scenario = scenarios[kind] || scenarios.fire;
+      const chunk = makeStreamingChunk({ sourceType: "long_audio", durationMs: 4000, startTime: 0, endTime: 4000 });
+      const event = createBusinessEvent("demo_scenario", chunk);
+      event.shipName = scenario.shipName;
+      event.matchedShip = scenario.shipName;
+      event.rawText = scenario.text;
+      event.summary = scenario.text;
+      event.resolvedText = scenario.text;
+      event.utterances = [{ text: scenario.text, startMs: 0, endMs: 4000, confidence: 0.9 }];
+      event.actions = scenario.actions;
+      event.inspectionContext = scenario.inspectionContext;
+      event.aisContext = { ship_name: scenario.shipName, sourceMode: "simulation", sourceName: "金塘水道演示场景" };
+      const view = normalizeDigitalDutyEvent(event);
+      event.intent = view.businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT ? "emergency" : view.actionPolicy === ACTION_POLICY.AUTO_REPLY ? "auto_reply" : view.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL ? "human_approval" : "monitoring_only";
+      event.riskLevel = view.riskAssessment.riskLevel;
+      event.riskScore = view.riskAssessment.riskScore;
+      $("asrText").textContent = scenario.text;
+      $("asrStatus").textContent = "演示场景";
+      $("listenTitle").textContent = "数字值班员演示场景";
+      appendAgentEvent({ stage: "asr_completed", title: "语音转写完成", detail: scenario.text, asr_text: scenario.text, intent: event.intent, risk_score: event.riskScore });
+      appendAgentEvent({ stage: "intent_classified", title: "并行研判完成", detail: `${DIGITAL_DUTY_LABELS.intent[view.businessIntent]} · ${DIGITAL_DUTY_LABELS.policy[view.actionPolicy]}`, intent: event.intent, risk_score: event.riskScore });
+      appendGlobalTimeline({ time: nowLabel(), title: "演示场景载入", detail: view.eventTitle });
+      setEventState("EVENT_ACTIVE", view.eventTitle);
+      renderStreamingAgentConsole();
+      toast("数字值班员演示场景已载入");
     }
     async function runContinuousDemo() {
       updateInputVisualMode("stream");
@@ -6540,6 +6924,9 @@
     $("continuousDemoBtn").addEventListener("click", () => runContinuousDemo().catch((error) => toast(`连续守听失败：${error.message}`, true)));
     $("riskDemoBtn").addEventListener("click", () => runScenario("smoke_fire").catch((error) => toast(error.message, true)));
     $("normalDemoBtn").addEventListener("click", () => runScenario("static_report").catch((error) => toast(error.message, true)));
+    $("fireScenarioBtn").addEventListener("click", () => runLocalDigitalDutyScenario("fire"));
+    $("reportScenarioBtn").addEventListener("click", () => runLocalDigitalDutyScenario("report"));
+    $("shipCallScenarioBtn").addEventListener("click", () => runLocalDigitalDutyScenario("ship_call"));
     $("speakBtn").addEventListener("click", () => {
       if (!confirm("确认同步广播当前话术？")) return;
       speakText($("replyText").textContent, async () => { setFlow(5); await updateActiveStatus("broadcasted"); });
