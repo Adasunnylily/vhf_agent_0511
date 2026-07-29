@@ -1029,6 +1029,7 @@
         linear-gradient(145deg, rgba(248,252,255,.98), rgba(224,240,255,.92));
       border-color: rgba(124, 178, 232, .58);
       box-shadow: inset 0 0 32px rgba(22,119,255,.04);
+      min-height: 0;
     }
     .voice-input-card .agent-wave-visual::before,
     .voice-input-card .agent-wave-visual::after {
@@ -1715,11 +1716,14 @@
       border-color: #e3e8ef;
     }
     .voice-input-card .agent-wave-visual {
-      min-height: 142px;
+      min-height: 126px;
+      max-height: 158px;
       padding: 10px;
+      align-content: center;
     }
     .voice-page.mic-visual .voice-input-card .agent-wave-visual {
-      min-height: 172px;
+      min-height: 142px;
+      max-height: 172px;
     }
     .voice-input-card .stream-mic-dock {
       width: 100%;
@@ -1738,8 +1742,8 @@
     }
     .voice-input-card .stream-mic-dock .agent-orb {
       flex: 0 0 auto;
-      width: 76px;
-      height: 76px;
+      width: 66px;
+      height: 66px;
     }
     .voice-input-card .stream-mic-dock .agent-orb::before { inset: -9px; }
     .voice-input-card .stream-mic-dock .agent-orb::after { inset: -16px; }
@@ -1757,12 +1761,14 @@
       max-width: 100%;
       overflow: hidden;
       color: #132238;
-      font-size: 14px;
+      font-size: 13px;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     .voice-input-card .stream-mic-dock .agent-core-meta span {
       display: block;
+      font-size: 11px;
+      line-height: 1.35;
       color: #66788a;
       font-size: 11px;
       white-space: normal;
@@ -1829,7 +1835,7 @@
     .stream-card.editing .review-grid { display: grid; }
     .command-center-body {
       position: relative;
-      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      grid-template-rows: auto auto auto auto;
       padding-bottom: 74px !important;
     }
     .current-event-hero {
@@ -1957,6 +1963,9 @@
       border: 1px solid #e3e8ef;
       border-radius: 16px;
       background: #fff;
+      align-items: start;
+      align-content: start;
+      min-height: 0;
     }
     .emergency-work-card.emergency-focus { border-color: rgba(229,72,77,.36); background: #fffafa; }
     .work-column { display: grid; align-content: start; gap: 10px; min-width: 0; }
@@ -1993,7 +2002,8 @@
     }
     .action-order li.active { background: #eef6ff; border-color: rgba(22,119,255,.35); color: #0754c9; font-weight: 900; }
     .broadcast-draft {
-      min-height: 86px;
+      min-height: 64px;
+      max-height: 96px;
       padding: 10px;
       border-radius: 12px;
       border: 1px solid #d8e1eb;
@@ -2164,8 +2174,6 @@
         <div class="right">
           <div class="runtime-states">
             <span class="runtime-chip" id="topListeningStatus"><i class="pulse-dot"></i>监听中</span>
-            <span class="runtime-chip" id="topAsrStatus"><i class="pulse-dot blue"></i>ASR 已连接</span>
-            <span class="runtime-chip" id="topLlmStatus"><i class="pulse-dot blue"></i>LLM 已连接</span>
             <span class="runtime-chip" id="topModeStatus"><i class="pulse-dot orange"></i>智能值守</span>
           </div>
           <span class="pill green" id="agentState">待命</span>
@@ -3001,11 +3009,51 @@
         : matchName;
       wrap.innerHTML = "";
 
-      const centerShip = ships.find((s) => s.ship_name === centerName);
+      const selectedShip = [...state.selectedShipIds]
+        .map((shipId) => ships.find((ship) => ship.ship_id === shipId))
+        .find(Boolean);
+      const centerShip = ships.find((s) => s.ship_name === centerName) || matched || state.currentAis || selectedShip || null;
+      const centerLng = Number(centerShip?.lng);
+      const centerLat = Number(centerShip?.lat);
+      const validCenter = centerShip && Number.isFinite(centerLng) && Number.isFinite(centerLat);
+      const ctxNearby = (ctx.matched_ships || [])
+        .map((item) => ships.find((ship) => ship.ship_name === item?.ship_name) || item)
+        .filter((ship) => ship?.ship_name);
+      const nearestShips = validCenter
+        ? ships
+            .filter((ship) => ship.ship_name !== centerShip.ship_name)
+            .map((ship) => ({ ship, distance: Math.hypot(Number(ship.lng) - centerLng, Number(ship.lat) - centerLat) }))
+            .sort((a, b) => a.distance - b.distance)
+            .slice(0, 7)
+            .map((item) => item.ship)
+        : [];
+      const mapShips = validCenter
+        ? [centerShip, ...ctxNearby, ...nearestShips]
+            .filter((ship, index, rows) => ship?.ship_name && rows.findIndex((item) => item.ship_name === ship.ship_name) === index)
+            .slice(0, 9)
+        : ships.slice(0, 15);
+      const relativeShipPosition = (ship) => {
+        if (!validCenter) return shipPosition(ship);
+        const lng = Number(ship.lng);
+        const lat = Number(ship.lat);
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) return [50, 50];
+        const latScale = Math.cos((centerLat * Math.PI) / 180) || 1;
+        const dxNm = (lng - centerLng) * 60 * latScale;
+        const dyNm = (lat - centerLat) * 60;
+        const maxNm = Math.max(3.2, ...mapShips.map((item) => {
+          const itemLng = Number(item.lng);
+          const itemLat = Number(item.lat);
+          if (!Number.isFinite(itemLng) || !Number.isFinite(itemLat)) return 0;
+          return Math.hypot((itemLng - centerLng) * 60 * latScale, (itemLat - centerLat) * 60);
+        })) * 1.25;
+        const x = 50 + (dxNm / maxNm) * 38;
+        const y = 50 - (dyNm / maxNm) * 38;
+        return [Math.min(90, Math.max(10, x)), Math.min(88, Math.max(12, y))];
+      };
       if (isHighRisk && centerShip) {
-        const [cx, cy] = shipPosition(centerShip);
+        const [cx, cy] = relativeShipPosition(centerShip);
         const radiusM = Number(ctx.radius_m || 3000);
-        const pct = Math.min(70, Math.max(16, (radiusM / 8000) * 100));
+        const pct = validCenter ? 42 : Math.min(70, Math.max(16, (radiusM / 8000) * 100));
         const ring = document.createElement("div");
         ring.className = "vmap-radius";
         ring.style.left = `${cx}%`; ring.style.top = `${cy}%`;
@@ -3014,9 +3062,9 @@
       }
 
       let matchedOnMap = false;
-      ships.forEach((ship) => {
-        const [x, y] = shipPosition(ship);
-        const isMatch = matchName && ship.ship_name === matchName;
+      mapShips.forEach((ship) => {
+        const [x, y] = relativeShipPosition(ship);
+        const isMatch = (matchName && ship.ship_name === matchName) || (validCenter && ship.ship_name === centerShip.ship_name);
         if (isMatch) matchedOnMap = true;
         let cls = "vmap-dot";
         if (isMatch && isHighRisk) cls += " risk";
@@ -3052,7 +3100,7 @@
       if ($("situationSuggestedAction")) $("situationSuggestedAction").textContent = dutyView ? DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy] : "持续监听";
       if ($("situationReviewStatus")) $("situationReviewStatus").textContent = isHighRisk ? "风险干预待确认" : (event ? getEventStatusLabel(event) : "待事件输入");
       if ($("nearbyVesselList")) {
-        const nearby = (ctx.matched_ships?.length ? ctx.matched_ships : ships.filter((ship) => ship.ship_name !== matchName).slice(0, 4))
+        const nearby = (ctx.matched_ships?.length ? ctx.matched_ships : mapShips.filter((ship) => ship.ship_name !== centerShip?.ship_name && ship.ship_name !== matchName).slice(0, 4))
           .filter((ship) => ship?.ship_name)
           .slice(0, 5);
         $("nearbyVesselList").innerHTML = nearby.length ? nearby.map((ship, index) => {
@@ -4589,6 +4637,7 @@
       $("aisDetail").innerHTML = `<b>${ship.ship_name}</b><br>识别码 ${ship.mmsi || "待核验"} · ${ship.ship_type || "未知船型"}<br>${ship.position_label || "位置待更新"} · 航速 ${ship.sog_kn ?? "-"}节 · 吃水 ${ship.draft_m ?? "-"}米`;
       $("aisDetail").classList.add("show");
       state.currentAis = ship;
+      renderVoiceMiniMap();
       toast(`已选中船舶：${ship.ship_name}`);
     }
     function copilotAskShip() {
