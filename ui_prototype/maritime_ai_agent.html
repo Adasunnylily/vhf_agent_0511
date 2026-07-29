@@ -2385,9 +2385,9 @@
 
             <div class="recommendation-card emergency-work-card">
               <div class="work-column">
-                <div class="stream-head"><h3>风险判断依据</h3><span class="pill" id="aisText">待匹配</span></div>
+                <div class="stream-head"><h3>风险判断依据</h3><span class="pill" id="aisText" hidden>待匹配</span></div>
                 <div class="evidence" id="evidenceList"></div>
-                <div class="recommendation-lines"><span id="riskReason">未命中高危信号</span><span id="autoReason">等待识别结果</span><span id="manualReason">复杂业务进入人工复核</span></div>
+                <div class="recommendation-lines" hidden><span id="riskReason">未命中高危信号</span><span id="autoReason">等待识别结果</span><span id="manualReason">复杂业务进入人工复核</span></div>
               </div>
               <div class="work-column">
                 <h3>推荐处置顺序</h3>
@@ -2452,7 +2452,7 @@
               <button class="central-only" id="rightTakeoverBtn">人工接管</button>
               <button class="central-only" id="rightArchiveBtn">保存上报</button>
             </div>
-            <div class="association-note" id="associationNote">未收到可靠 AIS 关联，地图仅展示当前 15 艘模拟船舶。</div>
+            <span id="associationNote" hidden></span>
           </div>
         </section>
 
