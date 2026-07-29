@@ -1606,6 +1606,9 @@
     .recommendation-card { display: grid; gap: 12px; padding: 16px; border: 1px solid rgba(184,210,240,.78); border-radius: 20px; background: rgba(255,255,255,.86); }
     .recommendation-card.emergency-focus { border-color: rgba(239,68,68,.34); background: #fff7f8; }
     .recommendation-lines { display: grid; gap: 5px; color: #60758f; font-size: 12px; }
+    .recommendation-lines[hidden],
+    #aisText[hidden],
+    #associationNote[hidden] { display: none !important; }
     .primary-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .primary-actions button { min-width: 110px; }
     .decision-detail-drawer { border-top: 1px solid rgba(184,210,240,.72); padding-top: 10px; }
@@ -1836,7 +1839,8 @@
     .command-center-body {
       position: relative;
       grid-template-rows: auto auto auto auto;
-      padding-bottom: 74px !important;
+      align-content: start;
+      padding-bottom: 8px !important;
     }
     .current-event-hero {
       gap: 10px;
