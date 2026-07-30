@@ -243,6 +243,20 @@
     }
     .entity span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
     .entity b { color: #0754c9; }
+    .signal-grid {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .signal-grid div {
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(184,210,240,.7);
+      background: #fff;
+    }
+    .signal-grid span { display: block; color: #71849a; font-size: 11px; }
+    .signal-grid b { display: block; margin-top: 4px; color: #173b62; font-size: 13px; }
     .decision-stack { display: grid; gap: 14px; }
     .decision {
       border-radius: 22px;
@@ -2154,11 +2168,11 @@
         <div><b>海事VHF</b><span>智能监测系统</span></div>
       </div>
       <nav class="nav">
-        <button class="nav-btn active" data-page="voice">语音交互</button>
-        <button class="nav-btn" data-page="inspection">点验界面</button>
-        <button class="nav-btn" data-page="monitor">船舶监控</button>
+        <button class="nav-btn active" data-page="voice">数字值守台</button>
+        <button class="nav-btn" data-page="inspection">海图与点验</button>
+        <button class="nav-btn" data-page="monitor">仿真场景管理</button>
         <button class="nav-btn" data-page="events">事件中心</button>
-        <button class="nav-btn" data-page="knowledge">知识库</button>
+        <button class="nav-btn" data-page="knowledge">知识与规则</button>
         <button class="nav-btn" data-page="settings">设置中心</button>
       </nav>
       <div class="rail-foot">
@@ -2310,6 +2324,12 @@
               <span id="asrConfidenceText" hidden>--</span>
               <span id="copilotRiskScore" hidden>0.12</span>
               <span id="copilotZone" hidden>未进入</span>
+              <div class="signal-grid" aria-label="声学与通信特征">
+                <div><span>语速状态</span><b id="speechRateMetric">计算中</b></div>
+                <div><span>接收能量变化</span><b id="energyMetric">计算中</b></div>
+                <div><span>重复呼叫</span><b id="repeatCallMetric">基线不足</b></div>
+                <div><span>事件记忆</span><b id="eventMemoryMetric">等待话轮</b></div>
+              </div>
               <div class="review-grid">
                 <label>意图复核
                   <select id="intentEdit">
@@ -2409,16 +2429,16 @@
             </div>
 
             <div class="sticky-action-bar">
-              <button id="speakBtn">确认并同步广播</button>
-              <button class="red" id="manualBtn">人工接管</button>
-              <button class="secondary" id="pipelineInspectBtn">确认周边点验</button>
-              <button class="secondary" id="saveFeedbackBtn">保存上报</button>
-              <button class="secondary" id="copyBtn">复制话术</button>
+              <button id="speakBtn" hidden>确认播报</button>
+              <button class="red" id="manualBtn" hidden>人工接管</button>
+              <button class="secondary" id="pipelineInspectBtn">标记关注</button>
+              <button class="secondary" id="saveFeedbackBtn">保存记录</button>
+              <button class="secondary" id="copyBtn" hidden>复制话术</button>
             </div>
             <button class="compat-runtime-nodes" id="markHandledBtn" type="button">标记已处理</button>
 
             <details class="decision-detail-drawer">
-              <summary>查看思维轨迹、精修文本与人工复核</summary>
+              <summary>查看研判依据、处理日志与人工复核记录</summary>
               <div class="reasoning-log" id="reasoningTrace"><span>[1] 等待语音</span><span>[2] 实时转写</span><span>[3] 判断事件边界</span><span>[4] 分类并执行处置</span></div>
               <div class="refinement-head"><b>事件结束后精修</b><span class="pill" id="refinementStatus">等待事件闭合</span></div>
               <small class="event-boundary-hint">划分依据：结束语后1.5秒、连续静默5秒、切换到新船舶或人工关闭。</small>
@@ -2687,6 +2707,12 @@
         runToken: 0,
         partialTextBySource: {},
       },
+      acousticCommunication: {
+        speechRate: "计算中",
+        receivedEnergy: "计算中",
+        repeatedCall: "基线不足",
+        signalQuality: "未接入",
+      },
     };
     const fallbackShips = [
       { ship_id: "mock_001", ship_name: "锦龙228", mmsi: "413220001", ship_type: "集装箱船", draft_m: 13.5, tonnage_t: 15600, sog_kn: 6.8, lng: 121.869486, lat: 29.968956, position_label: "北仑港外航道" },
@@ -2715,6 +2741,12 @@
       MONITOR_ONLY: "monitor_only",
       RISK_INTERVENTION: "risk_intervention",
       REQUEST_CLARIFICATION: "request_clarification",
+    };
+    const EXECUTION_MODE = {
+      AUTO_REPLY: "auto_reply",
+      HUMAN_CONFIRM: "human_confirm",
+      MANUAL_TAKEOVER: "manual_takeover",
+      MONITOR_ONLY: "monitor_only",
     };
     const RISK_LEVEL = {
       L1: "critical",
@@ -2750,6 +2782,12 @@
         monitor_only: "持续监听",
         risk_intervention: "风险干预",
         request_clarification: "请求补充信息",
+      },
+      execution: {
+        auto_reply: "标准自动回复",
+        human_confirm: "等待人工确认",
+        manual_takeover: "人工接管",
+        monitor_only: "持续监听",
       },
       risk: {
         L1: "L1最高风险",
@@ -3188,6 +3226,83 @@
         score: Number(view?.riskAssessment?.riskScore || event?.riskScore || 0),
         scoreText: Number(view?.riskAssessment?.riskScore || event?.riskScore || 0).toFixed(2),
       };
+    }
+    function buildEventDisplayName(event) {
+      if (!event) return "待确认船舶";
+      const view = normalizeDigitalDutyEvent(event);
+      const time = new Date(event.startTime || Date.now()).toLocaleTimeString("zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const ship = trustedAisShip(event)?.ship_name || event.shipName || event.shipCandidate || "未知船舶";
+      const label = view.operationType || DIGITAL_DUTY_LABELS.intent[view.businessIntent] || "甚高频事件";
+      return `${time} ${ship} ${label}`;
+    }
+    function getExecutionMode(event) {
+      if (!event) return EXECUTION_MODE.MONITOR_ONLY;
+      const view = normalizeDigitalDutyEvent(event);
+      if (view.actionPolicy === ACTION_POLICY.RISK_INTERVENTION || view.riskAssessment.riskLevel === "L1") return EXECUTION_MODE.MANUAL_TAKEOVER;
+      if (view.actionPolicy === ACTION_POLICY.AUTO_REPLY) return EXECUTION_MODE.AUTO_REPLY;
+      if (view.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL || view.actionPolicy === ACTION_POLICY.REQUEST_CLARIFICATION) return EXECUTION_MODE.HUMAN_CONFIRM;
+      return EXECUTION_MODE.MONITOR_ONLY;
+    }
+    function getAvailableActions(event) {
+      const mode = getExecutionMode(event);
+      if (mode === EXECUTION_MODE.MANUAL_TAKEOVER) {
+        return [
+          { id: "speakBtn", label: "确认并广播", visible: true, className: "" },
+          { id: "manualBtn", label: "人工接管", visible: true, className: "red" },
+          { id: "pipelineInspectBtn", label: "周边点验", visible: true, className: "secondary" },
+          { id: "saveFeedbackBtn", label: "保存上报", visible: true, className: "secondary" },
+          { id: "copyBtn", label: "复制话术", visible: true, className: "secondary" },
+        ];
+      }
+      if (mode === EXECUTION_MODE.AUTO_REPLY) {
+        return [
+          { id: "speakBtn", label: "试听回复", visible: true, className: "" },
+          { id: "manualBtn", label: "暂停自动回复", visible: true, className: "secondary" },
+          { id: "pipelineInspectBtn", label: "人工修改", visible: true, className: "secondary" },
+          { id: "saveFeedbackBtn", label: "保存记录", visible: true, className: "secondary" },
+          { id: "copyBtn", label: "复制回复", visible: true, className: "secondary" },
+        ];
+      }
+      if (mode === EXECUTION_MODE.HUMAN_CONFIRM) {
+        return [
+          { id: "speakBtn", label: "审核回复", visible: true, className: "" },
+          { id: "manualBtn", label: "人工接管", visible: true, className: "red" },
+          { id: "pipelineInspectBtn", label: "批准", visible: true, className: "secondary" },
+          { id: "saveFeedbackBtn", label: "驳回/保存", visible: true, className: "secondary" },
+          { id: "copyBtn", label: "复制草案", visible: true, className: "secondary" },
+        ];
+      }
+      return [
+        { id: "speakBtn", label: "", visible: false, className: "" },
+        { id: "manualBtn", label: "", visible: false, className: "red" },
+        { id: "pipelineInspectBtn", label: "标记关注", visible: true, className: "secondary" },
+        { id: "saveFeedbackBtn", label: "保存记录", visible: true, className: "secondary" },
+        { id: "copyBtn", label: "", visible: false, className: "secondary" },
+      ];
+    }
+    function renderExecutionActions(event) {
+      getAvailableActions(event).forEach((action) => {
+        const button = $(action.id);
+        if (!button) return;
+        button.hidden = !action.visible;
+        if (action.label) button.textContent = action.label;
+        button.className = action.className || "";
+      });
+    }
+    function updateAcousticCommunicationMetrics(event) {
+      const text = eventTranscriptText(event);
+      const utteranceCount = event?.utterances?.length || 0;
+      const repeatedCall = /(.{2,8})[，,。\\s]+\\1/.test(text) || /请回答|无应答|没有回答/.test(text);
+      state.acousticCommunication = {
+        speechRate: utteranceCount ? "已接入话轮" : "计算中",
+        receivedEnergy: state.mic?.active ? "实时采集中" : "未接入",
+        repeatedCall: repeatedCall ? "疑似重复呼叫" : (utteranceCount ? "未触发" : "基线不足"),
+        signalQuality: $("asrStatus")?.textContent || "未接入",
+      };
+      if ($("speechRateMetric")) $("speechRateMetric").textContent = state.acousticCommunication.speechRate;
+      if ($("energyMetric")) $("energyMetric").textContent = state.acousticCommunication.receivedEnergy;
+      if ($("repeatCallMetric")) $("repeatCallMetric").textContent = state.acousticCommunication.repeatedCall;
+      if ($("eventMemoryMetric")) $("eventMemoryMetric").textContent = utteranceCount ? `${utteranceCount}个话轮` : "等待话轮";
     }
     function getRiskEvidence(event, matched) {
       if (!event) return ["系统持续监听，等待有效业务语音。"];
@@ -4090,10 +4205,10 @@
       const totalMs = Number(timings.server_total_ms || timings.recognition_total_ms || 0);
       if ($("businessEventState")) $("businessEventState").textContent = event ? getEventStatusLabel(event) : eventStateLabel(state.eventState);
       $("activeEventIdText").textContent = event?.eventId || "暂无";
-      $("activeEventShip").textContent = dutyView?.displayTitle || "待确认船舶";
+      $("activeEventShip").textContent = event ? buildEventDisplayName(event) : "待确认船舶";
       if ($("activeCommunicationRelation")) $("activeCommunicationRelation").textContent = dutyView ? DIGITAL_DUTY_LABELS.relation[dutyView.communicationRelation] : "尚未识别";
       $("activeEventIntent").textContent = dutyView ? DIGITAL_DUTY_LABELS.intent[dutyView.businessIntent] : "待识别";
-      if ($("activeActionPolicy")) $("activeActionPolicy").textContent = dutyView ? DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy] : "持续监听";
+      if ($("activeActionPolicy")) $("activeActionPolicy").textContent = event ? DIGITAL_DUTY_LABELS.execution[getExecutionMode(event)] : "持续监听";
       $("activeEventRisk").textContent = dutyView ? `${DIGITAL_DUTY_LABELS.risk[dutyView.riskAssessment.riskLevel] || dutyView.riskAssessment.riskLevel}` : "INFO";
       $("activeEventUtterances").textContent = String(event?.utterances?.length || 0);
       $("activeEventAction").textContent = event ? getEventStatusLabel(event) : "等待";
@@ -4159,6 +4274,8 @@
         const activeIndex = tier.key === "emergency" ? 1 : tier.key === "manual" ? 0 : tier.key === "auto" ? 2 : 5;
         [...$("recommendedActionOrder").children].forEach((item, index) => item.classList.toggle("active", index === activeIndex));
       }
+      renderExecutionActions(event);
+      updateAcousticCommunicationMetrics(event);
     }
     function renderBusinessEventArchive() {
       const list = $("businessEventArchive");
@@ -4197,11 +4314,11 @@
         const selected = displayBusinessEvent()?.eventId === event.eventId ? " selected" : "";
         return `<tr class="${tier.key}${selected}" data-business-event-id="${event.eventId}">
           <td>${new Date(event.startTime || Date.now()).toLocaleTimeString()}</td>
-          <td>${escapeHtml(dutyView.displayTitle || dutyView.eventTitle)}</td>
+          <td>${escapeHtml(buildEventDisplayName(event))}</td>
           <td>${DIGITAL_DUTY_LABELS.relation[dutyView.communicationRelation]}</td>
           <td>${DIGITAL_DUTY_LABELS.intent[dutyView.businessIntent]}</td>
           <td><span class="queue-risk ${tier.key}">${DIGITAL_DUTY_LABELS.risk[dutyView.riskAssessment.riskLevel] || dutyView.riskAssessment.riskLevel}</span></td>
-          <td>${DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy]}</td>
+          <td>${DIGITAL_DUTY_LABELS.execution[getExecutionMode(event)]}</td>
           <td>${getEventStatusLabel(event)}</td>
           <td>${DIGITAL_DUTY_LABELS.ais[dutyView.aisAssociation.sourceMode]}</td>
           <td>${timings.server_total_ms || timings.recognition_total_ms ? `${Math.round(timings.server_total_ms || timings.recognition_total_ms)}ms` : "--"}</td>
@@ -4387,7 +4504,7 @@
 
     function setPage(page) {
       const map = { voice: "voicePage", inspection: "inspectionPage", monitor: "monitorPage", events: "eventsPage", knowledge: "knowledgePage", settings: "settingsPage" };
-      const titles = { voice: "海事VHF语音监测智能体", inspection: "点验界面", monitor: "船舶监控", events: "事件中心", knowledge: "知识库", settings: "设置中心" };
+      const titles = { voice: "海事VHF语音监测智能体", inspection: "海图与点验", monitor: "仿真场景管理", events: "事件中心", knowledge: "知识与规则", settings: "设置中心" };
       document.querySelectorAll(".nav-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.page === page));
       document.querySelectorAll(".page").forEach((item) => item.classList.remove("active"));
       $(map[page] || "voicePage").classList.add("active");
@@ -6937,7 +7054,6 @@
       toast("当前业务事件已驳回");
     });
     $("closeBusinessEventBtn").addEventListener("click", () => closeBusinessEvent("操作员手动关闭"));
-    $("pipelineInspectBtn").addEventListener("click", () => runHighRiskInspection());
     $("pipelineGoInspectBtn").addEventListener("click", () => goToInspectionPage().catch((error) => toast(error.message, true)));
     $("highRiskBroadcastBtn").addEventListener("click", () => speakText($("highRiskBroadcastText").value).catch((error) => toast(error.message, true)));
     $("highRiskBroadcastCopyBtn").addEventListener("click", () => { navigator.clipboard.writeText($("highRiskBroadcastText").value || ""); toast("高危点验播报模板已复制"); });
@@ -6981,16 +7097,54 @@
     $("reportScenarioBtn").addEventListener("click", () => runLocalDigitalDutyScenario("report"));
     $("shipCallScenarioBtn").addEventListener("click", () => runLocalDigitalDutyScenario("ship_call"));
     $("speakBtn").addEventListener("click", () => {
-      if (!confirm("确认同步广播当前话术？")) return;
-      speakText($("replyText").textContent, async () => { setFlow(5); await updateActiveStatus("broadcasted"); });
+      const event = displayBusinessEvent();
+      const mode = getExecutionMode(event);
+      const text = $("replyText").textContent;
+      if (mode === EXECUTION_MODE.HUMAN_CONFIRM && !confirm("确认审核并播报当前回复草案？")) return;
+      if (mode === EXECUTION_MODE.MANUAL_TAKEOVER && !confirm("确认向当前频道同步广播高危处置话术？")) return;
+      speakText(text, async () => {
+        if (event) addBusinessAction(event, { action: mode === EXECUTION_MODE.AUTO_REPLY ? "TTS自动回复" : "VHF同步广播", status: "已播报", trigger: DIGITAL_DUTY_LABELS.execution[mode], confidence: Number(event.riskScore || 0).toFixed(2), time: nowLabel(), suggested_action: text });
+        setFlow(5);
+        await updateActiveStatus("broadcasted");
+        renderStreamingAgentConsole();
+      });
     });
     $("manualBtn").addEventListener("click", async () => {
+      const event = displayBusinessEvent();
+      if (getExecutionMode(event) === EXECUTION_MODE.AUTO_REPLY) {
+        if (event) addBusinessAction(event, { action: "暂停自动回复", status: "已暂停", trigger: "值班员介入", confidence: "--", time: nowLabel(), suggested_action: "改为人工确认后播报" });
+        toast("已暂停自动回复，等待人工修改或确认");
+        renderStreamingAgentConsole();
+        return;
+      }
       if (!confirm("确认转人工接管当前事件？")) return;
       setAgent("人工接管", "risk");
+      if (event) addBusinessAction(event, { action: "人工接管", status: "已接管", trigger: "值班员确认", confidence: Number(event.riskScore || 0).toFixed(2), time: nowLabel(), suggested_action: "人工接管VHF通话" });
       await updateActiveStatus("confirmed");
+      renderStreamingAgentConsole();
+    });
+    $("pipelineInspectBtn").addEventListener("click", async () => {
+      const event = displayBusinessEvent();
+      const mode = getExecutionMode(event);
+      if (mode === EXECUTION_MODE.MANUAL_TAKEOVER) return runHighRiskInspection();
+      if (mode === EXECUTION_MODE.AUTO_REPLY) {
+        $("replyText").focus();
+        toast("可直接编辑自动回复话术，编辑后再试听或保存");
+        return;
+      }
+      if (mode === EXECUTION_MODE.HUMAN_CONFIRM) {
+        if (!confirm("确认批准当前业务申请并进入播报准备？")) return;
+        if (event) addBusinessAction(event, { action: "人工审批", status: "已批准", trigger: "值班员确认", confidence: Number(event.riskScore || 0).toFixed(2), time: nowLabel(), suggested_action: $("replyText").textContent });
+        await updateActiveStatus("confirmed");
+        renderStreamingAgentConsole();
+        return;
+      }
+      if (event) addBusinessAction(event, { action: "标记关注", status: "已关注", trigger: "值班员标记", confidence: "--", time: nowLabel(), suggested_action: "持续监听并记录后续通信" });
+      toast("已标记为重点关注事件");
+      renderStreamingAgentConsole();
     });
     $("saveFeedbackBtn").addEventListener("click", saveFeedback);
-    $("copyBtn").addEventListener("click", () => navigator.clipboard.writeText($("asrText").textContent));
+    $("copyBtn").addEventListener("click", () => navigator.clipboard.writeText($("replyText").textContent || $("asrText").textContent));
     $("archiveBtn").addEventListener("click", async () => {
       if (!confirm("确认保存并上报当前处置结果？")) return;
       await updateActiveStatus("archived");

@@ -9,23 +9,18 @@ from typing import Any, Dict, List, Optional
 from app.domain.models import AudioSegment, RiskEvent
 
 
-DEFAULT_DECISION_PROMPT = """你是海事交管智能值班员。请根据VHF转写文本、说话人轮次、实体、AIS信息和声学线索，判断当前通话应如何处置。
+DEFAULT_DECISION_PROMPT = """你是“海事VHF数字值班员”的事件理解模块。请根据VHF转写文本、说话人轮次、实体、AIS/模拟AIS信息和声学线索，输出结构化事件理解结果。
 
-业务标签只能从以下选择：
-- routine_report：常规报告，通常为靠妥、抛妥、抵港、动态转静态，可考虑自动回复
-- departure_request：离泊、起锚、开航、穿越、解缆、备车等由静到动或需要许可的申请，必须人工审核
-- emergency_risk：冒烟、着火、碰撞、搁浅、失控、进水、人员落水、机械故障、危险品、求救等高危情况
-- other_business：一般业务、船船沟通、航速航向协调、普通提醒，默认记录并继续监听
-- invalid_or_noise：噪声、压盖、听不清、无有效业务
+核心目标：
+1. 不把每句话都当成独立事件，要优先判断是否更新当前通信事件。
+2. 风险研判与业务研判并行：高危险情可抢占业务流程。
+3. 不得声称已经执行广播、人工接管或归档，只能给出处置建议。
+4. 船名、地点、AIS关联不确定时必须标记 uncertain，不允许虚假确认。
+5. “请讲”通常是交管；“谢谢老师/谢谢交管/好的谢谢”通常是船方。
 
-判断规则：
-1. 高危词、明显紧急语气或声学异常优先判为 emergency_risk。
-2. “申请离泊、准备开航、锚离底、起锚、解缆、穿越警戒区”等判为 departure_request。
-3. “靠妥、抛妥、抵达、向您报告、不抛锚直接进去”等常规报告可判为 routine_report。
-4. 船船之间关于加车、避让、前后船、绿灯红灯的沟通，若无明显危险，判为 other_business；若涉及速度、航向、船位异常，建议人工关注。
-5. 如果ASR置信度低、船名/地点不确定，必须要求人工复核。
+请输出严格JSON，不要输出解释文本。必须同时返回兼容字段和 event_understanding 字段。
 
-只输出JSON，不要输出解释文本。JSON格式：
+兼容字段：
 {
   "business_type": "routine_report | departure_request | emergency_risk | other_business | invalid_or_noise",
   "risk_level": "INFO | AUTO | MANUAL | L1 | L2 | L3",
@@ -36,7 +31,74 @@ DEFAULT_DECISION_PROMPT = """你是海事交管智能值班员。请根据VHF转
   "suggested_reply": "",
   "need_human_review": true,
   "reason": ""
-}"""
+}
+
+event_understanding 字段格式：
+{
+  "shouldCreateOrUpdateEvent": true,
+  "normalizedTranscript": "",
+  "closingPhrase": "",
+  "eventSummary": "",
+  "coreEventLabel": "",
+  "participants": [
+    {"role": "vessel | vts | unknown", "name": "", "confidence": 0.0}
+  ],
+  "entities": {
+    "shipNames": [],
+    "locations": [],
+    "mmsi": [],
+    "operationTerms": []
+  },
+  "corrections": [
+    {"from": "", "to": "", "reason": "hotword | homophone | domain_term | manual_context"}
+  ],
+  "riskAssessment": {
+    "signalSources": ["vhf_semantic"],
+    "emergencyTypes": [],
+    "vesselAbnormalities": [],
+    "unsafeBehaviors": [],
+    "acousticAnomalies": [],
+    "communicationAnomalies": [],
+    "navigationSituation": "normal | potential_conflict | close_quarters | immediate_danger | accident_occurred",
+    "riskLevel": "NONE | L4 | L3 | L2 | L1",
+    "riskScore": 0.0,
+    "confidence": 0.0,
+    "evidence": []
+  },
+  "businessAssessment": {
+    "communicationRelation": "vessel_to_vts | vts_to_vessel | vessel_to_vessel | unknown",
+    "businessIntent": "dynamic_report | operation_application | distress_report | vessel_coordination | command_acknowledgement | information_query | other | unknown",
+    "operationType": "",
+    "speechAct": "report | request | command | acknowledgement | coordination | unknown",
+    "confidence": 0.0,
+    "evidence": []
+  },
+  "informationCompleteness": {
+    "score": 0.0,
+    "requiredSlotsComplete": false,
+    "missingRequiredFields": [],
+    "uncertainFields": []
+  },
+  "executionRecommendation": {
+    "mode": "auto_reply | human_confirm | manual_takeover | monitor_only",
+    "reason": "",
+    "safetyGatePassed": false,
+    "blockedBy": []
+  },
+  "replyDraft": {
+    "text": "",
+    "templateMatched": false,
+    "matchedRuleId": ""
+  }
+}
+
+业务判定要点：
+- “已经靠妥/抛妥/到达/报告完毕/向交管报告”是航行动态报告，风险为NONE且信息完整时才可 auto_reply。
+- “申请离泊/准备开航/起锚/解缆/穿越/掉头申请”是作业或航行申请，必须 human_confirm。
+- “火灾/冒烟/失控/进水/碰撞/搁浅/人员落水/Mayday/求救/请求紧急救援”是 distress_report，必须 manual_takeover，risk_level=L1。
+- 船舶之间协调、重复呼叫无应答、避让、加车、会遇等默认 monitor_only；若伴随抢越船首、无应答、航速航向异常，应提高风险并建议人工关注。
+- 噪声、压盖、过短无业务内容输出 invalid_or_noise 和 keep_listening。
+"""
 
 
 class LLMDecisionClassifier:
@@ -128,6 +190,7 @@ class LLMDecisionClassifier:
         return data if isinstance(data, dict) else {}
 
     def _event_from_payload(self, segment: AudioSegment, payload: Dict[str, Any]) -> RiskEvent:
+        payload = self._normalize_payload(payload)
         business_type = self._safe_choice(
             str(payload.get("business_type") or "other_business"),
             {"routine_report", "departure_request", "emergency_risk", "other_business", "invalid_or_noise"},
@@ -167,6 +230,69 @@ class LLMDecisionClassifier:
             requires_human_review=need_human_review,
             is_auto_reply=is_auto_reply,
         )
+
+    def _normalize_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Accept the new digital-duty schema while preserving the legacy API contract."""
+        if not isinstance(payload, dict):
+            return {}
+        normalized = dict(payload)
+        understanding = payload.get("event_understanding")
+        if not isinstance(understanding, dict):
+            return normalized
+
+        business = understanding.get("businessAssessment") or {}
+        risk = understanding.get("riskAssessment") or {}
+        execution = understanding.get("executionRecommendation") or {}
+        reply = understanding.get("replyDraft") or {}
+        entities = understanding.get("entities") or {}
+
+        intent = str(business.get("businessIntent") or "").strip()
+        mode = str(execution.get("mode") or "").strip()
+        risk_level = str(risk.get("riskLevel") or "").strip().upper()
+
+        if not normalized.get("business_type"):
+            normalized["business_type"] = {
+                "dynamic_report": "routine_report",
+                "operation_application": "departure_request",
+                "distress_report": "emergency_risk",
+                "vessel_coordination": "other_business",
+                "command_acknowledgement": "other_business",
+                "information_query": "other_business",
+                "other": "other_business",
+                "unknown": "other_business",
+            }.get(intent, "other_business")
+        if not normalized.get("decision"):
+            normalized["decision"] = {
+                "auto_reply": "auto_reply",
+                "human_confirm": "manual_review",
+                "manual_takeover": "emergency_takeover",
+                "monitor_only": "keep_listening",
+            }.get(mode, "")
+        if not normalized.get("risk_level"):
+            normalized["risk_level"] = {
+                "NONE": "INFO",
+                "L4": "INFO",
+                "L3": "L3",
+                "L2": "L2",
+                "L1": "L1",
+            }.get(risk_level, "INFO")
+        if not normalized.get("suggested_reply"):
+            normalized["suggested_reply"] = str(reply.get("text") or "").strip()
+        if not normalized.get("reason"):
+            normalized["reason"] = str(execution.get("reason") or understanding.get("eventSummary") or "").strip()
+        if not normalized.get("ship_names"):
+            normalized["ship_names"] = entities.get("shipNames") or []
+        if not normalized.get("locations"):
+            normalized["locations"] = entities.get("locations") or []
+        evidence = self._string_list(normalized.get("evidence"))
+        evidence.extend(self._string_list(risk.get("evidence")))
+        evidence.extend(self._string_list(business.get("evidence")))
+        if reply.get("matchedRuleId"):
+            evidence.append(f"知识规则: {reply.get('matchedRuleId')}")
+        normalized["evidence"] = evidence
+        if "need_human_review" not in normalized:
+            normalized["need_human_review"] = mode != "auto_reply"
+        return normalized
 
     def _suggestion(self, payload: Dict[str, Any], business_type: str, decision: str) -> str:
         reply = str(payload.get("suggested_reply") or "").strip()
