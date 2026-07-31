@@ -2648,7 +2648,7 @@
               <label><input type="checkbox" /> 短信推送</label>
             </div>
             <button id="filterBtn">筛选船舶</button>
-            <button class="green" id="broadcastBtn">生成点验通知</button>
+            <button class="green" id="broadcastBtn">生成并TTS播报</button>
             <div class="list" id="inspectionMatchList"></div>
           </div>
         </aside>
@@ -3829,11 +3829,25 @@
       const sentences = text.match(/[^。！？!?]+[。！？!?]?/g) || [];
       return compactTranscriptText(sentences.slice(0, 2).join("")) || "系统持续监听中，等待有效甚高频业务语音。";
     }
-    function inferCommunicationRelation(text = "") {
+    function eventOpeningText(event) {
+      const firstUtterance = (event?.utterances || []).find((item) => isMeaningfulUtterance(item?.text || ""));
+      if (firstUtterance?.text) return compactTranscriptText(firstUtterance.text);
+      const text = eventTranscriptText(event);
+      return (text.match(/^[^。！？!?\n]+[。！？!?]?/)?.[0] || text.slice(0, 100)).trim();
+    }
+    function inferCommunicationRelation(text = "", openingText = text) {
+      const opening = compactTranscriptText(openingText);
       const knownHits = knownShipNames().filter((name) => name && text.includes(name));
+      const openingShipHits = knownShipNames().filter((name) => name && opening.includes(name));
+      const callsVts = /交管|VTS|中心|岸台/.test(opening);
+      const vesselSpeech = /我是|我船|向您|向你|申请|报告|叫|报备/.test(opening) || openingShipHits.length > 0;
+      if (callsVts && vesselSpeech) return COMMUNICATION_RELATION.VESSEL_TO_VTS;
+      if (openingShipHits.length >= 2 && !callsVts) return COMMUNICATION_RELATION.VESSEL_TO_VESSEL;
+      if (/^(?:嗯|啊|好)?[，,]?(?:请讲|收到|注意安全|再会|保持守听)[。！？!?]?$/.test(opening) && !vesselSpeech) return COMMUNICATION_RELATION.VTS_TO_VESSEL;
+      if (callsVts) return COMMUNICATION_RELATION.VESSEL_TO_VTS;
       if (knownHits.length >= 2 && !/交管|VTS|中心|岸台/.test(text)) return COMMUNICATION_RELATION.VESSEL_TO_VESSEL;
-      if (/请讲|收到|注意安全|再会|保持守听/.test(text) && !/我是|我船|向您|申请|报告/.test(text)) return COMMUNICATION_RELATION.VTS_TO_VESSEL;
       if (/交管|VTS|中心|向您|向你|申请|报告|我是|我船/.test(text)) return COMMUNICATION_RELATION.VESSEL_TO_VTS;
+      if (/请讲|收到|注意安全|再会|保持守听/.test(text) && !/我是|我船|向您|申请|报告/.test(text)) return COMMUNICATION_RELATION.VTS_TO_VESSEL;
       if (knownHits.length >= 2) return COMMUNICATION_RELATION.VESSEL_TO_VESSEL;
       return COMMUNICATION_RELATION.UNKNOWN;
     }
@@ -3891,7 +3905,10 @@
       const matched = trustedAisShip(event);
       const legacyIntent = event?.intent || event?.business_type || "";
       const businessIntent = event?.businessIntent || inferBusinessIntent(text, legacyIntent);
-      const communicationRelation = event?.communicationRelation || inferCommunicationRelation(text);
+      const inferredRelation = inferCommunicationRelation(text, eventOpeningText(event));
+      const communicationRelation = inferredRelation !== COMMUNICATION_RELATION.UNKNOWN
+        ? inferredRelation
+        : (event?.communicationRelation || COMMUNICATION_RELATION.UNKNOWN);
       const operationType = event?.operationType || inferOperationType(text, businessIntent);
       const voiceShipName = recognizedShipName(event);
       const tags = detectRiskTags(text);
@@ -4038,6 +4055,11 @@
       state.activeBusinessEvent = event;
       state.selectedBusinessEventId = "";
       state.activeEventId = event.eventId;
+      if (sourceType === "long_audio") {
+        if ($("refinementStatus")) $("refinementStatus").textContent = "等待当前事件结束";
+        if ($("refinedAsrText")) $("refinedAsrText").textContent = "当前仅展示上方真实ASR；事件结束后在此显示修正文本。";
+        if ($("dialogueEdit")) $("dialogueEdit").textContent = "事件结束后生成 [船方] / [交管] 说话人轮次。";
+      }
       setEventState("EVENT_ACTIVE", `${sourceType === "mic" ? "现场麦克风" : "长音频回放"}创建业务事件`);
       return event;
     }
@@ -4280,7 +4302,7 @@
         event.roleDialogueText = formatRoleDialogueForDisplay(event.dialogueReviewText);
         event.summary = event.resolvedText.slice(0, 220);
         event.refinement = refinement.refinement || {};
-        const isCurrentWorkspace = !state.activeBusinessEvent || event.sourceType === "long_audio" || state.activeBusinessEvent.eventId === event.eventId;
+        const isCurrentWorkspace = !state.activeBusinessEvent || state.activeBusinessEvent.eventId === event.eventId;
         const finalAction = createActionFromPolicy({
           intent: decision.business_type || "other_business",
           risk_score: event.riskScore,
@@ -5906,7 +5928,9 @@
         risk,
         autoReplyAllowed: Boolean(event.is_auto_reply || intent === "routine_report"),
         event,
-        text: payload.resolved_text || payload.cumulative_text || payload.text || chunk.asr_text || "",
+        text: chunk.sourceType === "long_audio"
+          ? (payload.text || payload.cumulative_text || chunk.asr_text || "")
+          : (payload.resolved_text || payload.cumulative_text || payload.text || chunk.asr_text || ""),
       };
     }
     function applyChunkAsrResult(chunk, payload, source = "backend") {
@@ -5941,7 +5965,7 @@
         summary: "后端完整话轮 ASR 返回，已触发一次分类。",
       });
       $("asrText").textContent = payload.cumulative_text || `${$("asrText").textContent === "等待语音输入" ? "" : $("asrText").textContent}\n${text}`.trim();
-      if (payload.dialogue_review_text) $("dialogueEdit").textContent = payload.dialogue_review_text;
+      if (payload.dialogue_review_text && chunk.sourceType !== "long_audio") $("dialogueEdit").textContent = payload.dialogue_review_text;
       $("asrStatus").textContent = "实时听写";
       $("intentText").textContent = payload.deferDecision ? "事件累积中" : intentLabel(routedPayload.intent);
       $("shipText").textContent = routedPayload.event?.ais_context?.ship_name || $("shipText").textContent || "待匹配";
@@ -6270,12 +6294,12 @@
       chunk.filename = `真实音频事件 ${index + 1} · ${formatDuration(startMs / 1000)}-${formatDuration(endMs / 1000)}`;
       chunk.audio_url = replay.audio.src;
       const event = taskEventForSegment(task, segment);
-      replay.transcripts.push(segment.resolved_text || segment.text || "");
+      replay.transcripts.push(segment.text || "");
       applyChunkAsrResult(chunk, {
         text: segment.text || "",
-        resolved_text: segment.resolved_text || segment.text || "",
+        resolved_text: segment.text || "",
         cumulative_text: replay.transcripts.filter(Boolean).join("\n"),
-        dialogue_review_text: event.dialogue_review_text || segment.resolved_text || segment.text || "",
+        dialogue_review_text: "",
         confidence: segment.confidence || event.confidence || "0.82",
         events: [event],
         deferDecision: true,
@@ -6303,13 +6327,12 @@
       chunk.filename = `实时句 ${index + 1} · ${formatDuration(startMs / 1000)}-${formatDuration(endMs / 1000)}`;
       chunk.audio_url = replay.audio.src;
       chunk.taskId = task.id;
-      replay.transcripts.push(utterance.resolved_text || utterance.text || "");
-      if (utterance.dialogue_review_text) replay.dialogueTurns.push(utterance.dialogue_review_text);
+      replay.transcripts.push(utterance.text || "");
       applyChunkAsrResult(chunk, {
         text: utterance.text || "",
-        resolved_text: utterance.resolved_text || utterance.text || "",
+        resolved_text: utterance.text || "",
         cumulative_text: String(task.meta?.cumulative_text || replay.transcripts.filter(Boolean).join("\n")),
-        dialogue_review_text: replay.dialogueTurns.filter(Boolean).join("\n"),
+        dialogue_review_text: "",
         confidence: utterance.confidence || "0.85",
         events: [utterance.event || {}],
         suppressAutoClose: true,
@@ -6320,13 +6343,13 @@
       appendAgentEvent({
         stage: "utterance_finalized",
         title: "最终句确认",
-        detail: utterance.resolved_text || utterance.text || "",
+        detail: utterance.text || "",
         chunk_id: chunk.chunkId,
         asr_text: utterance.text || "",
         intent: utterance.event?.business_type || "other_business",
         risk_score: utterance.event?.confidence || "0.85",
       });
-      if (isEventClosingText(utterance.resolved_text || utterance.text || "")) {
+      if (isEventClosingText(utterance.text || utterance.resolved_text || "")) {
         closeBusinessEvent("检测到业务结束语");
       }
     }
@@ -6470,33 +6493,26 @@
       let payload;
       if (serverDemo) {
         try {
-          payload = await request("/api/streaming/replay/scripted-demo", {
+          payload = await request("/api/streaming/replay/demo", {
             method: "POST",
-            body: form({ channel_id: channelId() }),
+            body: form({ channel_id: channelId(), playback_speed: speed }),
           });
-          state.streaming.replay.trueStreaming = false;
-          if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "演示清单";
-          $("replayStatus").textContent = `演示清单同步回放已启动 · ${fileName}`;
-          appendGlobalTimeline({ time: nowLabel(), title: "演示链路", detail: "原音播放 + 标注清单按时间同步显示 + 事件边界同步切分" });
-        } catch (scriptError) {
+          state.streaming.replay.trueStreaming = true;
+          if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Paraformer";
+          $("replayStatus").textContent = `真实ASR流式回放已启动 · ${fileName}`;
+          appendGlobalTimeline({ time: nowLabel(), title: "识别链路", detail: "原音播放 + Paraformer实时原始ASR + 事件结束后Qwen精修" });
+        } catch (streamError) {
           try {
-            payload = await request("/api/streaming/replay/demo", {
-              method: "POST",
-              body: form({ channel_id: channelId(), playback_speed: speed }),
-            });
-            state.streaming.replay.trueStreaming = true;
-            if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Paraformer";
-            $("replayStatus").textContent = `清单不可用，已切换Paraformer真实流式 · ${fileName}`;
-            appendGlobalTimeline({ time: nowLabel(), title: "识别链路", detail: `演示清单不可用：${scriptError.message}；改用Paraformer partial + VAD话轮` });
-          } catch (streamError) {
             payload = await request("/api/streaming/replay/quality-demo", {
               method: "POST",
               body: form({ channel_id: channelId() }),
             });
             state.streaming.replay.trueStreaming = false;
             if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen3-ASR-Flash";
-            $("replayStatus").textContent = `清单与真流式不可用，已降级为Qwen高精度识别 · ${fileName}`;
-            appendGlobalTimeline({ time: nowLabel(), title: "识别模式降级", detail: `${scriptError.message} / ${streamError.message}` });
+            $("replayStatus").textContent = `实时链路不可用，已改用Qwen真实分段识别 · ${fileName}`;
+            appendGlobalTimeline({ time: nowLabel(), title: "识别模式降级", detail: `${streamError.message}；继续展示真实ASR，不使用标注清单代替识别结果` });
+          } catch (qualityError) {
+            throw new Error(`真实ASR链路不可用：${streamError.message} / ${qualityError.message}`);
           }
         }
       } else {
@@ -7104,14 +7120,20 @@
           const task = await pollTask(taskId, () => {});
           notices = task.meta?.notices || [];
         }
-        if (notices[0]?.notice_text) {
-          await speakText(notices[0].notice_text);
+        const noticeTexts = [...new Set(notices.map((item) => String(item?.notice_text || "").trim()).filter(Boolean))];
+        if (!noticeTexts.length) {
+          const matched = await collectMatchedShips();
+          notices = buildLocalInspectionNotices(matched);
+          noticeTexts.push(...new Set(notices.map((item) => String(item?.notice_text || "").trim()).filter(Boolean)));
         }
+        if (!noticeTexts.length) return toast("当前没有可播报的点验目标或通知话术", true);
+        setAgent("点验通知TTS播报中");
+        await speakText(noticeTexts.join("；"));
         const noticeTotal = notices.length;
         $("noticeCount").textContent = String(Number($("noticeCount").textContent) + noticeTotal);
-        setAgent("点验完成");
+        setAgent("点验通知已播报");
         await loadEvents();
-        toast(`已生成 ${noticeTotal} 条点验通知`);
+        toast(`已生成并开始播报 ${noticeTotal} 条点验通知`);
       } catch (error) { toast(`点验通知失败：${error.message}`, true); }
     }
     function mapPoint(event) {
