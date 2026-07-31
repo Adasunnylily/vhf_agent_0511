@@ -6533,7 +6533,11 @@
           });
         }
         replay.groundTruthTimeline
-          .filter((record) => Number(record.end_ms || 0) <= visibleUntilMs)
+          .filter((record) => (
+            Number(record.end_ms || 0) <= visibleUntilMs
+            && replay.lastEndMs !== null
+            && replay.lastEndMs >= Number(record.end_ms || 0) - 1200
+          ))
           .forEach((record) => applyGroundTruthRefinement(record));
         const completed = Number(task.meta?.completed_segments || segments.length);
         const total = Number(task.meta?.total_segments || segments.length || 0);
