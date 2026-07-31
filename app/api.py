@@ -432,6 +432,64 @@ async def delete_inspection_ship(
     return {"ok": True, "ship_id": ship_id}
 
 
+@router.post("/inspection/ships/update")
+async def update_inspection_ship(
+    ship_id: str = Form(...),
+    ship_name: str = Form(...),
+    ship_type: str = Form(...),
+    tonnage_t: int = Form(...),
+    draft_m: float = Form(...),
+    destination: str = Form(""),
+    position_label: str = Form(""),
+    lng: float = Form(...),
+    lat: float = Form(...),
+    mmsi: str = Form(""),
+    callsign: str = Form(""),
+    imo: str = Form(""),
+    length_m: float = Form(0),
+    width_m: float = Form(0),
+    sog_kn: float = Form(0),
+    cog_deg: float = Form(0),
+    heading_deg: float = Form(0),
+    nav_status: str = Form("under_way"),
+    cargo_type: str = Form(""),
+    eta: str = Form(""),
+    ais_update_time: str = Form(""),
+    ais_source: str = Form("manual"),
+) -> Dict[str, object]:
+    if not (-180.0 <= lng <= 180.0 and -90.0 <= lat <= 90.0):
+        raise HTTPException(status_code=400, detail="经纬度范围非法。")
+    ship = InspectionShip(
+        ship_id=ship_id.strip(),
+        ship_name=ship_name.strip(),
+        ship_type=ship_type.strip(),
+        tonnage_t=int(tonnage_t),
+        draft_m=float(draft_m),
+        destination=destination.strip() or "待定",
+        position_label=position_label.strip() or "自定义点位",
+        lng=float(lng),
+        lat=float(lat),
+        mmsi=mmsi.strip(),
+        callsign=callsign.strip(),
+        imo=imo.strip(),
+        length_m=float(length_m),
+        width_m=float(width_m),
+        sog_kn=float(sog_kn),
+        cog_deg=float(cog_deg),
+        heading_deg=float(heading_deg),
+        nav_status=nav_status.strip() or "under_way",
+        cargo_type=cargo_type.strip(),
+        eta=eta.strip(),
+        ais_update_time=ais_update_time.strip(),
+        ais_source=ais_source.strip() or "manual",
+    )
+    item = inspection_simulator.update_ship(ship_id=ship_id, ship=ship)
+    if item is None:
+        raise HTTPException(status_code=404, detail="未找到该船舶。")
+    _sync_dynamic_ais_lexicon()
+    return {"item": item}
+
+
 @router.get("/inspection/scenarios")
 async def list_inspection_scenarios() -> Dict[str, List[Dict[str, object]]]:
     return {"items": inspection_simulator.list_scenarios()}

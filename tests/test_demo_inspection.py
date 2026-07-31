@@ -148,6 +148,24 @@ class DemoInspectionTests(unittest.TestCase):
         self.assertEqual(["附近船"], [item["ship_name"] for item in items])
         self.assertLess(items[0]["distance_m"], 200)
 
+    def test_update_ship_changes_name_and_position(self) -> None:
+        simulator = InspectionTaskSimulator(ws_manager=DummyWSManager(), playback_speed=1000.0)
+        simulator._save_ships = lambda: None
+        simulator._ships = [
+            InspectionShip("editable", "原船名", 5000, 6.0, "杂货船", "", "旧位置", 121.88, 29.92)
+        ]
+
+        item = simulator.update_ship(
+            "editable",
+            InspectionShip("", "新船名", 5000, 6.0, "杂货船", "", "新位置", 121.91, 29.95),
+        )
+
+        self.assertIsNotNone(item)
+        self.assertEqual("editable", item["ship_id"])
+        self.assertEqual("新船名", item["ship_name"])
+        self.assertEqual(121.91, item["lng"])
+        self.assertEqual(29.95, item["lat"])
+
 
 if __name__ == "__main__":
     unittest.main()

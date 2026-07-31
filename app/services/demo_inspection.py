@@ -222,6 +222,19 @@ class InspectionTaskSimulator:
         self._save_ships()
         return ship.to_dict()
 
+    def update_ship(self, ship_id: str, ship: InspectionShip) -> Optional[Dict[str, object]]:
+        target = ship_id.strip()
+        if not target:
+            return None
+        for index, current in enumerate(self._ships):
+            if current.ship_id != target:
+                continue
+            updated = replace(ship, ship_id=target)
+            self._ships[index] = updated
+            self._save_ships()
+            return updated.to_dict()
+        return None
+
     def upsert_ships(self, ships: List[InspectionShip]) -> Dict[str, object]:
         existing = {self._ship_key(ship): ship for ship in self._ships}
         created = 0
