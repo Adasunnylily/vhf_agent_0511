@@ -2258,7 +2258,7 @@
       <nav class="nav">
         <button class="nav-btn active" data-page="voice">数字值守台</button>
         <button class="nav-btn" data-page="inspection">海图与点验</button>
-        <button class="nav-btn" data-page="monitor">仿真场景管理</button>
+        <button class="nav-btn" data-page="monitor">船舶信息管理</button>
         <button class="nav-btn" data-page="events">事件中心</button>
         <button class="nav-btn" data-page="knowledge">知识与规则</button>
         <button class="nav-btn" data-page="settings">设置中心</button>
@@ -4800,7 +4800,7 @@
 
     function setPage(page) {
       const map = { voice: "voicePage", inspection: "inspectionPage", monitor: "monitorPage", events: "eventsPage", knowledge: "knowledgePage", settings: "settingsPage" };
-      const titles = { voice: "海事VHF语音监测智能体", inspection: "海图与点验", monitor: "仿真场景管理", events: "事件中心", knowledge: "知识与规则", settings: "设置中心" };
+      const titles = { voice: "海事VHF语音监测智能体", inspection: "海图与点验", monitor: "船舶信息管理", events: "事件中心", knowledge: "知识与规则", settings: "设置中心" };
       document.querySelectorAll(".nav-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.page === page));
       document.querySelectorAll(".page").forEach((item) => item.classList.remove("active"));
       $(map[page] || "voicePage").classList.add("active");
