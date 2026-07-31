@@ -6878,14 +6878,23 @@
     }
 
     function normalizedShip(row) {
-      return { ...row, ship_id: row.ship_id || row.mmsi || row.ship_name, ship_name: row.ship_name || row.name || "未命名船舶" };
+      const shipName = canonicalShipName(row.ship_name || row.name || "未命名船舶");
+      return { ...row, ship_id: row.ship_id || row.mmsi || shipName, ship_name: shipName };
+    }
+    function normalizeShipCollection(rows = []) {
+      const names = new Set();
+      return rows.map(normalizedShip).filter((ship) => {
+        if (names.has(ship.ship_name)) return false;
+        names.add(ship.ship_name);
+        return true;
+      });
     }
     async function loadShips() {
       try {
         const payload = await request("/api/ais/ships");
-        state.ships = (payload.items || []).map(normalizedShip);
+        state.ships = normalizeShipCollection(payload.items || []);
       } catch (error) {
-        state.ships = fallbackShips.map(normalizedShip);
+        state.ships = normalizeShipCollection(fallbackShips);
         toast("船位接口暂不可用，当前展示演示船位");
       }
       $("aisEdit").innerHTML = `<option value="">未关联船位</option>${state.ships.map((ship) => `<option value="${ship.ship_id}">${ship.ship_name} · ${ship.mmsi || "无识别码"}</option>`).join("")}`;
