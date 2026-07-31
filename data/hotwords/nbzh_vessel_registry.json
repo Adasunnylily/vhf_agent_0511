@@ -647,11 +647,6 @@
       "source": "controlled_registry"
     },
     {
-      "canonical": "宁波交管锦龙008",
-      "aliases": [],
-      "source": "controlled_registry"
-    },
-    {
       "canonical": "宁远乍浦",
       "aliases": [],
       "source": "controlled_registry"
@@ -2299,6 +2294,8 @@
     {
       "canonical": "锦龙228",
       "aliases": [
+        "锦龙008",
+        "宁波交管锦龙008",
         "锦龙两两八",
         "锦龙二二八"
       ],

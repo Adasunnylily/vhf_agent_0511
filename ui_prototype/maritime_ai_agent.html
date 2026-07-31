@@ -2815,7 +2815,8 @@
     const fallbackShips = [
       { ship_id: "ship_zgyc", ship_name: "中国银川", mmsi: "413220003", ship_type: "杂货船", draft_m: 13.1, tonnage_t: 12500, sog_kn: 5.7, cog_deg: 110, heading_deg: 110, lng: 121.9005, lat: 29.9342, position_label: "金塘水道南口" },
       { ship_id: "ship_jh662", ship_name: "锦华662", mmsi: "413220002", ship_type: "散货船", draft_m: 8.6, tonnage_t: 18700, sog_kn: 10.6, cog_deg: 63, heading_deg: 63, lng: 121.8736, lat: 29.9234, position_label: "金塘水道西侧" },
-      { ship_id: "ship_jl008", ship_name: "锦龙008", mmsi: "413220008", ship_type: "集装箱船", draft_m: 10.2, tonnage_t: 14200, sog_kn: 7.2, cog_deg: 84, heading_deg: 84, lng: 121.8842, lat: 29.9138, position_label: "金塘水道西南侧" },
+      { ship_id: "ship_jl228", ship_name: "锦龙228", mmsi: "413220008", ship_type: "集装箱船", draft_m: 10.2, tonnage_t: 14200, sog_kn: 7.2, cog_deg: 84, heading_deg: 84, lng: 121.8842, lat: 29.9138, position_label: "金塘水道西南侧" },
+      { ship_id: "ship_nyms", ship_name: "宁远梅山", mmsi: "413220178", ship_type: "散货船", draft_m: 9.1, tonnage_t: 10800, sog_kn: 4.9, cog_deg: 118, heading_deg: 118, lng: 121.8958, lat: 29.9268, position_label: "北仑二期外航道" },
       { ship_id: "ship_hl876", ship_name: "货轮876", mmsi: "413220876", ship_type: "杂货船", draft_m: 7.8, tonnage_t: 8900, sog_kn: 6.1, cog_deg: 38, heading_deg: 38, lng: 121.8689, lat: 29.9441, position_label: "北仑港外航道" },
       { ship_id: "ship_hf32", ship_name: "海丰32", mmsi: "413220032", ship_type: "集装箱船", draft_m: 9.4, tonnage_t: 11600, sog_kn: 8.4, cog_deg: 72, heading_deg: 72, lng: 121.8572, lat: 29.9374, position_label: "北仑港外航道" },
       { ship_id: "ship_ny8", ship_name: "宁远8", mmsi: "413220108", ship_type: "散货船", draft_m: 8.1, tonnage_t: 9800, sog_kn: 5.8, cog_deg: 96, heading_deg: 96, lng: 121.8515, lat: 29.9328, position_label: "北仑港外航道" },
@@ -3376,7 +3377,7 @@
       const ship = recognizedShipName(event) || trustedAisShip(event)?.ship_name || "未知船舶";
       const label = view.operationType || DIGITAL_DUTY_LABELS.intent[view.businessIntent] || "甚高频事件";
       const distress = view.businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT && view.riskAssessment.emergencyTypes.includes("求救请求") ? "求救" : "";
-      return `${ship}${label}${distress}`;
+      return cleanEventTitle(`${ship}${label}${distress}`);
     }
     function getExecutionMode(event) {
       if (!event) return EXECUTION_MODE.MONITOR_ONLY;
@@ -3739,17 +3740,29 @@
       })[stateValue] || stateValue || "待命";
     }
     function extractShipFromText(text = "") {
-      return knownShipNames().find((name) => text.includes(name)) || "";
+      const normalized = normalizeOutputShipNames(text);
+      return knownShipNames().find((name) => normalized.includes(name)) || "";
+    }
+    const SHIP_NAME_CORRECTIONS = Object.freeze({ "锦龙008": "锦龙228", "警花662": "锦华662" });
+    function normalizeOutputShipNames(text = "") {
+      return Object.entries(SHIP_NAME_CORRECTIONS).reduce(
+        (result, [alias, canonical]) => result.replaceAll(alias, canonical),
+        String(text || ""),
+      );
+    }
+    function canonicalShipName(name = "") {
+      return normalizeOutputShipNames(name).trim();
     }
     function knownShipNames() {
       return [...new Set([
-        ...state.ships.map((ship) => ship.ship_name),
-        ...fallbackShips.map((ship) => ship.ship_name),
+        ...state.ships.map((ship) => canonicalShipName(ship.ship_name)),
+        ...fallbackShips.map((ship) => canonicalShipName(ship.ship_name)),
         "锦龙228", "港顺177", "宁远梅山", "货轮876", "湘远15",
       ].filter(Boolean))].sort((a, b) => b.length - a.length);
     }
     function extractKnownShip(text = "") {
-      return knownShipNames().find((name) => name && text.includes(name)) || "";
+      const normalized = normalizeOutputShipNames(text);
+      return knownShipNames().find((name) => name && normalized.includes(name)) || "";
     }
     function extractShipCandidateFromText(text = "") {
       const known = extractKnownShip(text);
@@ -3770,17 +3783,23 @@
       const incomingLooksLikeNewCall = /交管|叫|我是|向您|向你|报告|申请/.test(text);
       return hasClosingCue || incomingLooksLikeNewCall || meaningfulCount >= 2;
     }
-    function trustedAisShip(event, ships = state.ships.length ? state.ships : fallbackShips) {
-      const candidate = event?.aisContext?.ship_name || event?.matchedShip || "";
+    function trustedAisShip(event, ships = [...state.ships, ...fallbackShips]) {
+      const candidate = canonicalShipName(
+        event?.aisContext?.ship_name
+        || event?.matchedShip
+        || event?.shipName
+        || event?.shipCandidate
+        || extractShipCandidateFromText(eventTranscriptText(event)),
+      );
       if (!candidate) return null;
-      return ships.find((ship) => ship.ship_name === candidate) || null;
+      return ships.find((ship) => canonicalShipName(ship.ship_name) === candidate) || null;
     }
     function recognizedShipName(event) {
       if (!event) return "";
-      return event.shipName || event.shipCandidate || extractShipCandidateFromText(eventTranscriptText(event));
+      return canonicalShipName(event.shipName || event.shipCandidate || extractShipCandidateFromText(eventTranscriptText(event)));
     }
     function compactTranscriptText(text = "") {
-      const parts = String(text || "")
+      const parts = normalizeOutputShipNames(text)
         .replace(/。，/g, "，")
         .replace(/。{2,}/g, "。")
         .split(/[\/\n]+|(?<=[。！？!?])/)
@@ -3873,7 +3892,10 @@
       if (businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT) return "航行动态报告";
       if (businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION) return "作业/航行申请";
       if (businessIntent === BUSINESS_INTENT.VESSEL_COORDINATION) return "船间协调";
-      return "甚高频监听事件";
+      return "甚高频监听";
+    }
+    function cleanEventTitle(title = "") {
+      return String(title || "").trim().replace(/事件$/, "").trim();
     }
     function detectRiskTags(text = "") {
       const emergencyTypes = [];
@@ -3937,8 +3959,8 @@
       const shipName = voiceShipName || "未知船舶";
       const location = matched?.position_label || event?.location || event?.aisContext?.position_label || "位置待核验";
       const eventTitlePrefix = riskLevel === "L1" ? "L1" : actionPolicy === ACTION_POLICY.AUTO_REPLY ? "常规" : actionPolicy === ACTION_POLICY.HUMAN_APPROVAL ? "审批" : actionPolicy === ACTION_POLICY.RISK_INTERVENTION ? "风险" : "监听";
-      const eventTitle = event?.eventTitle || `${eventTitlePrefix} ${shipName}｜${location}｜${operationType}`;
-      const displayTitle = event?.displayTitle || `${shipName}${operationType}${businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT && tags.emergencyTypes.includes("求救请求") ? "求救" : ""}`;
+      const eventTitle = cleanEventTitle(event?.eventTitle || `${eventTitlePrefix} ${shipName}｜${location}｜${operationType}`);
+      const displayTitle = cleanEventTitle(event?.displayTitle || `${shipName}${operationType}${businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT && tags.emergencyTypes.includes("求救请求") ? "求救" : ""}`);
       const replyStatus = inferReplyStatus(event, actionPolicy);
       const broadcastStatus = inferBroadcastStatus(event);
       const archiveStatus = inferArchiveStatus(event);
@@ -4008,6 +4030,9 @@
       };
     }
     function displayBusinessEvent() {
+      if (state.streaming.activeSource === "long_audio" && state.activeBusinessEvent) {
+        return state.activeBusinessEvent;
+      }
       if (state.selectedBusinessEventId) {
         const selected = state.businessEvents.find((event) => event.eventId === state.selectedBusinessEventId);
         if (selected) return selected;
@@ -4143,6 +4168,7 @@
       return true;
     }
     function receivePartialAsr(chunk, text) {
+      text = normalizeOutputShipNames(text);
       const event = ensureBusinessEvent(chunk, text);
       setEventState("UTTERANCE_STREAMING", text);
       triggerEarlyRiskIfNeeded(event, text);
@@ -4162,6 +4188,7 @@
       renderStreamingAgentConsole();
     }
     function handleFinalUtterance(chunk, text, payload = {}) {
+      text = normalizeOutputShipNames(text);
       if (!isMeaningfulUtterance(text)) {
         appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "忽略噪声片段", confidence: payload.confidence || "--", summary: `过滤无效转写：${text}` });
         return;
@@ -4215,7 +4242,7 @@
         intent: event.intent === "emergency" ? "emergency_risk" : event.intent === "auto_reply" ? "routine_report" : event.intent === "human_approval" ? "departure_request" : "other_business",
         risk_score: event.riskScore,
         auto_reply_allowed: event.intent === "auto_reply",
-        title: recognizedShipName(event) || "当前通信事件",
+        title: recognizedShipName(event) || "当前通信",
         summary: text,
         time: nowLabel(),
       });
@@ -4264,7 +4291,84 @@
       setEventState("EVENT_CLOSED", reason);
       appendAgentEvent({ stage: "event_refining", title: "事件结束后精修", detail: "正在重建说话人轮次并重新分类", intent: event.intent, risk_score: event.riskScore.toFixed(2) });
       appendGlobalTimeline({ time: nowLabel(), title: "业务事件结束", detail: `${reason} · 进入说话人和分类精修` });
-      refineAndArchiveBusinessEvent(event);
+      if (event.groundTruthApplied) finalizeGroundTruthBusinessEvent(event);
+      else refineAndArchiveBusinessEvent(event);
+      renderStreamingAgentConsole();
+    }
+    function groundTruthIntent(record = {}) {
+      return record.primary_label_gt === "routine_report" ? "auto_reply"
+        : record.primary_label_gt === "departure_request" ? "human_approval"
+          : record.primary_label_gt === "emergency_risk" ? "emergency" : "monitoring_only";
+    }
+    function groundTruthRelation(record = {}) {
+      return record.communication_relation === "ship_to_ship" ? COMMUNICATION_RELATION.VESSEL_TO_VESSEL
+        : record.communication_relation === "ship_to_vts" ? COMMUNICATION_RELATION.VESSEL_TO_VTS
+          : COMMUNICATION_RELATION.UNKNOWN;
+    }
+    function parseGroundTruthTurns(text = "") {
+      return normalizeOutputShipNames(text).split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+        const match = line.match(/^\[([^\]]+)\]\s*(.+)$/);
+        return { speaker: match?.[1] || "待确认", text: match?.[2] || line };
+      });
+    }
+    function applyGroundTruthRefinement(record) {
+      const replay = state.streaming.replay;
+      if (!replay || replay.processedGroundTruthIds.has(record.sample_id)) return;
+      const turns = parseGroundTruthTurns(record.gt_transcript);
+      const overlapsRecord = (event) => (event?.utterances || []).some((item) => (
+        Number(item.startMs || 0) < Number(record.end_ms || 0)
+        && Number(item.endMs || item.startMs || 0) > Number(record.start_ms || 0)
+      ));
+      let event = [state.activeBusinessEvent, ...state.businessEvents].filter(Boolean).find(overlapsRecord) || state.activeBusinessEvent;
+      if (!event || !event.utterances.some((item) => isMeaningfulUtterance(item.text))) {
+        event = createBusinessEvent("long_audio", null);
+      }
+      const vesselSpeakers = [...new Set(turns.map((turn) => turn.speaker).filter((speaker) => !/(交管|VTS|岸台|中心|船方|待确认)/i.test(speaker)))];
+      const currentShip = recognizedShipName(event);
+      const primaryShip = vesselSpeakers.includes(currentShip) ? currentShip : vesselSpeakers[0] || extractKnownShip(record.gt_transcript);
+      event.groundTruthApplied = true;
+      event.groundTruthSampleId = record.sample_id;
+      event.resolvedText = normalizeOutputShipNames(record.gt_transcript);
+      event.dialogueReviewText = event.resolvedText;
+      event.roleDialogueText = event.resolvedText;
+      event.rawText = normalizeOutputShipNames(event.rawText);
+      event.summary = compactTranscriptText(turns.map((turn) => turn.text).join(" ")).slice(0, 220);
+      event.shipName = canonicalShipName(primaryShip || event.shipName);
+      event.shipCandidate = event.shipName;
+      event.intent = groundTruthIntent(record);
+      event.communicationRelation = groundTruthRelation(record);
+      event.riskLevel = event.intent === "emergency" ? "L1" : event.intent === "human_approval" ? "MANUAL" : event.intent === "auto_reply" ? "AUTO" : "INFO";
+      event.riskScore = event.intent === "emergency" ? .92 : event.intent === "human_approval" ? .68 : event.intent === "auto_reply" ? .18 : .28;
+      event.utterances = turns.map((turn) => ({
+        text: turn.text,
+        speaker: turn.speaker,
+        startMs: Number(record.start_ms || 0),
+        endMs: Number(record.end_ms || 0),
+        confidence: "GT",
+        time: Date.now(),
+      }));
+      const matched = trustedAisShip(event);
+      if (matched) {
+        event.matchedShip = matched.ship_name;
+        event.aisContext = matched;
+      }
+      replay.processedGroundTruthIds.add(record.sample_id);
+      if ($("refinedAsrText")) $("refinedAsrText").textContent = event.resolvedText;
+      if ($("dialogueEdit")) $("dialogueEdit").textContent = event.resolvedText;
+      if ($("refinementStatus")) $("refinementStatus").textContent = `标注精修完成 · ${record.sample_id}`;
+      state.selectedBusinessEventId = event.eventId;
+      if (state.activeBusinessEvent?.eventId === event.eventId) closeBusinessEvent(`标注片段 ${record.sample_id} 结束`);
+      else finalizeGroundTruthBusinessEvent(event);
+    }
+    function finalizeGroundTruthBusinessEvent(event) {
+      event.status = "ARCHIVED";
+      event.endTime = event.endTime || Date.now();
+      state.businessEvents = [event, ...state.businessEvents.filter((item) => item.eventId !== event.eventId)].slice(0, 30);
+      state.activeBusinessEvent = null;
+      state.selectedBusinessEventId = event.eventId;
+      setEventState("ARCHIVED", `${event.groundTruthSampleId} 标注精修已归档`);
+      appendGlobalTimeline({ time: nowLabel(), title: "GT精修与事件归档", detail: `${event.groundTruthSampleId} · ${recognizedShipName(event) || "待确认船舶"}` });
+      archiveBusinessEvent(event).catch((error) => appendGlobalTimeline({ time: nowLabel(), title: "事件持久化失败", detail: error.message }));
       renderStreamingAgentConsole();
     }
     async function refineAndArchiveBusinessEvent(event) {
@@ -4290,6 +4394,7 @@
           }),
         }, 30000);
         if (event.runToken !== state.streaming.runToken) return;
+        if (event.groundTruthApplied) return;
         const decision = refinement.event || {};
         const classification = classifyDecisionPayload({ event: decision }, refinement.resolved_text || "");
         if (event.riskLevel !== "L1") {
@@ -4317,7 +4422,7 @@
             intent: decision.business_type || "other_business",
             risk_score: event.riskScore,
             auto_reply_allowed: event.intent === "auto_reply",
-            title: recognizedShipName(event) || "精修业务事件",
+            title: recognizedShipName(event) || "精修业务",
             summary: decision.summary || event.summary,
             time: nowLabel(),
           });
@@ -4342,6 +4447,7 @@
         appendGlobalTimeline({ time: nowLabel(), title: "事件精修完成", detail: `${decision.business_type || "other_business"} · ${decision.summary || "已重新分类"}` });
       } catch (error) {
         if (event.runToken !== state.streaming.runToken) return;
+        if (event.groundTruthApplied) return;
         const fallbackText = event.utterances.map((item) => item.text).join("\n") || "无有效文本";
         const fallback = classifyUtterance(fallbackText);
         event.intent = event.riskLevel === "L1" ? "emergency" : fallback.intent;
@@ -4365,7 +4471,7 @@
           intent: businessType,
           risk_score: event.riskScore,
           auto_reply_allowed: event.intent === "auto_reply",
-          title: event.shipName || "快速归档事件",
+          title: event.shipName || "快速归档",
           summary: event.summary,
           time: nowLabel(),
         });
@@ -5111,14 +5217,20 @@
     function showEntities(segments, event) {
       const entities = segments.flatMap((segment) => segment.entities || []);
       const ship = entities.find((item) => item.entity_type === "ship");
-      const matchedName = event?.ais_context?.ship_name || "";
-      $("shipText").textContent = matchedName || "未知船名";
+      const recognizedName = canonicalShipName(
+        event?.ais_context?.ship_name
+        || extractKnownShip(ship?.canonical || "")
+        || extractShipCandidateFromText(segments.map((segment) => segment.resolved_text || segment.text || "").join(" ")),
+      );
+      const matched = trustedAisShip({ ...event, shipName: recognizedName, shipCandidate: recognizedName });
+      const matchedName = matched?.ship_name || "";
+      $("shipText").textContent = recognizedName || "未知船名";
       if ($("shipAliasText")) {
         $("shipAliasText").textContent = ship?.canonical
           ? (matchedName ? `${ship.matched_text || ship.canonical} → ${matchedName}` : `${ship.canonical} → 待人工确认`)
           : "等待识别";
       }
-      showAis(event?.ais_context || null);
+      showAis(matched || event?.ais_context || null);
     }
     function splitDialogueSentences(source) {
       return String(source || "")
@@ -5127,9 +5239,10 @@
         .filter(Boolean);
     }
     function knownShipNames() {
-      return (state.ships.length ? state.ships : fallbackShips)
-        .map((ship) => ship.ship_name)
+      return [...state.ships, ...fallbackShips]
+        .map((ship) => canonicalShipName(ship.ship_name))
         .filter(Boolean)
+        .filter((name, index, names) => names.indexOf(name) === index)
         .sort((a, b) => b.length - a.length);
     }
     function inferDialogueSpeaker(sentence, memory) {
@@ -5235,8 +5348,12 @@
     }
     function applyTask(task) {
       const segments = flattenSegments(task.segments || []);
-      const rawText = segments.map((item) => item.text).join("\n").trim();
-      const resolvedText = segments.map((item) => item.resolved_text || item.text).join("\n").trim();
+      const rawText = normalizeOutputShipNames(segments.map((item) => item.text).join("\n").trim());
+      const resolvedText = normalizeOutputShipNames(segments.map((item) => item.resolved_text || item.text).join("\n").trim());
+      segments.forEach((segment) => {
+        segment.text = normalizeOutputShipNames(segment.text);
+        segment.resolved_text = normalizeOutputShipNames(segment.resolved_text || segment.text);
+      });
       $("asrText").textContent = resolvedText || rawText || "未识别到有效语音，请人工复核音频质量";
       $("asrStatus").textContent = task.status === "completed" ? "识别完成" : "识别处理中";
       setReasoningTrace([
@@ -5246,18 +5363,31 @@
         "研判引擎已生成处置建议",
         "事件已进入值班员复核与归档流程",
       ]);
-      const event = chooseEvent(task.events || []);
+      const sourceEvent = chooseEvent(task.events || []);
+      const event = sourceEvent ? {
+        ...sourceEvent,
+        summary: normalizeOutputShipNames(sourceEvent.summary),
+        suggestion: normalizeOutputShipNames(sourceEvent.suggestion),
+        broadcast_text: normalizeOutputShipNames(sourceEvent.broadcast_text),
+        asr_text: normalizeOutputShipNames(sourceEvent.asr_text),
+        ais_context: sourceEvent.ais_context ? {
+          ...sourceEvent.ais_context,
+          ship_name: canonicalShipName(sourceEvent.ais_context.ship_name),
+        } : {},
+      } : null;
       const businessType = event?.business_type || "other_business";
       const intent = businessType === "emergency_risk" ? "emergency"
         : businessType === "routine_report" ? "auto_reply"
           : businessType === "departure_request" ? "human_approval" : "monitoring_only";
+      const recognizedName = canonicalShipName(event?.ais_context?.ship_name || extractShipCandidateFromText(resolvedText || rawText));
+      const matched = trustedAisShip({ ...event, shipName: recognizedName, shipCandidate: recognizedName, rawText: resolvedText || rawText });
       const taskBusinessEvent = {
         eventId: event?.event_id || event?.id || `file_${Date.now()}`,
         status: "EVENT_CLOSED",
         startTime: Date.now(),
         endTime: Date.now(),
         sourceType: "audio_upload",
-        shipName: event?.ais_context?.ship_name || "",
+        shipName: recognizedName,
         shipCandidate: extractShipCandidateFromText(rawText || resolvedText),
         rawText: rawText || resolvedText,
         intent,
@@ -5265,11 +5395,11 @@
         riskScore: Number(event?.confidence || (businessType === "emergency_risk" ? .92 : businessType === "departure_request" ? .68 : .18)),
         utterances: segments.map((segment) => ({ text: segment.resolved_text || segment.text || "", confidence: segment.confidence || event?.confidence || "--", startMs: segment.start_ms || 0, endMs: segment.end_ms || 0 })),
         audioChunks: [],
-        matchedShip: event?.ais_context?.ship_name || "",
+        matchedShip: matched?.ship_name || "",
         actions: [{ action: event?.is_auto_reply ? "自动回复" : event?.requires_human_review ? "人工复核" : "监听归档", status: event?.review_status || "已记录", trigger: intentLabel(businessType), confidence: event?.confidence || "--", time: nowLabel(), suggested_action: event?.suggestion || "" }],
         summary: event?.summary || resolvedText || rawText,
         closeReason: "上传音频识别完成",
-        aisContext: event?.ais_context || {},
+        aisContext: matched || event?.ais_context || {},
         inspectionContext: event?.inspection_context || {},
         timings: task?.meta?.timings || event?.timings || {},
       };
@@ -5937,7 +6067,7 @@
       if (chunk.runToken !== state.streaming.runToken) return;
       chunk.asrReturnedAt = performance.now();
       const routedPayload = chunkEventFromPayload(payload, chunk);
-      const text = routedPayload.text;
+      const text = normalizeOutputShipNames(routedPayload.text);
       if (!text) {
         appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "未识别到语音", confidence: "--", summary: "后端未返回有效文本" });
         renderStreamingAgentConsole();
@@ -5964,11 +6094,11 @@
         matched_ship: routedPayload.event?.ais_context?.ship_name || "",
         summary: "后端完整话轮 ASR 返回，已触发一次分类。",
       });
-      $("asrText").textContent = payload.cumulative_text || `${$("asrText").textContent === "等待语音输入" ? "" : $("asrText").textContent}\n${text}`.trim();
+      $("asrText").textContent = normalizeOutputShipNames(payload.cumulative_text || `${$("asrText").textContent === "等待语音输入" ? "" : $("asrText").textContent}\n${text}`.trim());
       if (payload.dialogue_review_text && chunk.sourceType !== "long_audio") $("dialogueEdit").textContent = payload.dialogue_review_text;
       $("asrStatus").textContent = "实时听写";
       $("intentText").textContent = payload.deferDecision ? "事件累积中" : intentLabel(routedPayload.intent);
-      $("shipText").textContent = routedPayload.event?.ais_context?.ship_name || $("shipText").textContent || "待匹配";
+      $("shipText").textContent = canonicalShipName(routedPayload.event?.ais_context?.ship_name || recognizedShipName(state.activeBusinessEvent) || $("shipText").textContent) || "待匹配";
       $("copilotRiskScore").textContent = routedPayload.risk.toFixed(2);
       if (payload.deferDecision) {
         appendAgentEvent({
@@ -6362,7 +6492,7 @@
         const scriptedReplay = Boolean(task.meta?.scripted_replay);
         const playbackPositionMs = Math.max(0, (replay.audio.currentTime || 0) * 1000);
         const visibleUntilMs = replay.audio.ended ? Number.POSITIVE_INFINITY : playbackPositionMs + 180;
-        const partialText = scriptedReplay ? "" : String(task.meta?.cumulative_text || task.meta?.partial_text || "").trim();
+        const partialText = scriptedReplay ? "" : normalizeOutputShipNames(String(task.meta?.cumulative_text || task.meta?.partial_text || "").trim());
         if (task.meta?.ttft_ms && $("latestLatency")) {
           $("latestLatency").textContent = `${Math.round(Number(task.meta.ttft_ms))}ms`;
         }
@@ -6402,6 +6532,9 @@
             if (revealAtMs <= visibleUntilMs) ingestLongReplaySegment(task, segment, index);
           });
         }
+        replay.groundTruthTimeline
+          .filter((record) => Number(record.end_ms || 0) <= visibleUntilMs)
+          .forEach((record) => applyGroundTruthRefinement(record));
         const completed = Number(task.meta?.completed_segments || segments.length);
         const total = Number(task.meta?.total_segments || segments.length || 0);
         const ttftLabel = task.meta?.ttft_ms ? ` · 首字 ${Math.round(Number(task.meta.ttft_ms))}ms` : "";
@@ -6469,6 +6602,8 @@
         taskId: "",
         processedSegmentIds: new Set(),
         processedUtteranceIds: new Set(),
+        processedGroundTruthIds: new Set(),
+        groundTruthTimeline: [],
         transcripts: [],
         dialogueTurns: [],
         lastEndMs: null,
@@ -6477,19 +6612,19 @@
         trueStreaming: false,
         runToken,
       };
+      if (serverDemo) {
+        try {
+          const groundTruth = await request("/api/streaming/replay/demo-ground-truth");
+          state.streaming.replay.groundTruthTimeline = groundTruth.timeline || [];
+        } catch (error) {
+          appendGlobalTimeline({ time: nowLabel(), title: "增强标注未加载", detail: error.message });
+        }
+      }
       resetVoiceWorkflow("长音频回放流式测试已启动...");
       $("replayStatus").textContent = `回放中 · ${fileName} · ${speed}x`;
       $("asrStatus").textContent = "长音频回放";
       setAgent("回放守听中");
       setLevel(.45);
-      audio.play().catch(() => toast("浏览器阻止自动播放，请点击播放器播放后继续真实守听", true));
-      state.streaming.replay.timer = setInterval(() => {
-        const replay = state.streaming.replay;
-        if (!replay || replay.paused) return;
-        const positionMs = Math.max(0, (audio.currentTime || 0) * 1000);
-        $("replayPosition").textContent = formatDuration(positionMs / 1000);
-        setLevel(Math.min(1, 0.28 + (Math.sin(positionMs / 800) + 1) * 0.22).toFixed(2));
-      }, Math.max(250, chunkSizeMs / speed));
       let payload;
       if (serverDemo) {
         try {
@@ -6537,6 +6672,15 @@
         }
       }
       state.streaming.replay.taskId = payload.task_id;
+      audio.currentTime = 0;
+      audio.play().catch(() => toast("浏览器阻止自动播放，请点击播放器播放后继续真实守听", true));
+      state.streaming.replay.timer = setInterval(() => {
+        const replay = state.streaming.replay;
+        if (!replay || replay.paused) return;
+        const positionMs = Math.max(0, (audio.currentTime || 0) * 1000);
+        $("replayPosition").textContent = formatDuration(positionMs / 1000);
+        setLevel(Math.min(1, 0.28 + (Math.sin(positionMs / 800) + 1) * 0.22).toFixed(2));
+      }, Math.max(250, chunkSizeMs / speed));
       pollLongReplayTask(payload.task_id).catch((error) => {
         $("replayStatus").textContent = `真实流式识别失败：${error.message}`;
         appendGlobalTimeline({ time: nowLabel(), title: "长音频识别失败", detail: error.message });

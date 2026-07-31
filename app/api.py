@@ -1823,6 +1823,18 @@ def _load_demo_transcript_map() -> Dict[str, Dict[str, str]]:
     return rows
 
 
+def _load_enhanced_demo_ground_truth() -> Dict[str, Dict[str, str]]:
+    path = Path(__file__).resolve().parent / "resources" / "vhf_enhanced_ground_truth.json"
+    if not path.is_file():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return {
+        str(row.get("sample_id") or "").strip(): row
+        for row in payload.get("records", [])
+        if str(row.get("sample_id") or "").strip()
+    }
+
+
 def _demo_business_event_for_segment(segment: Dict[str, Any]) -> Dict[str, Any]:
     category = str(segment.get("category_code") or "")
     text = str(segment.get("resolved_text") or segment.get("text") or "")
@@ -1954,6 +1966,35 @@ async def websocket_streaming_demo_audio() -> FileResponse:
     if path is None:
         raise HTTPException(status_code=404, detail="服务器演示长音频不存在")
     return FileResponse(path, media_type="audio/wav", filename=path.name)
+
+
+@router.get("/streaming/replay/demo-ground-truth")
+async def websocket_streaming_demo_ground_truth() -> Dict[str, object]:
+    audio_path = _long_audio_demo_path()
+    if audio_path is None:
+        raise HTTPException(status_code=404, detail="服务器演示长音频不存在")
+    manifest_path = _long_audio_demo_manifest_path(audio_path)
+    if manifest_path is None:
+        raise HTTPException(status_code=404, detail="服务器演示长音频清单不存在")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    ground_truth = _load_enhanced_demo_ground_truth()
+    timeline: List[Dict[str, object]] = []
+    for row in manifest.get("segments", []):
+        sample_id = str(row.get("sample_id") or Path(str(row.get("filename") or "")).stem).strip()
+        annotation = ground_truth.get(sample_id)
+        if not annotation:
+            continue
+        timeline.append({
+            **annotation,
+            "start_ms": int(float(row.get("start_sec") or 0) * 1000),
+            "end_ms": int(float(row.get("end_sec") or row.get("start_sec") or 0) * 1000),
+            "filename": str(row.get("filename") or ""),
+        })
+    return {
+        "source": "VHF评测集标注模板_增强版.xlsx",
+        "matched_count": len(timeline),
+        "timeline": timeline,
+    }
 
 
 @router.post("/streaming/replay/demo")

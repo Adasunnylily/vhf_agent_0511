@@ -1,0 +1,299 @@
+{
+  "source": "VHF评测集标注模板_增强版.xlsx",
+  "records": [
+    {
+      "sample_id": "001015",
+      "gt_transcript": "[船方] 呃，宁波舟山交管中心，新平082。\n[交管]请讲\n[船方] 啊，叫交管老师晚上好，新平082，请长柄嘴，向您申请穿越两号警戒区去马峙锚地抛锚，向您报告。 \n[船方] 好的，谢谢交管提醒。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "001145_0",
+      "gt_transcript": "[船方] 宁波舟山交管，锦龙227叫。  \n[交管] 请讲。  \n[船方] 交管晚上好，锦龙227黄牛礁进x口去金塘南抛锚，向你报告。  \n[交管] 好的，注意安全。\n[船方] 谢谢交管，再会。\n[船方]交管，锦龙227黄牛礁进x口去金塘南抛锚，向你报告。 \n[交管] 好的，注意安全。\n[船方] 谢谢交管，再会。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "001145_1",
+      "gt_transcript": "[船方] 宁波交管，汇通66叫。\n[交管] 请讲。\n[船方] 老师，汇通66在穿山/xx/出口开往北仑三期，向你报告。\n[交管] 注意安全。\n[船方] 再会。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "000024_0",
+      "gt_transcript": "[船方] 呃，宁波交管，锦龙228。  \n[交管] 请讲。  \n[船方] 呃，锦龙228，接码头通知，金塘南不抛锚了，直接进去。  \n[交管] 好的安全。  \n[船方] 好的好的，谢谢老师。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "000024_1",
+      "gt_transcript": "[中国银川] 锦华662，你后面的中国银川叫。  \n[锦华662] 请讲。  \n[中国银川] 锦华662，你后面的中国银川叫。  \n[锦华662] 请讲。  \n[中国银川] 锦华662，你能不能加点车啊，你现在才四节多啊。  \n[锦华662] 前面挡住了呀。  \n[中国银川] 前面速度有将近七节了。 锦华662，你加点车好吧。  \n[锦华662]好的，我加车了。",
+      "primary_label_gt": "other_business",
+      "communication_relation": "ship_to_ship"
+    },
+    {
+      "sample_id": "001454",
+      "gt_transcript": "还没到离泊",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "002125",
+      "gt_transcript": "[船方] 海洋137，你这边的中谷福州走你船尾，你让你过去好了\n[另一船] 哪里叫，海洋137\n[船方] 我是招商开出来的中谷福州，我过你船尾，你抓紧过去吧。\n[船方] 你过我船尾是吧？\n[另一船] 对的，对的，我走你船尾。\n[船方] 好的，谢谢。",
+      "primary_label_gt": "other_business",
+      "communication_relation": "ship_to_ship"
+    },
+    {
+      "sample_id": "002750",
+      "gt_transcript": "[船方] 宁波舟山交管，宁远梅山。  \n[交管] 交管晚上好，宁远梅山，向您申请在北仑二期通达7号泊位作业完毕，申请离泊。下一港大浦。  \n[交管] OK，注意安全。  \n[船方] 哎，好的收到谢谢交管。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "002922",
+      "gt_transcript": "[船方] 宁波舟山交管，锦龙22，金塘南抛好锚，向你报告。  \n[交管] 好，注意加强，锚泊值报。  \n[船方] 啊，谢谢交管。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "004604",
+      "gt_transcript": "[船方] 宁波舟山交管，华政集运靠妥两期三号泊位，向你报告。  \n[交管] 华政集运收到了。  \n[船方] 谢谢交管老师，再会。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "004939",
+      "gt_transcript": "[船方] 宁波舟山交管中心，东方查尔斯顿叫。  \n[交管] 请讲。  \n[船方] 老师晚上好，东方查尔斯顿275号泊位拖轮带拖，向您申请解缆离泊出下水门，引航员139向您报告。  \n[交管] 好的，注意安全。  \n[船方] 老师再会。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "010501_0",
+      "gt_transcript": "[船方] /2-17进入围栏，俊港3/。 \n[交管] /俊港3/，请讲。\n[船方] 啊，有事啊，麻烦你往我北面再走一点。\n[船方] 呃，因为/江户17/在那里，我往北也不好去，要不然你稍微慢一点好吧，/俊港3/。\n[交管] /江户17/应该是过了航道了，你跟。\n[船方] 那那我再往右去一点吧，我再往右去一点吧。\n[交管] 哎，你稍微往右去一点。\n[船方] 哎，你稍微速度慢一点，/俊港3/。",
+      "primary_label_gt": "other_business",
+      "communication_relation": "ship_to_ship"
+    },
+    {
+      "sample_id": "010631",
+      "gt_transcript": "[船方] 宁波舟山交管，/曾家7/。  \n[交管] 请讲。  \n[船方] 啊，交管晚上好，/曾家7/在甬舟集装箱码头，给外轮接拖，现在离泊开航，向您报告。  \n[交管] 好的，注意安全。  \n[船方] 啊，好的谢谢。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "014257",
+      "gt_transcript": "[船方] 啊宁波舟山交管，零元北轮叫。  \n[交管] 请讲。  \n[船方] 啊零元北轮，啊在崖山锚地由东向西穿越四号警戒区开往穿山。  \n[交管] 好的注意安全。  \n[船方] 好的。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "014509",
+      "gt_transcript": "[船方] 舟山交管，新民州96。  \n[交管] 请讲。  \n[船方] 新民州96在四期码头2号泊位装货完毕，现在申请离泊开航，我下一港是福州，向你报告。  \n[交管] 啊，注意安全。  \n[船方] 好的谢谢。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "015237",
+      "gt_transcript": "[船方] 宁波舟山交管，云尾17叫。  \n[交管] 请讲。  \n[船方] 宁波舟山交管，云尾17叫。  \n[交管] 请讲，请讲。  \n[船方] 交管晚上好，云尾17在黄牛礁准备西行靠葛洲坝码头，向你报告。  \n[交管] 云尾17啊，你我看到你们那个葛洲坝靠了好几条船啊，你们还有那个吗，还有泊位靠吗？  \n[船方] 那个我问过那个调度了，他说还有泊位的。  \n[交管] 啊，靠泊注意安全啊。  \n[船方] 谢谢啊。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "015424",
+      "gt_transcript": "[船方] 宁波舟山交管，东港油66。  \n[交管] 你好。  \n[船方] 东港油66在两号警戒线西面，/腾怀村/进口顺境药物的船尾，由南向北穿越航道，去那个/奥赛/，向你报告。  \n[交管] 港油66注意安全啊。  \n[船方] 谢谢交管，再会。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "021010_0",
+      "gt_transcript": "[船方] 啊，宁波舟山交管，玲珑001在金xx抛好锚，向您报个备。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "022120_0",
+      "gt_transcript": "[船方] /华谊008/，你稍微拉到北侧一点好吧，我朝向这都要去穿山的了，在罗陀啊，在那个这个/摘箬山/来车要穿越航道的。  \n[/华谊008/] 啊，好的好的，我过了航道，我在航道外。  \n[船方] 好了，谢谢。",
+      "primary_label_gt": "other_business",
+      "communication_relation": "ship_to_ship"
+    },
+    {
+      "sample_id": "022120_1",
+      "gt_transcript": "[船方]宁波舟山交管，/永华/17。\n[交管]请讲\n[船方]交管早上好，/永华/17靠妥国投8码头向您报告。\n[交管]好的，收到\n[船方]好的，谢谢，再会。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "023034",
+      "gt_transcript": "[船方] 宁波舟山交管，海景68叫。  \n[交管] 你好。  \n[船方] 交管老师晚上好，海景68在矿石4号泊位申请离泊，是否可以？  \n[交管] 海景68啊，你报了几点的计划？  \n[船方] 啊，他出港计划是3点，3点我现在想申请一下2点40的这个最高潮。  \n[交管] 离吧离吧，注意安全。  \n[船方] 啊，可以离了，注意安全，好的。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "023149",
+      "gt_transcript": "[船方] 宁波舟山交管，零二零五。  \n[交管] 请讲。\n[船方] 宁波舟山交管，零二零五。  \n[交管] 请讲，请讲。  \n[船方] 啊，晚上好，零二零五，北洋山南边准备由南向北穿越螺头水道，出口，向您报备。  \n[交管] 啊，穿越水道，穿越航道的时候，进出口船提前联系，注意协调避让，注意安全。  \n[船方] 好的，谢谢交管提醒。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "023442",
+      "gt_transcript": "[船方] 宁波舟山交管，鑫武31。\n[交管] 请讲。\n[船方] 交管晚上好，鑫武31，大黄蟒的进港准备去靠宁波海螺码头，向你报告。\n[交管] 好，注意安全。\n[船方] 谢谢交管。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "023642",
+      "gt_transcript": "[船方] 宁波舟山交管，建航V17金塘南侧跑好锚，向您报告。\n[交管] 好，收到了。\n[船方] 啊，谢谢交管。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "024310_0",
+      "gt_transcript": "[船方] 宁波舟山交管，/加腾17/。  \n[交管] 你好。  \n[船方] /加腾17/本来是去甬舟码头5号泊位给中国银川供油的，现在那边计划都有点延后了，那我到时候跟着那个马士基出口的船尾掉个头，黄牛礁去掉个头，跟着新民州78后面贴上去，向您报告是否可以。  \n[交管] 你加油什么？加油计划取消了是吧？  \n[船方] 加油计划没取消，后面都延迟了嘛，马士基他延迟离泊了，然后的话，我跟着新民州78后面，他靠上去以后我再贴上去，所以说我要去黄牛礁的西面这样子去掉个头，去绕个圈，跟着马士基后面掉头是否可以。  \n[交管] 哦，你是去给哪条船供油的啊？  \n[船方] 给5号泊位的中国银川，中国银川，他已经贴上去了，那我跟着新民州78后面，他靠好以后我再贴上去。  \n[交管] 哦，你是，好，收到，可以的啊，注意安全。  \n[船方] 哎，好的好的，谢谢交管。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "025348_1",
+      "gt_transcript": "[船方] 宁波舟山交管，/航特/16靠好//码头，向你报告。\n[交管] 好，收到了。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "025348 _2",
+      "gt_transcript": "[船方] 宁波舟山交管，海景68。  \n[交管] 海景68，请讲。  \n[船方] 啊，早上好，海景68在矿石码头4号泊位，向你申请离泊，下一港铜陵，走金塘大桥出口。  \n[交管] 注意安全。  \n[船方] 好的，谢谢交管提醒，再会。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "030244_0",
+      "gt_transcript": "[船方] 宁波舟山交管，远胜88。\n[交管] 请讲。\n[船方] 啊，早上好，远胜88在大榭亚东水地码头作业完毕，向你申请解缆离泊，下一港舟山。\n[交管] 注意安全。\n[船方] 好的，谢谢交管，再会。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "030244_1",
+      "gt_transcript": "[船方] 宁波舟山交管，远洋8616。  \n[交管] 8616请讲。  \n[船方] 啊，我问一下现在靠港能不能进港？  \n[交管] 不可以啊，你先去抛锚。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "030349",
+      "gt_transcript": "[船方] 宁波舟山交管中心，天汇吉运。\n[交管] 请讲。\n[船方] 啊，交管你好，天汇吉运现在3号集装箱进口，我右前方一条新甬舟船，现在驶向往左边压得比较多，我贴着风隔带走一下，给你报备一下。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "030437",
+      "gt_transcript": "[船方] 宁波舟山交管，光大68金塘南抛锚，向你报告。\n[交管] 光大68收到了，再会。\n[船方] 好，再会。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "030922",
+      "gt_transcript": "[船方] 宁波舟山交管，宁远大榭。\n[交管] 宁远大榭，请讲。\n[船方] 交管你好，宁远大榭在甬舟三号泊位向你申请离泊开航，我金塘大桥出口开往乍浦。\n[交管] 离泊注意安全。\n[船方] 交管。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "031120",
+      "gt_transcript": "[船方] 宁波舟山交管，远洋8516，金塘南抛好锚向你报告。\n[交管] 8516收到了，加强锚泊值班，再会。\n[船方] 再会。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "031231_0",
+      "gt_transcript": "[船方] 宁波舟山交管，鑫永祥78靠妥甬舟码头向你报告。\n[交管] 78收到了，再会。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "031547_0",
+      "gt_transcript": "[船方] 宁波舟山交管，盛轮99。\n[交管] 请讲。\n[船方] 啊，交管晚上好，盛轮99在马士基一号锚地，出锚地准备跟你申请由东往西穿越2号警戒区，到顺达码头。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "031849",
+      "gt_transcript": "[船方] 交管晚上好，顺泽18靠好金塘葛洲坝码头向你报告。\n[交管] 顺泽18收到了，再会。\n[船方] 哎，好的，谢谢交管。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "032328",
+      "gt_transcript": "[船方] 宁波舟山交管，交运海顺。  \n[交管] 请讲。  \n[船方] 交运海顺在穿鼻岛的一期泊位装货完毕，向你申请等潮离泊，香港开往上海。  \n[交管] 离泊注意安全。  \n[船方] 哎，好，谢谢老师。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "033257",
+      "gt_transcript": "[船方] 交管晚上好，宁远北仑靠好港机2泊位向你报告。\n[交管] 宁远北仑收到了，再会。\n[船方] 好的，谢谢老师。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "033500",
+      "gt_transcript": "[船方] 玲珑001，玲珑001，快到黄牛礁的进口，箱子外轮叫。  \n[玲珑001] 啊请讲。  \n[船方] 船长啊，你去宁波的是吧\n[玲珑001] 我是去宁波\n[船方] 去宁波甬江的话， 船长要不你等会出来以后，你稍微往南边多开一点，我等会儿去靠大浦口码头的，我走你右边去\n[玲珑001]啊，好的好的\n[船方] 船长你大角度往右边来，往左边来好了\n[玲珑001]好的",
+      "primary_label_gt": "other_business",
+      "communication_relation": "ship_to_ship"
+    },
+    {
+      "sample_id": "033724",
+      "gt_transcript": "[船方] 交管晚上好，中兴顺浚15金塘南抛好锚向你报告。\n[交管] 顺浚15收到了，再会。\n[船方] 好的，再会。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "034308",
+      "gt_transcript": "[他船] 江峰7，江峰7，你旁边的箱子外轮叫。  \n[江峰17] 啊，我是江峰17啊。  \n[他船] 哦，江峰17船长，我等会儿靠大浦口码头的，你出锚地以后，你走我左边来好了啊。  \n[江峰17] 哎，好的好的，你靠甬州码头是吧？  \n[他船] 对对的，靠甬州码头去的。  \n[江峰17] 好的，你向右调，我向左调好吧。  \n[他船] 哎，好的，谢谢船长。  \n[江峰17] 哎，好的。",
+      "primary_label_gt": "other_business",
+      "communication_relation": "ship_to_ship"
+    },
+    {
+      "sample_id": "034421",
+      "gt_transcript": "[船方] 宁波舟山交管，广达68可以起锚吗\n[交管] 广达68可以起锚了，注意安全。\n[船方] 收到，再会。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "034622",
+      "gt_transcript": "[船方] 宁波交管，宁波交管，海风明和。\n[交管] 请讲。\n[船方] 交管，海风明和在招商码头4号泊位准备离泊，出虾峙门，引水130，向你报告。\n[交管] 宁波注意安全。\n[船方] 好的，谢谢。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "035154_0",
+      "gt_transcript": "[船方] 宁波舟山交管，长航深海叫。\n[交管] 请讲。\n[船方] 长航深海在北仑一期矿石码头3号泊位装货完毕，拖轮就位，xxxx,申请离泊开航。我下一港是江阴，准备走金塘大桥北上。\n[交管] 长航深海注意安全。\n[船方] 好的，谢谢交管。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "035625",
+      "gt_transcript": "[他船] 江x海事，雷业999。  \n[雷业999] 雷业999，请讲。  \n[他船] 你什么动态？北上吗？  \n[雷业999] 我由南向北，穿越三号警戒区去野鸭山锚地。  \n[雷业999] 我靠近xx桥大xx码头，我们要xx。  \n[他船] 好的，你从我船尾这边划过来吧。  \n[雷业999] 嗯。",
+      "primary_label_gt": "other_business",
+      "communication_relation": "ship_to_ship"
+    },
+    {
+      "sample_id": "041219_0",
+      "gt_transcript": "[船方] 宁波交管，顺龙99。\n[交管] 请讲。\n[船方] 啊，交管晚上好，顺龙99现在在J63南侧，准备跟你申请由北往南穿越分隔带，到穿山东口，到义和顺码头。我准备在那个恒基88船尾发过去。\n[交管] 恒基88船尾可以的，注意跟他保持安全距离啊。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "041818_0",
+      "gt_transcript": "[粤海42] 粤海492，江峰6。  \n[江峰6] 江峰6，请讲。  \n[粤海42] 你去哪里的？  \n[江峰6] 我去老塘山三期靠泊的。  \n[粤海42] 去老塘山啊，我等会儿到警戒区，下头转向了。  \n[江峰6] 啊，好的。",
+      "primary_label_gt": "other_business",
+      "communication_relation": "ship_to_ship"
+    },
+    {
+      "sample_id": "041818_1",
+      "gt_transcript": "[船方] 宁波舟山交管，嘉诚17靠妥了甬舟码头5号泊位的外档向你报告。\n[交管] 收到了。\n[船方] 好，谢谢交管，再会。",
+      "primary_label_gt": "routine_report",
+      "communication_relation": "ship_to_vts"
+    },
+    {
+      "sample_id": "042206",
+      "gt_transcript": "[船方] 宁波舟山交管，港顺177。  \n[交管] 请讲。  \n[船方] 啊，交管晚上好，港顺177在野鸭山北锚地西侧由北向南进入4号警戒区，去马峙锚地，向你报备。  \n[交管] 你船名叫什么？  \n[船方] 港顺177，港顺177。  \n[交管] 你是离泊是吧？  \n[船方] 不是，我在野鸭山北锚地的西侧由北向南穿越进入4号警戒区，去马峙锚地，向你报备。  \n[交管] 收到了，注意4号警戒区交会船，再会。  \n[船方] 好的，谢谢。",
+      "primary_label_gt": "departure_request",
+      "communication_relation": "ship_to_vts"
+    }
+  ]
+}
