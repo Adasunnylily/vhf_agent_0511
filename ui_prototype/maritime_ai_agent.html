@@ -8286,20 +8286,42 @@
       let toolResult = null;
       if (queryKey === "ship_history") toolResult = VTS_ASSISTANT_TOOLS.getShipHistory(event);
       else if (queryKey === "vhf_history") toolResult = VTS_ASSISTANT_TOOLS.getVHFCallHistory(event);
+      else if (queryKey === "departure_rules") toolResult = await VTS_ASSISTANT_TOOLS.searchVTSRules();
       else if (/AIS|位置|船舶/.test(freeText)) toolResult = VTS_ASSISTANT_TOOLS.getCurrentAISState(event) || VTS_ASSISTANT_TOOLS.getShipProfile(event);
       else if (/时间|日志|过程/.test(freeText)) toolResult = VTS_ASSISTANT_TOOLS.getEventTimeline(event);
+      const matchedShip = event ? trustedAisShip(event) : null;
+      const application = view?.structuredApplication;
+      const riskEvidence = view?.riskAssessment?.evidence || [];
+      const businessEvidence = view?.businessEvidence || [];
+      const businessConfidence = view?.businessAssessment?.confidence;
+      const nearbyCount = Number(event?.inspectionContext?.matched_count || event?.inspectionContext?.matched_ships?.length || 0);
+      const answerGoal = queryKey === "explain_suggestion"
+        ? "回答目标：解释当前审批建议。依次给出审批结论、风险判断、业务判断、AIS与位置核验、待核验项和下一步动作；不得执行审批。"
+        : `回答目标：${promptText}`;
       const eventContext = [
+        answerGoal,
         `船舶：${recognizedShipName(event) || "待确认"}`,
         `事件摘要：${eventBriefSummary(event, view)}`,
         `通信关系：${view ? DIGITAL_DUTY_LABELS.relation[view.communicationRelation] : "待识别"}`,
-        `业务类型：${view ? DIGITAL_DUTY_LABELS.intent[view.businessIntent] : "待识别"}`,
+        `业务意图：${view ? DIGITAL_DUTY_LABELS.intent[view.businessIntent] : "待识别"}`,
+        `事项类型：${view?.operationType || "待识别"}`,
+        `业务识别置信度：${Number.isFinite(businessConfidence) ? Number(businessConfidence).toFixed(2) : "模型未返回"}`,
         `处置策略：${view ? DIGITAL_DUTY_LABELS.policy[view.actionPolicy] : "持续监听"}`,
+        `当前状态：${event ? getEventStatusLabel(event) : "等待事件"}`,
+        `风险等级：${view ? DIGITAL_DUTY_LABELS.risk[view.riskAssessment.riskLevel] : "待检测"}`,
+        `风险评分：${view ? view.riskAssessment.riskScore.toFixed(2) : "待检测"}；来源：${view?.riskAssessment?.scoreSource || "暂无"}`,
+        riskEvidence.length ? `风险判断依据：${riskEvidence.join("；")}` : "风险判断依据：尚无可靠结果",
+        businessEvidence.length ? `业务判断依据：${businessEvidence.join("；")}` : "业务判断依据：尚无可靠结果",
+        application ? `申请信息：当前泊位${application.currentBerth}；申请事项${application.applicationType}；计划航路${application.plannedRoute}；目的地${application.destination}；信息完整度${Math.round((view.businessAssessment.completeness || 0) * 100)}%` : "申请信息：不适用或待提取",
+        matchedShip ? `AIS核验：已关联${matchedShip.ship_name}；位置${matchedShip.position_label || "待核验"}；航速${matchedShip.sog_kn ?? "暂无"}节；航向${matchedShip.cog_deg ?? "暂无"}度` : "AIS核验：尚未可靠关联目标船",
+        `周边态势：点验范围内${nearbyCount}艘；${nearbyCount ? "已有周边目标" : "尚无周边点验结果"}`,
+        `人工审批状态：${event?.approvalStatus || "pending"}；回复草案：${application?.replyDraft || event?.replyDraft || "尚未生成"}`,
         toolResult ? `工具查询结果：${toolResult.data}；数据来源：${toolResult.source}` : "",
       ].filter(Boolean).join("\n");
       try {
         const payload = await request(`/api/knowledge/rag?q=${encodeURIComponent(promptText)}&top_k=5&context=${encodeURIComponent(eventContext)}`);
         const citations = (payload.citations || []).slice(0, 3).map((item) => item.title || item.source).filter(Boolean);
-        const generator = payload.llm_used ? `大模型 ${payload.generator}` : "知识库检索兜底";
+        const generator = payload.llm_used ? `大模型 ${payload.generator}` : "规则与知识库降级";
         const source = [generator, toolResult?.source, citations.length ? `参考：${citations.join("、")}` : ""].filter(Boolean).join(" · ");
         if (pending) pending.remove();
         appendVtsAssistantMessage(payload.answer || toolResult?.data || "暂无记录", source || "当前知识库");

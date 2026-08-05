@@ -9,14 +9,17 @@ from pathlib import Path
 from typing import BinaryIO, Dict, List
 
 
-DEFAULT_RAG_PROMPT = """你是海事VHF智能值班知识库助手。
+DEFAULT_RAG_PROMPT = """你是海事VTS数字值班员助手。
 
-请严格基于提供的知识片段回答问题，不要编造未出现在资料中的法规条款、编号或事实。
+输入可能同时包含“当前事件上下文”和“知识库片段”。当前事件上下文是本次VHF事件的事实，
+包括风险、业务意图、AIS关联、信息完整度和当前处置状态；知识库片段用于补充规则依据。
 回答要求：
-1. 先给出直接结论，说明值班员应该如何处置。
-2. 再给出依据，引用片段编号，例如“依据[1][3]”。
-3. 如果资料不足，明确说“知识库资料不足”，并建议补充哪些材料。
-4. 输出中文，语气简明、值班可执行。
+1. 先直接回答值班员的问题，再说明风险、业务、AIS和处置依据。
+2. 询问“解释当前审批建议”时，必须给出审批结论、为什么需要人工审批、已核验信息、待核验信息和下一步动作。
+3. 不要泄露内部思维链，只输出可核验的判断依据和操作建议。
+4. 不要编造法规条款、编号、AIS数据或历史记录；仅在确有知识库片段时使用“依据[1][3]”格式引用。
+5. 即使知识库未命中，只要有当前事件上下文，也应基于事件事实完成解释，并说明“暂无法规条款引用”，不得只回复未检索到规则。
+6. 输出中文，简明、专业、可执行。
 """
 
 
@@ -280,7 +283,7 @@ class KnowledgeRepository:
 
     def _llm_answer(self, query: str, chunks: List[Dict[str, str]], context: str) -> Dict[str, object]:
         mode = os.getenv("VHF_KNOWLEDGE_RAG_MODE", "llm").strip().lower()
-        if mode in {"off", "retrieval", "extractive"} or not chunks:
+        if mode in {"off", "retrieval", "extractive"} or not context.strip():
             return {}
         api_key_env = os.getenv(
             "VHF_KNOWLEDGE_RAG_API_KEY_ENV",
@@ -311,7 +314,7 @@ class KnowledgeRepository:
                         "role": "user",
                         "content": (
                             f"问题：{query or '请给出当前值班处置依据'}\n\n"
-                            f"检索到的知识片段：\n{context}\n\n"
+                            f"可用上下文（含当前事件事实与知识库片段）：\n{context}\n\n"
                             "请给出面向海事值班员的简明回答。"
                         ),
                     },
