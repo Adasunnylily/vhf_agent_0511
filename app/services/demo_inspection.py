@@ -68,6 +68,7 @@ DEFAULT_SHIPS: List[InspectionShip] = [
     InspectionShip("mock_002", "锦华662", 18700, 8.6, "散货船", "宁波舟山港", "大榭进港航道", 121.916778, 29.954723, "413220002", "", "", 139.6, 22.8, 10.6, 76.8, 76.8, "航行中", "", "待定", "", "mock_water_corridor"),
     InspectionShip("mock_003", "中国银川", 12500, 13.1, "杂货船", "宁波舟山港", "金塘水道南口", 121.955688, 29.996135, "413220003", "", "", 193.5, 35.9, 5.7, 71.6, 71.6, "航行中", "", "待定", "", "mock_water_corridor"),
     InspectionShip("mock_004", "新平082", 10100, 9.0, "油船", "宁波舟山港", "北仑港外航道", 121.889045, 29.973402, "413220004", "", "", 111.1, 28.9, 7.5, 81.9, 81.9, "航行中", "", "待定", "", "mock_water_corridor"),
+    InspectionShip("ship_nydx", "宁远大榭", 11200, 8.8, "散货船", "大浦", "甬舟三号泊位", 121.9728, 29.8959, "413220388", "", "", 142.0, 23.0, 0.0, 92.0, 92.0, "靠泊", "", "待定", "", "manual_monitor_page"),
 ]
 
 DEFAULT_SCENARIOS: List[InspectionScenario] = [
@@ -207,7 +208,11 @@ class InspectionTaskSimulator:
         return meta
 
     def list_mock_ships(self, limit: int = DEFAULT_DISPLAY_SHIP_LIMIT) -> List[Dict[str, object]]:
-        ships = [ship for ship in self._ships if self._has_display_name(ship)]
+        ships_by_name: Dict[str, InspectionShip] = {}
+        for ship in self._ships:
+            if self._has_display_name(ship):
+                ships_by_name[ship.ship_name.strip()] = ship
+        ships = list(ships_by_name.values())
         if limit > 0:
             ships = ships[:limit]
         return [ship.to_dict() for ship in ships]

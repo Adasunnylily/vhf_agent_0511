@@ -1251,7 +1251,6 @@
     .assistant-message small { display: block; margin-top: 5px; color: #7a8ba0; }
     .assistant-input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; margin-top: 8px; }
     .assistant-input-row input { min-width: 0; padding: 9px; border: 1px solid #d8e2ee; border-radius: 9px; }
-    .assistant-safety { display: block; margin-top: 7px; color: #7a8ba0; line-height: 1.4; }
     @keyframes pulseBar {
       0%,100% { height: calc(18px + var(--level) * 18px); opacity: .36; }
       50% { height: calc(46px + var(--level) * 46px); opacity: 1; }
@@ -2425,7 +2424,7 @@
 
       <section class="page voice-page streaming-agent active" id="voicePage">
         <section class="panel agent-map-panel">
-          <div class="panel-head"><h2>实时语音流</h2><span class="pill green">持续守听</span></div>
+          <div class="panel-head"><h2>实时语音流</h2></div>
           <div class="agent-panel-body">
             <div class="stream-card voice-input-card">
               <div class="stream-head">
@@ -2573,7 +2572,7 @@
         </section>
 
         <section class="panel agent-core-panel">
-          <div class="panel-head"><h2>事件主控台</h2><span class="pill" id="businessEventState">监听中</span></div>
+          <div class="panel-head"><h2>事件主控台</h2><span id="businessEventState" hidden></span></div>
           <div class="agent-panel-body command-center-body">
             <div class="current-event-hero" id="currentEventHero">
               <div class="event-hero-head">
@@ -2719,7 +2718,6 @@
               </div>
               <div class="assistant-dialogue" id="vtsAssistantDialogue"><div class="assistant-message">助手已绑定当前事件，仅提供查询与解释，不执行审批或广播。</div></div>
               <div class="assistant-input-row"><input id="vtsAssistantInput" placeholder="询问当前船舶、规则或事件时间线" /><button id="vtsAssistantSendBtn" type="button">发送</button></div>
-              <small class="assistant-safety">回答将显示来源和查询时间；未检索到数据时明确返回“暂无记录”。</small>
             </div>
           </div>
         </section>
@@ -3576,7 +3574,7 @@
       if (!event) return "待确认船舶";
       const view = normalizeDigitalDutyEvent(event);
       const ship = recognizedShipName(event) || trustedAisShip(event)?.ship_name || "未知船舶";
-      const eventTime = event.displayTime || new Date(Number(event.startTime || event.createdAt || Date.now())).toLocaleTimeString("zh-CN", {
+      const eventTime = new Date(Number(event.startTime || event.createdAt || event.timestamp || Date.now())).toLocaleTimeString("zh-CN", {
         hour12: false,
         hour: "2-digit",
         minute: "2-digit",
@@ -4155,7 +4153,6 @@
       const normalized = normalizeOutputShipNames(String(text || ""));
       if (!/宁远大榭/.test(normalized) || !/(离泊|开航)/.test(normalized)) return null;
       return {
-        displayTime: "14:32:19",
         shipName: "宁远大榭",
         currentBerth: /甬舟三号泊位/.test(normalized) ? "甬舟三号泊位" : "待核验",
         application: "离泊开航",
@@ -4176,7 +4173,6 @@
       event.summary = application.summary;
       event.shipName = application.shipName;
       event.location = application.currentBerth;
-      event.displayTime = application.displayTime;
       event.structuredApplication = application;
       event.businessIntent = BUSINESS_INTENT.OPERATION_APPLICATION;
       event.operationType = "离泊开航申请";
@@ -4220,7 +4216,6 @@
       if (departureApplication) {
         event.shipName = departureApplication.shipName;
         event.location = departureApplication.currentBerth;
-        event.displayTime = departureApplication.displayTime;
         event.structuredApplication = departureApplication;
       }
       const matched = trustedAisShip(event);
@@ -4256,9 +4251,14 @@
         modelBusiness.intentConfidence,
         modelBusiness.intent_confidence,
       ].map((value) => value === null || value === undefined || value === "" ? NaN : Number(value)).find(Number.isFinite);
-      const derivedRiskScore = hasEmergency ? 0.92 : hasUnsafe ? 0.55 : 0.08;
+      const derivedRiskScore = hasEmergency ? 0.92 : hasUnsafe ? 0.55 : departureApplication ? 0.28 : 0.08;
       const riskScore = Number.isFinite(explicitRiskProbability) ? explicitRiskProbability : derivedRiskScore;
-      const derivedBusinessConfidence = departureApplication ? 1 : null;
+      const applicationSignals = ["申请", "离泊", "开航"].filter((word) => text.includes(word)).length;
+      const derivedBusinessConfidence = departureApplication
+        ? 1
+        : businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION
+          ? Math.min(0.92, 0.68 + applicationSignals * 0.08)
+          : null;
       const hasLocationCue = Boolean(matched?.position_label || /水道|港|码头|锚地|航道|泊位|报告线|北仑|大榭|金塘|穿山|马峙|野鸭山/.test(text));
       const requiredSlotsComplete = Boolean(voiceShipName && (hasLocationCue || businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT));
       const replyTemplateMatched = businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT;
@@ -4338,7 +4338,7 @@
         },
         businessAssessment: {
           confidence: Number.isFinite(explicitBusinessConfidence) ? Number(explicitBusinessConfidence) : derivedBusinessConfidence,
-          confidenceSource: Number.isFinite(explicitBusinessConfidence) ? "模型输出" : (departureApplication ? "结构化字段完整性" : "暂无"),
+          confidenceSource: Number.isFinite(explicitBusinessConfidence) ? "模型输出" : (derivedBusinessConfidence !== null ? "增量业务语义" : "暂无"),
           paradigm: departureApplication?.paradigm || (businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION ? "静态→动态" : "待识别"),
           completeness: departureApplication ? 1 : null,
           missingFields: departureApplication ? [] : ["待模型返回信息完整度"],
@@ -4565,7 +4565,6 @@
       if (departureApplication) {
         event.shipName = departureApplication.shipName;
         event.location = departureApplication.currentBerth;
-        event.displayTime = departureApplication.displayTime;
         event.structuredApplication = departureApplication;
         event.businessIntent = BUSINESS_INTENT.OPERATION_APPLICATION;
         event.operationType = "离泊开航申请";
@@ -5007,7 +5006,7 @@
       $("activeEventUtterances").textContent = String(event?.utterances?.length || 0);
       $("activeEventAction").textContent = event ? getEventStatusLabel(event) : "等待";
       if ($("currentEventLevel")) {
-        $("currentEventLevel").textContent = event ? `${DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy]} · ${getEventStatusLabel(event)}` : "等待事件";
+        $("currentEventLevel").textContent = event ? `当前状态：${getEventStatusLabel(event)}` : "等待事件";
         $("currentEventLevel").className = `event-level-badge ${event ? tier.key : "neutral"}`;
       }
       if ($("currentEventHero")) $("currentEventHero").className = `current-event-hero ${event ? tier.key : ""}`;
@@ -7315,12 +7314,11 @@
       return { ...row, ship_id: row.ship_id || row.mmsi || shipName, ship_name: shipName };
     }
     function normalizeShipCollection(rows = []) {
-      const names = new Set();
-      return rows.map(normalizedShip).filter((ship) => {
-        if (names.has(ship.ship_name)) return false;
-        names.add(ship.ship_name);
-        return true;
+      const shipsByName = new Map();
+      rows.map(normalizedShip).forEach((ship) => {
+        shipsByName.set(ship.ship_name, ship);
       });
+      return [...shipsByName.values()];
     }
     function synchronizeShipDataAcrossViews() {
       const events = [state.activeBusinessEvent, ...(state.businessEvents || [])].filter(Boolean);
