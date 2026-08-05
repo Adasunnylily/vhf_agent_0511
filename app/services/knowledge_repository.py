@@ -115,13 +115,15 @@ class KnowledgeRepository:
                 scored.append((score, entry))
         return [entry for _, entry in sorted(scored, key=lambda item: item[0], reverse=True)]
 
-    def rag_context(self, query: str, top_k: int = 5) -> Dict[str, object]:
+    def rag_context(self, query: str, top_k: int = 5, supplementary_context: str = "") -> Dict[str, object]:
         """LangChain-style retrieve-then-generate chain without adding server dependencies."""
         chunks = self._rank_chunks(query, top_k=max(1, top_k))
         context = "\n\n".join(
             f"[{index + 1}] {chunk['title']}｜{chunk['category']}｜{chunk['source']}\n{chunk['text']}"
             for index, chunk in enumerate(chunks)
         )
+        if supplementary_context.strip():
+            context = f"[当前事件上下文]\n{supplementary_context.strip()}\n\n{context}".strip()
         llm_payload = self._llm_answer(query, chunks, context)
         answer = llm_payload.get("answer") or self._extractive_answer(query, chunks)
         return {

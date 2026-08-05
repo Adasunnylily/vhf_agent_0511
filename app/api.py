@@ -643,8 +643,8 @@ async def search_knowledge(q: str = "") -> Dict[str, object]:
 
 
 @router.get("/knowledge/rag")
-async def retrieve_knowledge_context(q: str = "", top_k: int = 5) -> Dict[str, object]:
-    return knowledge_repository.rag_context(q, top_k=top_k)
+async def retrieve_knowledge_context(q: str = "", top_k: int = 5, context: str = "") -> Dict[str, object]:
+    return knowledge_repository.rag_context(q, top_k=top_k, supplementary_context=context[:4000])
 
 
 @router.get("/knowledge/graph")

@@ -229,6 +229,7 @@ class LLMDecisionClassifier:
             action_type=action_type,
             requires_human_review=need_human_review,
             is_auto_reply=is_auto_reply,
+            event_understanding=payload.get("event_understanding") if isinstance(payload.get("event_understanding"), dict) else {},
         )
 
     def _normalize_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:

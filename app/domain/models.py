@@ -48,6 +48,7 @@ class RiskEvent:
     action_type: str = "manual_review"
     requires_human_review: bool = True
     is_auto_reply: bool = False
+    event_understanding: Dict[str, Any] = field(default_factory=dict)
     review_status: str = "pending"
     created_at: str = field(default_factory=utc_now_iso)
 
