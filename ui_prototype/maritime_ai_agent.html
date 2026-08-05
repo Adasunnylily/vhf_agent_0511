@@ -3732,7 +3732,7 @@
         return [
           "VHF语义｜识别到“抛好锚＋向你报告”的完成态报告句式",
           "声学通信｜未出现异常情况",
-          matched ? `AIS位置与航行状态｜已关联 ${matched.ship_name}，位于${matched.position_label}，状态${matched.navigation_status || "待核验"}` : "AIS位置与航行状态｜尚未核验",
+          matched ? `AIS演示关联｜已按船名关联 ${matched.ship_name}，用于地图定位，不参与业务校验` : "AIS演示关联｜尚未匹配船名",
           `信息完整度｜${Math.round((view.businessAssessment.completeness || 0) * 100)}%`,
         ];
       }
@@ -4023,6 +4023,8 @@
       "景龙008": "锦龙228",
       "景龙两两八": "锦龙228",
       "警花662": "锦华662",
+      "远扬8516": "远洋8516",
+      "8516远扬": "8516远洋",
     });
     function normalizeOutputShipNames(text = "") {
       return Object.entries(SHIP_NAME_CORRECTIONS).reduce(
@@ -4584,8 +4586,7 @@
       const ship = trustedAisShip(event);
       const checks = {
         eventValid: Boolean(report && view.businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT),
-        aisValid: Boolean(ship && ship.ship_name === "远洋8516" && /金塘南/.test(ship.position_label || "")),
-        anchorStatusValid: Boolean(ship && (ship.sog_kn === 0 || /锚泊/.test(ship.navigation_status || ""))),
+        aisValid: Boolean(ship && ship.ship_name === "远洋8516"),
         riskValid: view.riskAssessment.riskLevel === "NONE",
         channelIdle: event.channelStatus !== "busy",
         complete: Number(view.businessAssessment.completeness || 0) >= .95,
@@ -4613,7 +4614,7 @@
         event.autoReplyStatus = "blocked";
         event.preflightStatus = "failed";
         event.replyStatus = "drafted";
-        const reason = !safety.eventValid ? "事件内容已变化" : !safety.aisValid ? "AIS位置未通过核验" : !safety.anchorStatusValid ? "锚泊状态未通过核验" : !safety.riskValid ? "风险状态已变化" : !safety.channelIdle ? "当前信道繁忙" : "报告信息不完整";
+        const reason = !safety.eventValid ? "事件内容已变化" : !safety.aisValid ? "AIS船名未关联" : !safety.riskValid ? "风险状态已变化" : !safety.channelIdle ? "当前信道繁忙" : "报告信息不完整";
         addBusinessAction(event, { action: "发送前状态复核", status: "未通过", trigger: reason, confidence: "--", time: nowLabel(), suggested_action: "转人工确认" });
         toast(`自动回复已暂停：${reason}`, true);
         renderStreamingAgentConsole();
@@ -4643,7 +4644,7 @@
       if (!safety.passed) {
         event.autoReplyStatus = "blocked";
         event.replyStatus = "drafted";
-        addBusinessAction(event, { action: "自动回复安全门", status: "待人工确认", trigger: "条件未全部满足", confidence: "--", time: nowLabel(), suggested_action: "核验AIS、锚泊状态、风险和报告完整度" });
+        addBusinessAction(event, { action: "自动回复安全门", status: "待人工确认", trigger: "条件未全部满足", confidence: "--", time: nowLabel(), suggested_action: "核验AIS船名关联、风险、信道和报告完整度" });
         return;
       }
       clearTimeout(state.eventCloseTimer);
