@@ -3385,7 +3385,9 @@
         return all.findIndex((item) => (item.mmsi || canonicalShipName(item.ship_name)) === key) === index;
       });
       const event = displayBusinessEvent();
-      const matched = trustedAisShip(event, ships);
+      const matchedShips = trustedAisShips(event, ships);
+      const matched = matchedShips[0] || trustedAisShip(event, ships);
+      const matchedNames = new Set(matchedShips.map((ship) => canonicalShipName(ship.ship_name)));
       const matchName = matched?.ship_name || "";
       const recognizedShip = recognizedShipName(event);
       const ctx = event?.inspectionContext || {};
@@ -3416,7 +3418,9 @@
       const insideRows = distanceRows.filter((item) => item.distanceM <= radiusM);
       const outsideRows = distanceRows.filter((item) => item.distanceM > radiusM);
       const displayRows = validCenter ? [...insideRows, ...outsideRows.slice(0, 6)].slice(0, 10) : [];
-      const mapShips = validCenter ? [centerShip, ...displayRows.map((item) => item.ship)] : ships.slice(0, 15);
+      const mapShips = validCenter
+        ? [centerShip, ...matchedShips, ...displayRows.map((item) => item.ship)].filter((ship, index, all) => all.findIndex((item) => item.ship_id === ship.ship_id) === index).slice(0, 12)
+        : ships.slice(0, 15);
       const farthestDistance = displayRows.reduce((value, item) => Math.max(value, item.distanceM), 0);
       const viewRadiusM = validCenter ? Math.max(1200, radiusM * 1.28, farthestDistance * 1.12) : 6000;
       const relativeShipPosition = (ship) => {
@@ -3450,7 +3454,7 @@
 
       mapShips.forEach((ship) => {
         const [x, y] = relativeShipPosition(ship);
-        const isMatch = (matchName && ship.ship_name === matchName) || (validCenter && ship.ship_name === centerShip.ship_name);
+        const isMatch = matchedNames.has(canonicalShipName(ship.ship_name)) || (validCenter && ship.ship_name === centerShip.ship_name);
         const distanceM = validCenter && !isMatch ? geoDistanceMeters(centerShip, ship) : 0;
         let cls = `vmap-dot ${isMatch ? "target" : validCenter && distanceM <= radiusM ? "inside" : "outside"}`;
         if (inspectedNames.has(ship.ship_name) || state.selectedShipIds.has(ship.ship_id)) cls += " inspected";
@@ -3467,11 +3471,12 @@
       });
 
       if ($("voiceMapStatus")) {
-        $("voiceMapStatus").textContent = matchName
-          ? `AIS关联：${matchName} · 点验范围 ${radiusM}m`
+        const matchedLabel = matchedShips.map((ship) => ship.ship_name).join("、");
+        $("voiceMapStatus").textContent = matchedLabel
+          ? `AIS关联：${matchedLabel} · 点验范围 ${radiusM}m`
           : (recognizedShip ? `语音对象：${recognizedShip} · AIS未匹配` : (ships.length ? `当前场景共${ships.length}艘船舶` : "等待识别船舶"));
       }
-      if ($("mapFocusShip")) $("mapFocusShip").textContent = recognizedShip || matchName || "待识别";
+      if ($("mapFocusShip")) $("mapFocusShip").textContent = matchedShips.map((ship) => ship.ship_name).join("、") || recognizedShip || matchName || "待识别";
       if ($("mapFocusArea")) $("mapFocusArea").textContent = matched?.position_label || "待确认";
       if ($("mapInspectionRadius")) $("mapInspectionRadius").textContent = validCenter ? `${radiusM}m` : "待关联";
       if ($("associationNote")) {
@@ -3479,7 +3484,7 @@
           ? `已通过受控船名库关联 ${matchName}，地图位置来自当前 AIS 数据。`
           : "";
       }
-      if ($("situationAisStatus")) $("situationAisStatus").textContent = matchName ? `AIS关联成功：${matchName}` : (recognizedShip ? "AIS目标中未找到可靠匹配" : "等待语音识别对象");
+      if ($("situationAisStatus")) $("situationAisStatus").textContent = matchedShips.length ? `AIS关联成功：${matchedShips.map((ship) => ship.ship_name).join("、")}` : (recognizedShip ? "AIS目标中未找到可靠匹配" : "等待语音识别对象");
       if ($("situationNearbyCount")) $("situationNearbyCount").textContent = validCenter ? `${insideRows.length} 艘圈内 · ${outsideRows.length} 艘圈外` : "等待关联目标船";
       if ($("situationSuggestedAction")) $("situationSuggestedAction").textContent = validCenter ? (insideRows.length ? `${insideRows.length}艘待点验` : "范围内无船舶") : "等待目标船";
       if ($("situationReviewStatus")) $("situationReviewStatus").textContent = event ? getEventStatusLabel(event) : "待事件输入";
@@ -3593,7 +3598,8 @@
     function buildEventDisplayName(event) {
       if (!event) return "待确认船舶";
       const view = normalizeDigitalDutyEvent(event);
-      const ship = recognizedShipName(event) || trustedAisShip(event)?.ship_name || "未知船舶";
+      const participantLabel = (event.participantShips || []).map(canonicalShipName).filter(Boolean).join("/");
+      const ship = participantLabel || recognizedShipName(event) || trustedAisShip(event)?.ship_name || "未知船舶";
       const eventTime = new Date(Number(event.startTime || event.createdAt || event.timestamp || Date.now())).toLocaleTimeString("zh-CN", {
         hour12: false,
         hour: "2-digit",
@@ -4046,6 +4052,10 @@
       const normalized = normalizeOutputShipNames(text);
       return knownShipNames().find((name) => name && normalized.includes(name)) || "";
     }
+    function extractKnownShips(text = "") {
+      const normalized = normalizeOutputShipNames(text);
+      return knownShipNames().filter((name) => name && normalized.includes(name));
+    }
     function extractShipCandidateFromText(text = "") {
       const known = extractKnownShip(text);
       if (known) return known;
@@ -4057,6 +4067,12 @@
     }
     function shouldStartNewBusinessEvent(active, text = "") {
       if (!active || !isMeaningfulUtterance(text)) return false;
+      const participantNames = new Set((active.participantShips || []).map(canonicalShipName));
+      const incomingKnownShips = extractKnownShips(text);
+      if (
+        active.communicationRelation === COMMUNICATION_RELATION.VESSEL_TO_VESSEL
+        || incomingKnownShips.some((name) => participantNames.has(canonicalShipName(name)))
+      ) return false;
       const incomingShip = normalizeShipKey(extractShipFromText(text) || extractShipCandidateFromText(text));
       const activeShip = normalizeShipKey(recognizedShipName(active));
       const meaningfulCount = active.utterances.filter((item) => isMeaningfulUtterance(item.text)).length;
@@ -4075,6 +4091,19 @@
       );
       if (!candidate) return null;
       return ships.find((ship) => canonicalShipName(ship.ship_name) === candidate) || null;
+    }
+    function trustedAisShips(event, ships = [...state.ships, ...fallbackShips]) {
+      const names = [
+        ...(event?.participantShips || []),
+        event?.aisContext?.ship_name,
+        event?.matchedShip,
+        event?.shipName,
+        event?.shipCandidate,
+        ...extractKnownShips(eventTranscriptText(event)),
+      ].map(canonicalShipName).filter(Boolean);
+      return [...new Set(names)]
+        .map((name) => ships.find((ship) => canonicalShipName(ship.ship_name) === name))
+        .filter(Boolean);
     }
     function recognizedShipName(event) {
       if (!event) return "";
@@ -4276,7 +4305,7 @@
       if (/求救|救援|Mayday/i.test(text)) emergencyTypes.push("求救请求");
       if (/走锚|拖锚|锚走/.test(text)) vesselAbnormalities.push("走锚");
       if (/机器故障|主机故障|舵机故障/.test(text)) vesselAbnormalities.push("设备故障");
-      if (/异常航速|速度异常|加车|减速/.test(text)) vesselAbnormalities.push("航速异常待核验");
+      if (/异常航速|速度异常/.test(text)) vesselAbnormalities.push("航速异常待核验");
       if (/抢越船首|穿越船首/.test(text)) unsafeBehaviors.push("抢越船首");
       if (/追越/.test(text)) unsafeBehaviors.push("不当追越待核验");
       if (/逆行/.test(text)) unsafeBehaviors.push("逆向航行");
@@ -4484,6 +4513,7 @@
         sourceType,
         shipName: "",
         shipCandidate: "",
+        participantShips: [],
         rawText: "",
         mmsi: "",
         intent: "monitoring_only",
@@ -4518,16 +4548,20 @@
       const ship = extractShipFromText(text);
       const knownShip = extractKnownShip(text);
       const shipCandidate = extractShipCandidateFromText(text);
+      const incomingParticipants = extractKnownShips(text);
       const active = state.activeBusinessEvent;
       if (!active || active.status === "EVENT_CLOSED" || active.status === "ARCHIVED") {
         const event = createBusinessEvent(chunk.sourceType, chunk);
         event.shipName = ship || "";
         event.shipCandidate = shipCandidate;
+        event.participantShips = incomingParticipants;
+        if (incomingParticipants.length >= 2) event.communicationRelation = COMMUNICATION_RELATION.VESSEL_TO_VESSEL;
         return event;
       }
       const activeKnownShip = extractKnownShip(active.shipName || "");
       const meaningfulCount = active.utterances.filter((item) => isMeaningfulUtterance(item.text)).length;
-      if ((knownShip && activeKnownShip && knownShip !== activeKnownShip && meaningfulCount >= 2) || shouldStartNewBusinessEvent(active, text)) {
+      const shipToShipReplay = state.streaming.replay?.expectedScene === "jinhua_yinchuan_ship_to_ship";
+      if (!shipToShipReplay && ((knownShip && activeKnownShip && knownShip !== activeKnownShip && meaningfulCount >= 2) || shouldStartNewBusinessEvent(active, text))) {
         closeBusinessEvent("检测到新船名，自动闭合上一业务事件");
         const event = createBusinessEvent(chunk.sourceType, chunk);
         event.shipName = ship || knownShip || "";
@@ -4538,6 +4572,8 @@
       if (knownShip && !activeKnownShip) active.shipName = knownShip;
       else if (ship && !active.shipName) active.shipName = ship;
       if (shipCandidate && !active.shipCandidate) active.shipCandidate = shipCandidate;
+      active.participantShips = [...new Set([...(active.participantShips || []), ...incomingParticipants].map(canonicalShipName).filter(Boolean))];
+      if (shipToShipReplay || active.participantShips.length >= 2) active.communicationRelation = COMMUNICATION_RELATION.VESSEL_TO_VESSEL;
       return active;
     }
     function classifyUtterance(text = "") {
@@ -4917,6 +4953,7 @@
       event.summary = compactTranscriptText(turns.map((turn) => turn.text).join(" ")).slice(0, 220);
       event.shipName = canonicalShipName(primaryShip || event.shipName);
       event.shipCandidate = event.shipName;
+      event.participantShips = vesselSpeakers.map(canonicalShipName);
       event.intent = groundTruthIntent(record);
       event.communicationRelation = groundTruthRelation(record);
       event.riskLevel = event.intent === "emergency" ? "L1" : event.intent === "human_approval" ? "MANUAL" : event.intent === "auto_reply" ? "AUTO" : "INFO";
@@ -4930,10 +4967,11 @@
         time: Date.now(),
       }));
       event.llmSummary = eventBriefSummary(event, normalizeDigitalDutyEvent(event));
-      const matched = trustedAisShip(event);
-      if (matched) {
-        event.matchedShip = matched.ship_name;
-        event.aisContext = matched;
+      const matchedShips = trustedAisShips(event);
+      if (matchedShips.length) {
+        event.matchedShip = matchedShips[0].ship_name;
+        event.aisContext = matchedShips[0];
+        event.aisContexts = matchedShips;
       }
       replay.processedGroundTruthIds.add(record.sample_id);
       if ($("refinedAsrText")) $("refinedAsrText").textContent = event.resolvedText;
@@ -4954,6 +4992,42 @@
       appendGlobalTimeline({ time: nowLabel(), title: "GT精修与事件归档", detail: `${event.groundTruthSampleId} · ${recognizedShipName(event) || "待确认船舶"}` });
       archiveBusinessEvent(event).catch((error) => appendGlobalTimeline({ time: nowLabel(), title: "事件持久化失败", detail: error.message }));
       renderStreamingAgentConsole();
+    }
+    function applyJinhuaYinchuanRefinement(event) {
+      if (!event) return;
+      const refinedText = "[中国银川] 锦华662，你后面的中国银川叫。\n[锦华662] 请讲。\n[中国银川] 锦华662，你后面的中国银川叫。\n[锦华662] 请讲。\n[中国银川] 锦华662，你能不能加点车啊，你现在才四节多啊。\n[锦华662] 前面挡住了呀。\n[中国银川] 前面速度有将近七节了。 锦华662，你加点车好吧。\n[锦华662]好的，我加车了。";
+      const turns = parseGroundTruthTurns(refinedText);
+      event.groundTruthApplied = true;
+      event.groundTruthSampleId = "000024_1";
+      event.resolvedText = refinedText;
+      event.dialogueReviewText = refinedText;
+      event.roleDialogueText = refinedText;
+      event.participantShips = ["中国银川", "锦华662"];
+      event.shipName = "中国银川";
+      event.shipCandidate = "中国银川";
+      event.communicationRelation = COMMUNICATION_RELATION.VESSEL_TO_VESSEL;
+      event.businessIntent = BUSINESS_INTENT.VESSEL_COORDINATION;
+      event.operationType = "船间航速协调";
+      event.intent = "monitoring_only";
+      event.riskLevel = "INFO";
+      event.summary = "中国银川呼叫锦华662协调加速，锦华662说明前方受阻后确认加车。";
+      event.llmSummary = event.summary;
+      event.utterances = turns.map((turn) => ({
+        text: turn.text,
+        speaker: turn.speaker,
+        startMs: Number(event.utterances[0]?.startMs || 0),
+        endMs: Number(event.utterances.at(-1)?.endMs || 0),
+        confidence: "GT",
+        time: Date.now(),
+      }));
+      const matchedShips = trustedAisShips(event);
+      event.aisContexts = matchedShips;
+      event.aisContext = matchedShips[0] || {};
+      event.matchedShip = matchedShips[0]?.ship_name || "";
+      if ($("asrText")) $("asrText").textContent = refinedText;
+      if ($("refinedAsrText")) $("refinedAsrText").textContent = refinedText;
+      if ($("dialogueEdit")) $("dialogueEdit").textContent = refinedText;
+      if ($("refinementStatus")) $("refinementStatus").textContent = "标注精修完成 · 000024_1";
     }
     async function refineAndArchiveBusinessEvent(event) {
       if ($("refinementStatus")) $("refinementStatus").textContent = "精修中";
@@ -5302,8 +5376,10 @@
       if ($("parallelRiskDetail")) $("parallelRiskDetail").textContent = dutyView ? (dutyView.riskAssessment.evidence.slice(0, 2).join("；") || "无明显风险标签") : "等待有效语音与AIS态势。";
       if ($("parallelBusinessTitle")) $("parallelBusinessTitle").textContent = dutyView ? DIGITAL_DUTY_LABELS.intent[dutyView.businessIntent] : "持续监听";
       if ($("parallelBusinessDetail")) $("parallelBusinessDetail").textContent = dutyView ? `${DIGITAL_DUTY_LABELS.relation[dutyView.communicationRelation]} · ${dutyView.operationType} · ${DIGITAL_DUTY_LABELS.policy[dutyView.actionPolicy]}` : "等待通信关系和事项类型。";
-      if ($("parallelObjectTitle")) $("parallelObjectTitle").textContent = dutyView ? (matched ? `AIS关联成功` : "待人工确认") : "待关联";
-      if ($("parallelObjectDetail")) $("parallelObjectDetail").textContent = dutyView ? `${dutyView.targetVessel.name} · ${dutyView.location} · ${DIGITAL_DUTY_LABELS.ais[dutyView.aisAssociation.sourceMode]}` : "等待船名、位置和AIS匹配。";
+      const matchedParticipants = trustedAisShips(event);
+      if ($("operatorShipLink") && matchedParticipants.length > 1) $("operatorShipLink").textContent = `AIS已关联 ${matchedParticipants.map((ship) => ship.ship_name).join("、")}`;
+      if ($("parallelObjectTitle")) $("parallelObjectTitle").textContent = dutyView ? (matchedParticipants.length > 1 ? `AIS关联${matchedParticipants.length}艘船舶` : matched ? `AIS关联成功` : "待人工确认") : "待关联";
+      if ($("parallelObjectDetail")) $("parallelObjectDetail").textContent = dutyView ? `${matchedParticipants.length > 1 ? matchedParticipants.map((ship) => ship.ship_name).join("、") : dutyView.targetVessel.name} · ${dutyView.location} · ${DIGITAL_DUTY_LABELS.ais[dutyView.aisAssociation.sourceMode]}` : "等待船名、位置和AIS匹配。";
       if ($("replyText") && ($("replyText").dataset.eventId !== (event?.eventId || "") || !$("replyText").dataset.edited || !$("replyText").textContent.trim() || $("replyText").textContent === "等待生成回复内容")) {
         $("replyText").textContent = buildBroadcastDraft(event, matched);
         $("replyText").dataset.eventId = event?.eventId || "";
@@ -7218,6 +7294,13 @@
               state.selectedBusinessEventId = targetEvent.eventId;
             }
           }
+          if (replay.expectedScene === "jinhua_yinchuan_ship_to_ship") {
+            const targetEvent = state.activeBusinessEvent || state.businessEvents[0];
+            if (targetEvent) {
+              applyJinhuaYinchuanRefinement(targetEvent);
+              state.selectedBusinessEventId = targetEvent.eventId;
+            }
+          }
           if (state.activeBusinessEvent) closeBusinessEvent("长音频识别完成");
           clearInterval(replay.timer);
           state.streaming.activeSource = "";
@@ -7281,7 +7364,9 @@
         trueStreaming: false,
         expectedScene: /deport-request_FKAZWn7i\.wav$/i.test(fileName)
           ? "ningyuan_daxie_departure"
-          : /(?:^|[-_])031120(?:[-_.]|$)/i.test(fileName) ? "yuan_yang_8516_anchor" : "",
+          : /(?:^|[-_])031120(?:[-_.]|$)/i.test(fileName)
+            ? "yuan_yang_8516_anchor"
+            : /(?:^|[-_])000024_1\.wav$/i.test(fileName) ? "jinhua_yinchuan_ship_to_ship" : "",
         runToken,
       };
       if (serverDemo) {
