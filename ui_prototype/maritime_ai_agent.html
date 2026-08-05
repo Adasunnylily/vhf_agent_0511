@@ -2286,9 +2286,87 @@
       .situation-body { grid-template-columns: 1fr; }
       .global-duty-line { white-space: normal; }
     }
+
+    body.login-required { overflow: hidden; }
+    body.login-required .app { visibility: hidden; }
+    .login-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: grid;
+      grid-template-columns: minmax(420px, 1.1fr) minmax(380px, .9fr);
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 20%, rgba(22,119,255,.30), transparent 30%),
+        linear-gradient(135deg, #071a32 0%, #0e3158 52%, #eaf4ff 52%, #f8fbff 100%);
+    }
+    .login-screen[hidden] { display: none; }
+    .login-brand-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(36px, 6vw, 88px);
+      color: #fff;
+    }
+    .login-brand-mark { display: flex; align-items: center; gap: 16px; }
+    .login-brand-mark .logo { width: 58px; height: 58px; font-size: 22px; }
+    .login-brand-panel h1 { max-width: 720px; margin: 34px 0 12px; font-size: clamp(34px, 4vw, 62px); line-height: 1.12; }
+    .login-brand-panel p { max-width: 650px; margin: 0; color: rgba(255,255,255,.72); font-size: 16px; line-height: 1.8; }
+    .login-capabilities { display: flex; flex-wrap: wrap; gap: 10px; }
+    .login-capabilities span { padding: 8px 12px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: rgba(255,255,255,.08); font-size: 12px; }
+    .login-form-panel { display: grid; place-items: center; padding: 32px; }
+    .login-card {
+      width: min(430px, 100%);
+      padding: 34px;
+      border: 1px solid rgba(22,119,255,.14);
+      border-radius: 22px;
+      background: rgba(255,255,255,.96);
+      box-shadow: 0 26px 70px rgba(13,47,84,.18);
+    }
+    .login-card h2 { margin: 0 0 8px; color: #132238; font-size: 26px; }
+    .login-card > p { margin: 0 0 24px; color: #66788a; line-height: 1.6; }
+    .login-card label { display: grid; gap: 7px; margin-top: 14px; color: #334960; font-size: 13px; font-weight: 800; }
+    .login-card input, .login-card select { width: 100%; min-height: 44px; background: #f8fafc; }
+    .login-card button { width: 100%; min-height: 46px; margin-top: 20px; }
+    .login-demo-hint { margin-top: 16px; padding: 10px 12px; border-radius: 10px; background: #eef6ff; color: #47627f; font-size: 12px; line-height: 1.6; }
+    .rail-foot { gap: 8px; }
+    .rail-foot .logout-btn { width: 100%; min-height: 32px; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,.10); color: #dbeafe; box-shadow: none; font-size: 12px; }
+    .decision-detail-drawer {
+      max-height: none;
+      overflow: visible;
+    }
+    .decision-detail-drawer[open] { max-height: none; overflow: visible; }
+    .decision-detail-drawer[open] #refinedAsrText,
+    .decision-detail-drawer[open] #dialogueEdit { max-height: none; }
+    @media (max-width: 900px) {
+      .login-screen { grid-template-columns: 1fr; overflow-y: auto; background: linear-gradient(160deg, #071a32 0 42%, #eef6ff 42%); }
+      .login-brand-panel { min-height: 340px; padding: 34px; }
+      .login-form-panel { padding: 24px; }
+    }
   </style>
 </head>
-<body class="agent-shell">
+<body class="agent-shell login-required">
+  <section class="login-screen" id="loginScreen" aria-label="海事值班员登录">
+    <div class="login-brand-panel">
+      <div>
+        <div class="login-brand-mark"><div class="logo">听</div><b>宁波海事智能值守平台</b></div>
+        <h1>海事VHF语音监测智能体</h1>
+        <p>面向甚高频连续守听、风险研判、船舶关联与值班处置的一体化海事数字值班工作台。</p>
+      </div>
+      <div class="login-capabilities"><span>VHF 16频道守听</span><span>语音智能研判</span><span>AIS辅助关联</span><span>人工闭环处置</span></div>
+    </div>
+    <div class="login-form-panel">
+      <form class="login-card" id="loginForm">
+        <h2>值班员登录</h2>
+        <p>请选择值守站点并完成身份验证。</p>
+        <label>值守站点<select id="loginStation"><option>宁波舟山港交管中心</option><option>北仑山VHF值守站</option></select></label>
+        <label>值班员工号<input id="loginUsername" autocomplete="username" value="NBVTS001" required /></label>
+        <label>登录密码<input id="loginPassword" type="password" autocomplete="current-password" placeholder="请输入登录密码" required /></label>
+        <button type="submit">进入数字值守台</button>
+        <div class="login-demo-hint">演示账号：NBVTS001　密码：123456<br>本入口用于比赛演示，生产环境应接入统一身份认证与权限系统。</div>
+      </form>
+    </div>
+  </section>
   <main class="app">
     <aside class="rail">
       <div class="brand">
@@ -2305,7 +2383,9 @@
       </nav>
       <div class="rail-foot">
         <span class="pill green">在线</span>
+        <span id="loginOperatorName">值班员-001</span>
         <span id="clock">--:--:--</span>
+        <button class="logout-btn" id="logoutBtn" type="button">退出登录</button>
       </div>
     </aside>
 
@@ -3415,9 +3495,37 @@
       if (!event) return "待确认船舶";
       const view = normalizeDigitalDutyEvent(event);
       const ship = recognizedShipName(event) || trustedAisShip(event)?.ship_name || "未知船舶";
-      const label = view.operationType || DIGITAL_DUTY_LABELS.intent[view.businessIntent] || "甚高频事件";
-      const distress = view.businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT && view.riskAssessment.emergencyTypes.includes("求救请求") ? "求救" : "";
-      return cleanEventTitle(`${ship}${label}${distress}`);
+      const eventTime = new Date(Number(event.startTime || event.createdAt || Date.now())).toLocaleTimeString("zh-CN", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+      const label = cleanEventTitle(
+        view.businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT
+          ? `${view.operationType || "险情报警"}${view.riskAssessment.emergencyTypes.includes("求救请求") ? "求救" : ""}`
+          : view.businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT
+            ? `${view.operationType || "航行"}动态报告`
+            : view.businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION
+              ? `${view.operationType || "作业"}申请`
+              : view.businessIntent === BUSINESS_INTENT.VESSEL_COORDINATION
+                ? "船间协调通信"
+                : DIGITAL_DUTY_LABELS.intent[view.businessIntent] || "持续监听",
+      );
+      return `${eventTime}｜${ship}｜${label}`;
+    }
+    function buildEventRecognitionSubtitle(event, view, matched) {
+      if (!event || !view) return "船名待识别 · 位置待识别 · 险情待识别";
+      const shipRecognized = Boolean(recognizedShipName(event));
+      const location = String(matched?.position_label || view.location || "");
+      const locationRecognized = Boolean(location && !/待核验|待确认|未知/.test(location));
+      const risk = view.riskAssessment || {};
+      const hazardRecognized = view.businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT
+        || ["L1", "L2", "L3"].includes(String(risk.riskLevel || "").toUpperCase())
+        || (risk.emergencyTypes || []).length > 0
+        || (risk.vesselAbnormalities || []).length > 0
+        || (risk.unsafeBehaviors || []).length > 0;
+      return `${shipRecognized ? "船名已识别" : "船名待识别"} · ${locationRecognized ? "位置已识别" : "位置待识别"} · ${hazardRecognized ? "险情已识别" : "未识别到险情"}`;
     }
     function getExecutionMode(event) {
       if (!event) return EXECUTION_MODE.MONITOR_ONLY;
@@ -3872,6 +3980,10 @@
       if (!event || !view) return "系统持续监听中，等待有效甚高频业务语音。";
       const text = eventTranscriptText(event);
       const ship = recognizedShipName(event) || "未知船舶";
+      const llmSummary = compactTranscriptText(event.llmSummary || event.eventSummary || "");
+      if (llmSummary.length >= 12 && !/^(谢谢|收到|请讲|好的)[，。！？\s]*$/.test(llmSummary)) {
+        return llmSummary.slice(0, 180);
+      }
       const crewMatch = text.match(/船上([一二三四五六七八九十百\d]+)名(?:船员|人员).*?(?:撤离|转移)[^。！？]*/);
       const casualty = /暂无人员伤亡|无人员伤亡/.test(text) ? "，暂无人员伤亡" : "";
       if (view.businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT) {
@@ -4061,7 +4173,7 @@
         },
         rawTranscript: text,
         normalizedTranscript: event?.resolvedText || text,
-        eventSummary: text || event?.summary || "系统持续监听中，等待有效甚高频业务语音。",
+        eventSummary: event?.llmSummary || event?.eventSummary || event?.summary || text || "系统持续监听中，等待有效甚高频业务语音。",
         status,
         transcriptStatus: text ? "completed" : "listening",
         associationStatus: matched ? "matched" : "unmatched",
@@ -4393,6 +4505,7 @@
         confidence: "GT",
         time: Date.now(),
       }));
+      event.llmSummary = eventBriefSummary(event, normalizeDigitalDutyEvent(event));
       const matched = trustedAisShip(event);
       if (matched) {
         event.matchedShip = matched.ship_name;
@@ -4401,6 +4514,7 @@
       replay.processedGroundTruthIds.add(record.sample_id);
       if ($("refinedAsrText")) $("refinedAsrText").textContent = event.resolvedText;
       if ($("dialogueEdit")) $("dialogueEdit").textContent = event.resolvedText;
+      if ($("asrText")) $("asrText").textContent = event.resolvedText;
       if ($("refinementStatus")) $("refinementStatus").textContent = `标注精修完成 · ${record.sample_id}`;
       state.selectedBusinessEventId = event.eventId;
       if (state.activeBusinessEvent?.eventId === event.eventId) closeBusinessEvent(`标注片段 ${record.sample_id} 结束`);
@@ -4451,7 +4565,8 @@
         event.resolvedText = refinement.resolved_text || event.summary;
         event.dialogueReviewText = refinement.dialogue_review_text || "";
         event.roleDialogueText = formatRoleDialogueForDisplay(event.dialogueReviewText);
-        event.summary = event.resolvedText.slice(0, 220);
+        event.llmSummary = compactTranscriptText(decision.summary || "");
+        event.summary = event.llmSummary || eventBriefSummary(event, normalizeDigitalDutyEvent(event));
         event.refinement = refinement.refinement || {};
         const isCurrentWorkspace = !state.activeBusinessEvent || state.activeBusinessEvent.eventId === event.eventId;
         const finalAction = createActionFromPolicy({
@@ -4463,6 +4578,7 @@
         if (isCurrentWorkspace) {
           if (event.roleDialogueText) $("dialogueEdit").textContent = event.roleDialogueText;
           if (event.resolvedText) $("refinedAsrText").textContent = event.resolvedText;
+          if (event.resolvedText) $("asrText").textContent = event.resolvedText;
           if ($("refinementStatus")) $("refinementStatus").textContent = "精修完成";
           routeClassification({
             intent: decision.business_type || "other_business",
@@ -4502,9 +4618,10 @@
         event.resolvedText = fallbackText;
         event.dialogueReviewText = buildFallbackDialogueText(event.utterances);
         event.roleDialogueText = event.dialogueReviewText;
-        event.summary = fallbackText.slice(0, 220);
+        event.summary = eventBriefSummary(event, normalizeDigitalDutyEvent(event));
         if ($("refinementStatus")) $("refinementStatus").textContent = "快速归档";
         $("refinedAsrText").textContent = fallbackText;
+        $("asrText").textContent = fallbackText;
         if (event.roleDialogueText) $("dialogueEdit").textContent = event.roleDialogueText;
         const businessType = event.intent === "emergency"
           ? "emergency_risk"
@@ -4683,10 +4800,15 @@
         $("currentEventLevel").className = `event-level-badge ${event ? tier.key : "neutral"}`;
       }
       if ($("currentEventHero")) $("currentEventHero").className = `current-event-hero ${event ? tier.key : ""}`;
-      if ($("currentEventPosition")) $("currentEventPosition").textContent = dutyView?.eventSubtitle || "船位尚未可靠关联";
+      if ($("currentEventPosition")) $("currentEventPosition").textContent = event
+        ? buildEventRecognitionSubtitle(event, dutyView, matched)
+        : "船名待识别 · 位置待识别 · 险情待识别";
       if ($("currentEventScore")) $("currentEventScore").innerHTML = event ? `<span class="event-risk-word">${riskTheme.riskText}</span>${riskTheme.scoreText}` : "0.00";
       const eventText = eventBriefSummary(event, dutyView);
       if ($("currentEventText")) $("currentEventText").innerHTML = highlightRiskText(eventText);
+      if (event?.resolvedText && (event.groundTruthApplied || event.status === "ARCHIVED")) {
+        $("asrText").textContent = normalizeOutputShipNames(event.resolvedText);
+      }
       if ($("operatorNextStep")) {
         $("operatorNextStep").textContent = event
           ? (dutyView.actionPolicy === ACTION_POLICY.RISK_INTERVENTION
@@ -7716,6 +7838,38 @@
       await loadKnowledgeGraph();
     }
 
+    function setupDutyLogin() {
+      const authKey = "vhf_duty_operator";
+      const loginScreen = $("loginScreen");
+      const form = $("loginForm");
+      const username = $("loginUsername");
+      const password = $("loginPassword");
+      const operator = sessionStorage.getItem(authKey);
+      const openDutyDesk = (name) => {
+        sessionStorage.setItem(authKey, name);
+        document.body.classList.remove("login-required");
+        loginScreen.hidden = true;
+        $("loginOperatorName").textContent = name;
+      };
+      if (operator) openDutyDesk(operator);
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        password.setCustomValidity("");
+        if (username.value.trim() !== "NBVTS001" || password.value !== "123456") {
+          password.setCustomValidity("工号或密码不正确，请使用演示账号登录");
+          password.reportValidity();
+          return;
+        }
+        openDutyDesk(`${username.value.trim()} · ${$("loginStation").value}`);
+      });
+      password.addEventListener("input", () => password.setCustomValidity(""));
+      $("logoutBtn").addEventListener("click", () => {
+        if (!confirm("确认退出当前值守账号？")) return;
+        sessionStorage.removeItem(authKey);
+        location.reload();
+      });
+    }
+
     document.querySelectorAll(".nav-btn").forEach((btn) => btn.addEventListener("click", () => setPage(btn.dataset.page)));
     $("inputMode").addEventListener("change", () => updateInputVisualMode($("inputMode").value));
     $("vhfModeBtn").addEventListener("click", () => toast("实时VHF接入为正式接口预留；当前请选择现场麦克风或演示音频"));
@@ -7879,6 +8033,7 @@
       $("clock").textContent = label;
       if ($("topClock")) $("topClock").textContent = label;
     }, 1000);
+    setupDutyLogin();
     $("apiBaseInput").value = API_BASE;
     updateInputVisualMode($("inputMode").value);
     setupRuntime();
