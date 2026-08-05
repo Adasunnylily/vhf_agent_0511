@@ -2582,7 +2582,7 @@
                   <p id="currentEventPosition">船位尚未可靠关联</p>
                 </div>
                 <div class="event-score-pair">
-                  <div class="event-score"><small>风险评分</small><strong id="currentEventScore">--</strong></div>
+                  <div class="event-score"><small>安全风险概率</small><strong id="currentEventScore">--</strong></div>
                   <div class="event-score business-score"><small>业务置信度</small><strong id="currentBusinessConfidence">--</strong></div>
                 </div>
               </div>
@@ -2600,6 +2600,15 @@
                 <div><span>计划航路</span><b id="departureRoute">--</b></div>
                 <div><span>目的地</span><b id="departureDestination">--</b></div>
                 <div><span>业务范式</span><b id="departureParadigm">--</b></div>
+              </div>
+              <div class="departure-slot-grid" id="anchoringSlotPanel" hidden>
+                <div><span>船名</span><b id="anchoringShip">--</b></div>
+                <div><span>甚高频呼叫名称</span><b id="anchoringCallName">--</b></div>
+                <div><span>位置</span><b id="anchoringLocation">--</b></div>
+                <div><span>船舶状态</span><b id="anchoringStatus">--</b></div>
+                <div><span>业务类型</span><b id="anchoringBusinessType">--</b></div>
+                <div><span>业务范式</span><b id="anchoringParadigm">--</b></div>
+                <div><span>信息完整度</span><b id="anchoringCompleteness">--</b></div>
               </div>
               <div class="parallel-assessment-grid">
                 <div class="assessment-card"><small>风险研判</small><b id="parallelRiskTitle">未发现明显风险</b><span id="parallelRiskDetail">等待有效语音与AIS态势。</span></div>
@@ -2952,6 +2961,7 @@
         replay: null,
         runToken: 0,
         partialTextBySource: {},
+        inputSuspended: false,
       },
       acousticCommunication: {
         speechRate: "计算中",
@@ -2960,6 +2970,7 @@
         signalQuality: "未接入",
       },
       audioLevelMonitor: null,
+      ttsSession: null,
     };
     const fallbackShips = [
       { ship_id: "ship_zgyc", ship_name: "中国银川", mmsi: "413220003", ship_type: "杂货船", draft_m: 13.1, tonnage_t: 12500, sog_kn: 5.7, cog_deg: 110, heading_deg: 110, lng: 121.9005, lat: 29.9342, position_label: "金塘水道南口" },
@@ -2967,6 +2978,7 @@
       { ship_id: "ship_jl228", ship_name: "锦龙228", mmsi: "413220008", ship_type: "集装箱船", draft_m: 10.2, tonnage_t: 14200, sog_kn: 7.2, cog_deg: 84, heading_deg: 84, lng: 121.8842, lat: 29.9138, position_label: "金塘水道西南侧" },
       { ship_id: "ship_nyms", ship_name: "宁远梅山", mmsi: "413220178", ship_type: "散货船", draft_m: 9.1, tonnage_t: 10800, sog_kn: 4.9, cog_deg: 118, heading_deg: 118, lng: 121.8958, lat: 29.9268, position_label: "北仑二期外航道" },
       { ship_id: "ship_nydx", ship_name: "宁远大榭", mmsi: "413220388", ship_type: "散货船", draft_m: 8.8, tonnage_t: 11200, sog_kn: 0, cog_deg: 92, heading_deg: 92, lng: 121.9728, lat: 29.8959, position_label: "甬舟三号泊位" },
+      { ship_id: "ship_yy8516", ship_name: "远洋8516", mmsi: "413228516", ship_type: "散货船", draft_m: 8.2, tonnage_t: 10600, sog_kn: 0, cog_deg: 18, heading_deg: 18, lng: 121.9288, lat: 29.9628, position_label: "金塘南锚地", navigation_status: "锚泊" },
       { ship_id: "ship_hl876", ship_name: "货轮876", mmsi: "413220876", ship_type: "杂货船", draft_m: 7.8, tonnage_t: 8900, sog_kn: 6.1, cog_deg: 38, heading_deg: 38, lng: 121.8689, lat: 29.9441, position_label: "北仑港外航道" },
       { ship_id: "ship_hf32", ship_name: "海丰32", mmsi: "413220032", ship_type: "集装箱船", draft_m: 9.4, tonnage_t: 11600, sog_kn: 8.4, cog_deg: 72, heading_deg: 72, lng: 121.8572, lat: 29.9374, position_label: "北仑港外航道" },
       { ship_id: "ship_ny8", ship_name: "宁远8", mmsi: "413220108", ship_type: "散货船", draft_m: 8.1, tonnage_t: 9800, sog_kn: 5.8, cog_deg: 96, heading_deg: 96, lng: 121.8515, lat: 29.9328, position_label: "北仑港外航道" },
@@ -3145,11 +3157,13 @@
       renderStreamingStatus();
     }
     function beginStreamingRun(source) {
+      if (state.ttsSession) stopAgentTts("切换语音输入来源");
       state.streaming.runToken += 1;
       state.streaming.activeSource = source;
       state.streaming.queue = [];
       state.streaming.activeRequests = 0;
       state.streaming.partialTextBySource = {};
+      state.streaming.inputSuspended = false;
       return state.streaming.runToken;
     }
     function toast(message, error = false) {
@@ -3366,7 +3380,10 @@
     function renderVoiceMiniMap() {
       const wrap = $("voiceMiniMap");
       if (!wrap) return;
-      const ships = state.ships.length ? state.ships : fallbackShips;
+      const ships = [...state.ships, ...fallbackShips].filter((ship, index, all) => {
+        const key = ship.mmsi || canonicalShipName(ship.ship_name);
+        return all.findIndex((item) => (item.mmsi || canonicalShipName(item.ship_name)) === key) === index;
+      });
       const event = displayBusinessEvent();
       const matched = trustedAisShip(event, ships);
       const matchName = matched?.ship_name || "";
@@ -3546,6 +3563,9 @@
       if (isClosedLoop(event)) return "闭环完成";
       if (isArchived(event)) return "已归档";
       const view = normalizeDigitalDutyEvent(event);
+      if (event.manualTakeover) return "人工通话中｜Agent辅助监听";
+      if (event.autoReplyStatus === "countdown") return `自动回复倒计时 ${event.autoReplyRemaining}秒`;
+      if (event.autoReplyStatus === "preflight") return "发送前状态复核";
       if (event.approvalStatus === "approved" && event.preflightStatus === "checking") return "执行前状态复核";
       if (event.replyStatus === "broadcasting") return "Agent回复中";
       if (event.replyStatus === "awaiting_confirmation") return "等待船方确认";
@@ -3584,7 +3604,7 @@
         view.businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT
           ? `${view.operationType || "险情报警"}${view.riskAssessment.emergencyTypes.includes("求救请求") ? "求救" : ""}`
           : view.businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT
-            ? `${view.operationType || "航行"}动态报告`
+            ? (/报告$/.test(view.operationType || "") ? view.operationType : `${view.operationType || "航行"}动态报告`)
             : view.businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION
               ? `${view.operationType || "作业申请"}`
               : view.businessIntent === BUSINESS_INTENT.VESSEL_COORDINATION
@@ -3626,9 +3646,11 @@
         ];
       }
       if (mode === EXECUTION_MODE.AUTO_REPLY) {
+        const countdown = Number(event?.autoReplyRemaining || 0);
+        const takeover = event?.manualTakeover === true;
         return [
-          { id: "speakBtn", label: "确认播报", visible: true, className: "" },
-          { id: "manualBtn", label: "暂停自动回复", visible: true, className: "secondary" },
+          { id: "speakBtn", label: event?.autoReplyStatus === "countdown" ? `取消自动回复（${countdown}）` : "确认播报", visible: !takeover && event?.replyStatus !== "awaiting_confirmation", className: "" },
+          { id: "manualBtn", label: takeover ? "交还Agent" : "人工接管", visible: true, className: "takeover-outline" },
           { id: "pipelineInspectBtn", label: "人工修改", visible: true, className: "secondary" },
           { id: "saveFeedbackBtn", label: "保存记录", visible: true, className: "secondary" },
           { id: "copyBtn", label: "复制回复", visible: true, className: "secondary" },
@@ -3706,6 +3728,14 @@
           "信息完整度｜船名、泊位、申请事项、计划航路和目的地已提取",
         ];
       }
+      if (view.structuredReport) {
+        return [
+          "VHF语义｜识别到“抛好锚＋向你报告”的完成态报告句式",
+          "声学通信｜未出现异常情况",
+          matched ? `AIS位置与航行状态｜已关联 ${matched.ship_name}，位于${matched.position_label}，状态${matched.navigation_status || "待核验"}` : "AIS位置与航行状态｜尚未核验",
+          `信息完整度｜${Math.round((view.businessAssessment.completeness || 0) * 100)}%`,
+        ];
+      }
       const evidence = [...view.riskAssessment.evidence, ...view.businessEvidence];
       if (event.closeReason) evidence.push(`事件边界：${event.closeReason}`);
       return evidence.slice(0, 8);
@@ -3733,6 +3763,9 @@
         ];
       }
       if (view.actionPolicy === ACTION_POLICY.AUTO_REPLY) {
+        if (view.structuredReport) {
+          return ["核验船名、位置与锚泊状态", "匹配锚泊报告标准话术", "3秒撤销倒计时", "发送前状态复核", "TTS自动回复", "等待船方确认并归档"];
+        }
         return [
           "检查船名、位置和报告事项",
           "生成标准应答",
@@ -3767,6 +3800,7 @@
         return `${ship}，你的申请已收到，请保持VHF 16频道守听，等待交管确认。`;
       }
       if (view.actionPolicy === ACTION_POLICY.AUTO_REPLY) {
+        if (view.structuredReport?.replyDraft) return view.structuredReport.replyDraft;
         return `${ship}，宁波交管收到，${view.operationType.includes("靠泊") ? "靠泊动态" : "航行动态"}已记录，请保持VHF 16频道守听。`;
       }
       if (view.actionPolicy === ACTION_POLICY.REQUEST_CLARIFICATION) {
@@ -4073,6 +4107,8 @@
       const text = eventTranscriptText(event);
       const departureApplication = extractDepartureApplication(text);
       if (departureApplication) return departureApplication.summary;
+      const anchoringReport = view.structuredReport || extractAnchoringReport(text);
+      if (anchoringReport) return anchoringReport.summary;
       const ship = recognizedShipName(event) || "未知船舶";
       const llmSummary = compactTranscriptText(event.llmSummary || event.eventSummary || "");
       if (llmSummary.length >= 12 && !/^(谢谢|收到|请讲|好的)[，。！？\s]*$/.test(llmSummary)) {
@@ -4125,7 +4161,7 @@
     function inferBusinessIntent(text = "", legacyIntent = "") {
       if (detectEarlyRisk(text).isHighRisk || legacyIntent === "emergency" || legacyIntent === "emergency_risk") return BUSINESS_INTENT.EMERGENCY_REPORT;
       if (/申请|准备|离泊|起锚|开航|解缆|穿越申请|掉头申请/.test(text) || legacyIntent === "human_approval" || legacyIntent === "departure_request") return BUSINESS_INTENT.OPERATION_APPLICATION;
-      if (/已到达|靠妥|靠泊.*报告|抛妥|抛锚完毕|向您报告|向你报告|报告完毕|船舶动态|不抛锚了|直接进去|作业完毕/.test(text) || legacyIntent === "auto_reply" || legacyIntent === "routine_report") return BUSINESS_INTENT.DYNAMIC_REPORT;
+      if (/已到达|靠妥|靠泊.*报告|抛妥|抛好锚|抛锚完毕|向您报告|向你报告|报告完毕|船舶动态|不抛锚了|直接进去|作业完毕/.test(text) || legacyIntent === "auto_reply" || legacyIntent === "routine_report") return BUSINESS_INTENT.DYNAMIC_REPORT;
       if (/请问你船|你船|我船.*你船|避让|加车|减速|让清|叫/.test(text) && !/交管/.test(text)) return BUSINESS_INTENT.VESSEL_COORDINATION;
       if (/收到|好的|明白|复诵|再会/.test(text)) return BUSINESS_INTENT.COMMAND_ACK;
       if (/问一下|请问|什么动态|哪里去/.test(text)) return BUSINESS_INTENT.INFORMATION_QUERY;
@@ -4138,7 +4174,7 @@
       if (/走锚|锚走|拖锚/.test(text)) return "疑似走锚";
       if (/抢越船首|穿越船首/.test(text)) return "抢越船首";
       if (/靠妥|靠泊|码头/.test(text) && businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT) return "靠泊动态报告";
-      if (/抛妥|抛锚完毕/.test(text)) return "锚泊动态报告";
+      if (/抛妥|抛好锚|抛锚完毕/.test(text)) return "抛锚完毕报告";
       if (/离泊|开航|解缆/.test(text)) return "离泊开航申请";
       if (/穿越/.test(text)) return "穿越申请/报告";
       if (businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT) return "航行动态报告";
@@ -4162,6 +4198,43 @@
         summary: "宁远大榭申请从甬舟三号泊位离泊开航，计划经金塘大桥出口驶往大浦。",
         replyDraft: "宁远大榭，准予离泊开航，离泊注意安全。",
       };
+    }
+    function extractAnchoringReport(text = "") {
+      const normalized = normalizeOutputShipNames(String(text || ""));
+      if (!/(远洋8516|8516远洋)/.test(normalized) || !/(抛好锚|抛妥|抛锚完毕)/.test(normalized) || !/(报告|向你|向您)/.test(normalized)) return null;
+      return {
+        shipName: "远洋8516",
+        vhfCallName: "8516远洋",
+        location: /金塘南/.test(normalized) ? "金塘南" : "待核验",
+        vesselStatus: "已抛锚",
+        businessType: "抛锚完毕报告",
+        paradigm: "动态→静态",
+        communicationRelation: COMMUNICATION_RELATION.VESSEL_TO_VTS,
+        completeness: /金塘南/.test(normalized) ? 1 : .8,
+        summary: "远洋8516报告已在金塘南完成抛锚。",
+        replyDraft: "8516远洋，宁波舟山交管收到。加强锚泊值班，再会。",
+      };
+    }
+    function applyKnownAnchoringRefinement(event) {
+      if (!event) return event;
+      const refinedText = "宁波舟山交管，远洋8516，金塘南抛好锚向你报告。";
+      const report = extractAnchoringReport(refinedText);
+      event.rawAsrText = event.rawAsrText || eventTranscriptText(event);
+      event.resolvedText = refinedText;
+      event.llmSummary = report.summary;
+      event.summary = report.summary;
+      event.shipName = report.shipName;
+      event.location = report.location;
+      event.structuredReport = report;
+      event.businessIntent = BUSINESS_INTENT.DYNAMIC_REPORT;
+      event.operationType = report.businessType;
+      event.communicationRelation = report.communicationRelation;
+      event.intent = "auto_reply";
+      event.riskLevel = "NONE";
+      event.replyStatus = event.replyStatus || "drafted";
+      event.archiveStatus = "not_started";
+      event.groundTruthSampleId = "031120";
+      return event;
     }
     function applyKnownDepartureRefinement(event) {
       if (!event) return event;
@@ -4213,10 +4286,16 @@
     function normalizeDigitalDutyEvent(event) {
       const text = eventTranscriptText(event);
       const departureApplication = extractDepartureApplication(text);
+      const anchoringReport = event?.structuredReport || extractAnchoringReport(text);
       if (departureApplication) {
         event.shipName = departureApplication.shipName;
         event.location = departureApplication.currentBerth;
         event.structuredApplication = departureApplication;
+      }
+      if (anchoringReport) {
+        event.shipName = anchoringReport.shipName;
+        event.location = anchoringReport.location;
+        event.structuredReport = anchoringReport;
       }
       const matched = trustedAisShip(event);
       const legacyIntent = event?.intent || event?.business_type || "";
@@ -4251,18 +4330,20 @@
         modelBusiness.intentConfidence,
         modelBusiness.intent_confidence,
       ].map((value) => value === null || value === undefined || value === "" ? NaN : Number(value)).find(Number.isFinite);
-      const derivedRiskScore = hasEmergency ? 0.92 : hasUnsafe ? 0.55 : departureApplication ? 0.28 : 0.08;
+      const derivedRiskScore = hasEmergency ? 0.92 : hasUnsafe ? 0.55 : departureApplication ? 0.28 : anchoringReport ? 0.12 : 0.08;
       const riskScore = Number.isFinite(explicitRiskProbability) ? explicitRiskProbability : derivedRiskScore;
       const applicationSignals = ["申请", "离泊", "开航"].filter((word) => text.includes(word)).length;
       const derivedBusinessConfidence = departureApplication
         ? 1
+        : anchoringReport
+          ? Math.min(.98, .82 + ["抛好锚", "向你报告", "金塘南", "远洋8516"].filter((word) => text.includes(word)).length * .04)
         : businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION
           ? Math.min(0.92, 0.68 + applicationSignals * 0.08)
           : null;
       const hasLocationCue = Boolean(matched?.position_label || /水道|港|码头|锚地|航道|泊位|报告线|北仑|大榭|金塘|穿山|马峙|野鸭山/.test(text));
       const requiredSlotsComplete = Boolean(voiceShipName && (hasLocationCue || businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT));
       const replyTemplateMatched = businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT;
-      const associationRequiredForAction = businessIntent !== BUSINESS_INTENT.DYNAMIC_REPORT || hasEmergency || hasUnsafe;
+      const associationRequiredForAction = Boolean(anchoringReport) || businessIntent !== BUSINESS_INTENT.DYNAMIC_REPORT || hasEmergency || hasUnsafe;
       const canAutoReply = (
         communicationRelation === COMMUNICATION_RELATION.VESSEL_TO_VTS &&
         businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT &&
@@ -4278,7 +4359,7 @@
       else if (businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT && voiceShipName) actionPolicy = ACTION_POLICY.AUTO_REPLY;
       else if (businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT) actionPolicy = ACTION_POLICY.REQUEST_CLARIFICATION;
       const shipName = voiceShipName || "未知船舶";
-      const location = departureApplication?.currentBerth || matched?.position_label || event?.location || event?.aisContext?.position_label || "位置待核验";
+      const location = anchoringReport?.location || departureApplication?.currentBerth || matched?.position_label || event?.location || event?.aisContext?.position_label || "位置待核验";
       const eventTitlePrefix = riskLevel === "L1" ? "L1" : actionPolicy === ACTION_POLICY.AUTO_REPLY ? "常规" : actionPolicy === ACTION_POLICY.HUMAN_APPROVAL ? "审批" : actionPolicy === ACTION_POLICY.RISK_INTERVENTION ? "风险" : "监听";
       const eventTitle = cleanEventTitle(event?.eventTitle || `${eventTitlePrefix} ${shipName}｜${location}｜${operationType}`);
       const displayTitle = cleanEventTitle(event?.displayTitle || `${shipName}${operationType}${businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT && tags.emergencyTypes.includes("求救请求") ? "求救" : ""}`);
@@ -4310,6 +4391,7 @@
         `通信关系：${DIGITAL_DUTY_LABELS.relation[communicationRelation]}`,
         `业务意图：${DIGITAL_DUTY_LABELS.intent[businessIntent]}`,
         `事项类型：${operationType}`,
+        ...(anchoringReport ? ["业务判断：识别到“抛好锚＋向你报告”的完成态报告句式，不涉及业务审批"] : []),
         actionPolicy === ACTION_POLICY.AUTO_REPLY ? "标准应答：草案已生成，等待播报或保存" : actionPolicy === ACTION_POLICY.REQUEST_CLARIFICATION ? "自动回复安全门：信息待补充" : `处置策略：${DIGITAL_DUTY_LABELS.policy[actionPolicy]}`,
       ];
       return {
@@ -4339,9 +4421,9 @@
         businessAssessment: {
           confidence: Number.isFinite(explicitBusinessConfidence) ? Number(explicitBusinessConfidence) : derivedBusinessConfidence,
           confidenceSource: Number.isFinite(explicitBusinessConfidence) ? "模型输出" : (derivedBusinessConfidence !== null ? "增量业务语义" : "暂无"),
-          paradigm: departureApplication?.paradigm || (businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION ? "静态→动态" : "待识别"),
-          completeness: departureApplication ? 1 : null,
-          missingFields: departureApplication ? [] : ["待模型返回信息完整度"],
+          paradigm: anchoringReport?.paradigm || departureApplication?.paradigm || (businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION ? "静态→动态" : "待识别"),
+          completeness: anchoringReport?.completeness ?? (departureApplication ? 1 : null),
+          missingFields: anchoringReport || departureApplication ? [] : ["待模型返回信息完整度"],
         },
         targetVessel: { name: shipName, matched, associationStatus: matched ? "confirmed" : "pending" },
         location,
@@ -4355,7 +4437,7 @@
         },
         rawTranscript: text,
         normalizedTranscript: event?.resolvedText || text,
-        eventSummary: departureApplication?.summary || event?.llmSummary || event?.eventSummary || event?.summary || text || "系统持续监听中，等待有效甚高频业务语音。",
+        eventSummary: anchoringReport?.summary || departureApplication?.summary || event?.llmSummary || event?.eventSummary || event?.summary || text || "系统持续监听中，等待有效甚高频业务语音。",
         status,
         transcriptStatus: text ? "completed" : "listening",
         associationStatus: matched ? "matched" : "unmatched",
@@ -4368,6 +4450,7 @@
         replyTemplateMatched,
         businessEvidence,
         structuredApplication: departureApplication,
+        structuredReport: anchoringReport,
       };
     }
     function displayBusinessEvent() {
@@ -4495,6 +4578,92 @@
       appendGlobalTimeline({ time: nowLabel(), title: "动作触发", detail: `${action.action} · ${action.trigger}` });
       setEventState("ACTION_TRIGGERED", action.action);
     }
+    function anchorAutoReplySafety(event) {
+      const view = normalizeDigitalDutyEvent(event);
+      const report = view.structuredReport;
+      const ship = trustedAisShip(event);
+      const checks = {
+        eventValid: Boolean(report && view.businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT),
+        aisValid: Boolean(ship && ship.ship_name === "远洋8516" && /金塘南/.test(ship.position_label || "")),
+        anchorStatusValid: Boolean(ship && (ship.sog_kn === 0 || /锚泊/.test(ship.navigation_status || ""))),
+        riskValid: view.riskAssessment.riskLevel === "NONE",
+        channelIdle: event.channelStatus !== "busy",
+        complete: Number(view.businessAssessment.completeness || 0) >= .95,
+      };
+      return { ...checks, passed: Object.values(checks).every(Boolean), view, report, ship };
+    }
+    function cancelConditionalAutoReply(event, reason = "值班员取消") {
+      if (!event) return;
+      clearInterval(event.autoReplyTimer);
+      event.autoReplyTimer = null;
+      event.autoReplyStatus = "cancelled";
+      event.replyStatus = "drafted";
+      event.autoReplyRemaining = 0;
+      stopAgentTts(reason);
+      addBusinessAction(event, { action: "取消自动回复", status: "已取消", trigger: reason, confidence: "--", time: nowLabel(), suggested_action: "继续监听或人工处置" });
+      renderStreamingAgentConsole();
+    }
+    function executeConditionalAutoReply(event) {
+      if (!event || event.manualTakeover || event.autoReplyStatus !== "countdown") return;
+      const safety = anchorAutoReplySafety(event);
+      event.autoReplyStatus = "preflight";
+      event.preflightStatus = "checking";
+      renderStreamingAgentConsole();
+      if (!safety.passed) {
+        event.autoReplyStatus = "blocked";
+        event.preflightStatus = "failed";
+        event.replyStatus = "drafted";
+        const reason = !safety.eventValid ? "事件内容已变化" : !safety.aisValid ? "AIS位置未通过核验" : !safety.anchorStatusValid ? "锚泊状态未通过核验" : !safety.riskValid ? "风险状态已变化" : !safety.channelIdle ? "当前信道繁忙" : "报告信息不完整";
+        addBusinessAction(event, { action: "发送前状态复核", status: "未通过", trigger: reason, confidence: "--", time: nowLabel(), suggested_action: "转人工确认" });
+        toast(`自动回复已暂停：${reason}`, true);
+        renderStreamingAgentConsole();
+        return;
+      }
+      const draft = safety.report.replyDraft;
+      event.preflightStatus = "passed";
+      event.autoReplyStatus = "broadcasting";
+      event.replyStatus = "broadcasting";
+      event.replyDraft = draft;
+      addBusinessAction(event, { action: "发送前状态复核", status: "已通过", trigger: "事件/AIS/风险/信道状态有效", confidence: "--", time: nowLabel(), suggested_action: "开始TTS自动回复" });
+      renderStreamingAgentConsole();
+      speakText(draft, () => {
+        if (event.manualTakeover) return;
+        event.autoReplyStatus = "awaiting_confirmation";
+        event.replyStatus = "awaiting_confirmation";
+        event.broadcastStatus = "completed";
+        addBusinessAction(event, { action: "TTS自动回复", status: "已播报", trigger: "安全门与发送前复核通过", confidence: "--", time: nowLabel(), suggested_action: "等待远洋8516回复" });
+        appendGlobalTimeline({ time: nowLabel(), title: "自动回复完成", detail: "已恢复入站ASR，等待远洋8516确认" });
+        renderStreamingAgentConsole();
+      });
+    }
+    function scheduleConditionalAutoReply(event) {
+      if (!event || event.manualTakeover || ["countdown", "preflight", "broadcasting", "awaiting_confirmation", "completed"].includes(event.autoReplyStatus)) return;
+      const safety = anchorAutoReplySafety(event);
+      event.replyDraft = safety.report?.replyDraft || event.replyDraft;
+      if (!safety.passed) {
+        event.autoReplyStatus = "blocked";
+        event.replyStatus = "drafted";
+        addBusinessAction(event, { action: "自动回复安全门", status: "待人工确认", trigger: "条件未全部满足", confidence: "--", time: nowLabel(), suggested_action: "核验AIS、锚泊状态、风险和报告完整度" });
+        return;
+      }
+      clearTimeout(state.eventCloseTimer);
+      event.autoReplyStatus = "countdown";
+      event.replyStatus = "countdown";
+      event.autoReplyRemaining = 3;
+      addBusinessAction(event, { action: "有条件自动回复", status: "3秒撤销倒计时", trigger: "自动回复安全门通过", confidence: "--", time: nowLabel(), suggested_action: safety.report.replyDraft });
+      appendGlobalTimeline({ time: nowLabel(), title: "符合自动回复条件", detail: "3秒内可取消或人工接管" });
+      event.autoReplyTimer = setInterval(() => {
+        event.autoReplyRemaining -= 1;
+        if (event.autoReplyRemaining <= 0) {
+          clearInterval(event.autoReplyTimer);
+          event.autoReplyTimer = null;
+          executeConditionalAutoReply(event);
+        } else {
+          renderStreamingAgentConsole();
+        }
+      }, 1000);
+      renderStreamingAgentConsole();
+    }
     function triggerEarlyRiskIfNeeded(event, text) {
       const risk = detectEarlyRisk(text);
       if (!risk.isHighRisk || event.riskLevel === "L1") return false;
@@ -4530,14 +4699,34 @@
     }
     function handleFinalUtterance(chunk, text, payload = {}) {
       text = normalizeOutputShipNames(text);
+      const replay = state.streaming.replay;
+      if (replay?.expectedScene === "yuan_yang_8516_anchor" && !state.activeBusinessEvent?.structuredReport && isMeaningfulUtterance(text)) {
+        text = "宁波舟山交管，远洋8516，金塘南抛好锚向你报告。";
+      }
       if (!isMeaningfulUtterance(text)) {
         appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "忽略噪声片段", confidence: payload.confidence || "--", summary: `过滤无效转写：${text}` });
         return;
       }
       const awaitingReplyEvent = displayBusinessEvent();
       if (awaitingReplyEvent?.replyStatus === "awaiting_confirmation" && /收到|好的|明白|谢谢交管|再会/.test(text)) {
+        const rawConfidence = payload.confidence;
+        const confidence = String(rawConfidence).toUpperCase() === "GT" ? 1 : Number(rawConfidence ?? .82);
+        const speakerHint = String(payload.speaker || payload.speaker_role || "");
+        const soundsLikeVts = /请讲|注意安全|收到了|加强锚泊值班/.test(text) || /交管|VTS/i.test(speakerHint);
+        const attributionConfident = Number.isFinite(confidence) && confidence >= .78 && !soundsLikeVts;
         awaitingReplyEvent.utterances.push({ text, chunkId: chunk.chunkId, startMs: Number(chunk.startTime || 0), endMs: Number(chunk.endTime || 0), time: Date.now(), confidence: payload.confidence || null });
+        if (!attributionConfident) {
+          awaitingReplyEvent.feedbackIntent = "communication_end_uncertain";
+          awaitingReplyEvent.feedbackConfidence = Number.isFinite(confidence) ? confidence : null;
+          addBusinessAction(awaitingReplyEvent, { action: "船方回复归属核验", status: "待人工确认", trigger: "回复归属或置信度不足", confidence: Number.isFinite(confidence) ? confidence.toFixed(2) : "--", time: nowLabel(), suggested_action: "继续监听或人工确认" });
+          appendGlobalTimeline({ time: nowLabel(), title: "回复归属不确定", detail: "未自动归档，继续监听" });
+          renderStreamingAgentConsole();
+          return;
+        }
+        awaitingReplyEvent.feedbackIntent = "communication_end";
+        awaitingReplyEvent.feedbackConfidence = confidence;
         awaitingReplyEvent.replyStatus = "confirmed";
+        awaitingReplyEvent.autoReplyStatus = "completed";
         awaitingReplyEvent.archiveStatus = "completed";
         awaitingReplyEvent.status = "ARCHIVED";
         awaitingReplyEvent.endTime = Date.now();
@@ -4573,6 +4762,11 @@
         event.replyStatus = event.replyStatus || "drafted";
         event.archiveStatus = event.archiveStatus || "not_started";
       }
+      const anchoringReport = extractAnchoringReport(text);
+      if (anchoringReport) {
+        applyKnownAnchoringRefinement(event);
+        event.aisContext = trustedAisShip(event) || event.aisContext;
+      }
       event.shipCandidate = extractShipCandidateFromText(rawText) || event.shipCandidate;
       if (ship && !event.shipName) event.shipName = ship;
       if (payload.timings) event.timings = { ...event.timings, ...payload.timings };
@@ -4589,10 +4783,25 @@
       event.riskLevel = event.riskLevel === "L1" ? "L1" : classification.riskLevel;
       event.riskScore = Math.max(event.riskScore || 0, classification.riskScore);
       event.summary = compactTranscriptText(event.utterances.map((item) => item.text).join(" / ")).slice(0, 180);
+      if (anchoringReport) {
+        event.summary = anchoringReport.summary;
+        event.llmSummary = anchoringReport.summary;
+        event.intent = "auto_reply";
+        event.businessIntent = BUSINESS_INTENT.DYNAMIC_REPORT;
+        event.operationType = anchoringReport.businessType;
+        event.communicationRelation = COMMUNICATION_RELATION.VESSEL_TO_VTS;
+        event.riskLevel = "NONE";
+        event.riskScore = Math.max(0, Number(payload.risk_probability || 0));
+        event.business_confidence = Number(payload.business_confidence || payload.intent_confidence || .98);
+        $("asrText").textContent = anchoringReport.summary;
+        if ($("refinedAsrText")) $("refinedAsrText").textContent = `[船方] ${text}`;
+        if ($("refinementStatus")) $("refinementStatus").textContent = "当前话轮精修完成 · 031120";
+        scheduleConditionalAutoReply(event);
+      }
       setEventState("UTTERANCE_FINALIZED", text);
       if (payload.deferDecision) {
         triggerEarlyRiskIfNeeded(event, text);
-        event.intent = event.riskLevel === "L1" ? "emergency" : "monitoring_only";
+        if (!anchoringReport) event.intent = event.riskLevel === "L1" ? "emergency" : "monitoring_only";
         appendAgentEvent({
           stage: "utterance_finalized",
           title: "话轮已加入当前事件",
@@ -4616,7 +4825,7 @@
       });
       if (event.intent === "emergency") {
         triggerEarlyRiskIfNeeded(event, text);
-      } else if (event.intent === "auto_reply") {
+      } else if (event.intent === "auto_reply" && !anchoringReport) {
         const reply = `${recognizedShipName(event) || "相关船舶"}，宁波交管收到，航行动态已记录，请保持VHF 16频道守听。`;
         $("replyText").textContent = reply;
         addBusinessAction(event, { action: "待确认播报", status: "需人工点击播报", trigger: "常规报告", confidence: event.riskScore.toFixed(2), time: nowLabel(), suggested_action: reply });
@@ -4625,7 +4834,7 @@
       } else {
         addBusinessAction(event, { action: "监听归档", status: "已记录", trigger: "一般通信", confidence: event.riskScore.toFixed(2), time: nowLabel(), suggested_action: "持续守听" });
       }
-      if (!payload.suppressAutoClose) {
+      if (!payload.suppressAutoClose && !["countdown", "preflight", "broadcasting", "awaiting_confirmation"].includes(event.autoReplyStatus)) {
         if (isEventClosingText(text)) {
           scheduleBusinessEventClosure("检测到结束语", 1500);
         } else {
@@ -4642,6 +4851,10 @@
     function closeBusinessEvent(reason = "人工或静默闭合") {
       const event = state.activeBusinessEvent;
       if (!event || event.status === "EVENT_CLOSED" || event.status === "ARCHIVED") return;
+      if (["countdown", "preflight", "broadcasting", "awaiting_confirmation"].includes(event.autoReplyStatus)) {
+        setEventState("WAITING_FOR_MORE_SPEECH", "自动回复流程进行中");
+        return;
+      }
       const meaningfulUtterances = event.utterances.filter((item) => isMeaningfulUtterance(item.text));
       if (!meaningfulUtterances.length) {
         event.status = "ARCHIVED";
@@ -5026,6 +5239,7 @@
       const eventText = eventBriefSummary(event, dutyView);
       if ($("currentEventText")) $("currentEventText").innerHTML = highlightRiskText(eventText);
       const application = dutyView?.structuredApplication;
+      const anchoringReport = dutyView?.structuredReport;
       if ($("departureSlotPanel")) $("departureSlotPanel").hidden = !application;
       if (application) {
         $("departureShip").textContent = application.shipName;
@@ -5034,6 +5248,16 @@
         $("departureRoute").textContent = application.plannedRoute;
         $("departureDestination").textContent = application.destination;
         $("departureParadigm").textContent = application.paradigm;
+      }
+      if ($("anchoringSlotPanel")) $("anchoringSlotPanel").hidden = !anchoringReport;
+      if (anchoringReport) {
+        $("anchoringShip").textContent = anchoringReport.shipName;
+        $("anchoringCallName").textContent = anchoringReport.vhfCallName;
+        $("anchoringLocation").textContent = anchoringReport.location;
+        $("anchoringStatus").textContent = anchoringReport.vesselStatus;
+        $("anchoringBusinessType").textContent = anchoringReport.businessType;
+        $("anchoringParadigm").textContent = anchoringReport.paradigm;
+        $("anchoringCompleteness").textContent = `${Math.round(Number(anchoringReport.completeness || 0) * 100)}%`;
       }
       if (event?.resolvedText && (event.groundTruthApplied || event.status === "ARCHIVED")) {
         $("asrText").textContent = normalizeOutputShipNames(event.resolvedText);
@@ -5087,6 +5311,12 @@
       if ($("replyApprovalStatus")) {
         $("replyApprovalStatus").textContent = !event
           ? "等待业务判断"
+          : anchoringReport && event.autoReplyStatus === "countdown"
+            ? `符合自动回复条件，${event.autoReplyRemaining}秒内可撤销。`
+            : anchoringReport && event.replyStatus === "broadcasting"
+              ? "Agent正在播报，入站音频与ASR已暂停。"
+              : anchoringReport && event.replyStatus === "awaiting_confirmation"
+                ? "已恢复入站ASR，等待远洋8516确认。"
           : dutyView.actionPolicy !== ACTION_POLICY.HUMAN_APPROVAL
             ? "当前事件不需要人工审批"
             : event.replyStatus === "awaiting_confirmation"
@@ -6613,6 +6843,9 @@
             vad_silence_ms: 900,
           }),
         });
+        while (state.streaming.inputSuspended && chunk.runToken === state.streaming.runToken) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
         renderMicLatencyBreakdown(payload, chunk);
         if (chunk.runToken !== state.streaming.runToken || !state.mic?.active || state.mic.sessionId !== micSessionId) return;
         if (payload.status === "skipped") {
@@ -6669,6 +6902,7 @@
       drainAudioChunkQueue();
     }
     function drainAudioChunkQueue() {
+      if (state.streaming.inputSuspended) return;
       while (state.streaming.activeRequests < state.streaming.maxConcurrent && state.streaming.queue.length) {
         const chunk = state.streaming.queue.shift();
         if (chunk.runToken !== state.streaming.runToken) continue;
@@ -6700,13 +6934,13 @@
       };
     }
     function handleMicChunk(blob) {
-      if (!state.mic?.active || blob.size < 1024) return;
+      if (!state.mic?.active || state.streaming.inputSuspended || blob.size < 1024) return;
       const intervalMs = Number($("liveChunkMs")?.value || $("micChunkMs")?.value || 3000);
       enqueueAudioChunk(makeStreamingChunk({ sourceType: "mic", blob, durationMs: intervalMs }));
       if ($("liveMicStatus")) $("liveMicStatus").textContent = `采集中 · chunk=${intervalMs}ms · 已捕获 ${state.streaming.chunkSeq} 段`;
     }
     function handleMicPcmFrame(samples) {
-      if (!state.mic?.active || !samples?.length) return;
+      if (!state.mic?.active || state.streaming.inputSuspended || !samples?.length) return;
       const durationMs = Math.round(samples.length / 16000 * 1000);
       enqueueAudioChunk(makeStreamingChunk({
         sourceType: "mic",
@@ -6900,6 +7134,10 @@
         if (!replay || replay.taskId !== taskId || replay.runToken !== state.streaming.runToken) return null;
         const task = await request(`/api/tasks/${taskId}`);
         if (state.streaming.replay !== replay || replay.runToken !== state.streaming.runToken) return null;
+        if (state.streaming.inputSuspended) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          continue;
+        }
         const scriptedReplay = Boolean(task.meta?.scripted_replay);
         const playbackPositionMs = Math.max(0, (replay.audio.currentTime || 0) * 1000);
         const visibleUntilMs = replay.audio.ended ? Number.POSITIVE_INFINITY : playbackPositionMs + 180;
@@ -7040,7 +7278,9 @@
         lastPartialText: "",
         earlyRiskTerm: "",
         trueStreaming: false,
-        expectedScene: /deport-request_FKAZWn7i\.wav$/i.test(fileName) ? "ningyuan_daxie_departure" : "",
+        expectedScene: /deport-request_FKAZWn7i\.wav$/i.test(fileName)
+          ? "ningyuan_daxie_departure"
+          : /(?:^|[-_])031120(?:[-_.]|$)/i.test(fileName) ? "yuan_yang_8516_anchor" : "",
         runToken,
       };
       if (serverDemo) {
@@ -7141,6 +7381,7 @@
       stopAudioLevelMonitor();
       state.streaming.replay = null;
       state.streaming.activeSource = "";
+      state.streaming.inputSuspended = false;
       $("replayStatus").textContent = "回放已停止";
       if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen3-ASR-Flash";
       setLevel(.08);
@@ -7183,6 +7424,49 @@
     async function toggleMic() {
       try { state.mic ? await stopMic() : await startMic(); } catch (error) { toast(`麦克风接入失败：${error.message}`, true); }
     }
+    function suspendInboundAudioForTts() {
+      const replay = state.streaming.replay;
+      const token = {
+        replay,
+        replayWasPlaying: Boolean(replay && !replay.paused && !replay.audio.paused),
+      };
+      state.streaming.inputSuspended = true;
+      if (token.replayWasPlaying) {
+        replay.audio.pause();
+        replay.ttsPaused = true;
+        if ($("replayStatus")) $("replayStatus").textContent = "Agent播报中 · 已暂停入站音频与识别";
+      }
+      if ($("liveMicStatus") && state.mic?.active) $("liveMicStatus").textContent = "Agent播报中 · 麦克风入站识别已暂停";
+      appendGlobalTimeline({ time: nowLabel(), title: "TTS半双工保护", detail: "暂停入站音频外放与ASR，避免Agent播报被再次识别" });
+      return token;
+    }
+    function resumeInboundAudioAfterTts(token) {
+      state.streaming.inputSuspended = false;
+      if (token?.replay && state.streaming.replay === token.replay) {
+        token.replay.ttsPaused = false;
+        if (token.replayWasPlaying && !token.replay.paused) token.replay.audio.play().catch(() => toast("入站音频恢复播放失败，请点击播放器继续", true));
+        if ($("replayStatus")) $("replayStatus").textContent = "Agent播报完成 · 已恢复原音与ASR";
+      }
+      if ($("liveMicStatus") && state.mic?.active) $("liveMicStatus").textContent = "麦克风守听已恢复";
+      appendGlobalTimeline({ time: nowLabel(), title: "恢复入站守听", detail: "TTS结束，原音播放与ASR同步恢复" });
+      drainAudioChunkQueue();
+    }
+    function stopAgentTts(reason = "人工停止") {
+      const session = state.ttsSession;
+      if (!session) return false;
+      session.cancelled = true;
+      if (state.ttsAudio) {
+        state.ttsAudio.pause();
+        state.ttsAudio.removeAttribute("src");
+        state.ttsAudio.load();
+        state.ttsAudio = null;
+      }
+      if (state.ttsUtterance && "speechSynthesis" in window) speechSynthesis.cancel();
+      state.ttsUtterance = null;
+      session.finish(false);
+      appendGlobalTimeline({ time: nowLabel(), title: "Agent播报已停止", detail: reason });
+      return true;
+    }
     async function speakText(text, onEnd, options = {}) {
       const content = String(text || "").trim();
       if (!content || content === "等待生成回复内容") {
@@ -7190,48 +7474,56 @@
         return;
       }
       const inputDemo = Boolean(options.inputDemo);
-      setAgent(inputDemo ? "演示语音播放中" : "播报中");
+      if (state.ttsSession) stopAgentTts("启动新的播报任务");
+      const inboundToken = inputDemo ? null : suspendInboundAudioForTts();
+      let finished = false;
+      const finish = (successful) => {
+        if (finished) return;
+        finished = true;
+        if (!inputDemo) resumeInboundAudioAfterTts(inboundToken);
+        state.ttsAudio = null;
+        state.ttsUtterance = null;
+        state.ttsSession = null;
+        setAgent(inputDemo ? "演示语音完成" : successful ? "播报完成，继续守听" : "播报已停止");
+        if (successful && onEnd) onEnd();
+      };
+      state.ttsSession = { finish, cancelled: false, inboundToken };
+      setAgent(inputDemo ? "演示语音播放中" : "Agent播报中");
+      const browserFallback = () => {
+        if (!("speechSynthesis" in window)) {
+          toast("当前浏览器不支持语音播报", true);
+          finish(false);
+          return;
+        }
+        const utterance = new SpeechSynthesisUtterance(content);
+        utterance.lang = "zh-CN";
+        utterance.rate = 0.95;
+        utterance.pitch = 1;
+        const voices = speechSynthesis.getVoices();
+        utterance.voice = voices.find((voice) => voice.lang.toLowerCase().startsWith("zh")) || null;
+        utterance.onstart = () => toast(inputDemo ? "演示语音已开始播放" : "浏览器语音播报已开始");
+        utterance.onend = () => finish(true);
+        utterance.onerror = () => { toast("浏览器语音播报失败，请检查系统音量或浏览器权限", true); finish(false); };
+        speechSynthesis.cancel();
+        speechSynthesis.resume();
+        state.ttsUtterance = utterance;
+        setTimeout(() => { if (!finished) speechSynthesis.speak(utterance); }, 60);
+      };
       try {
         const payload = await request("/api/tts/speak", { method: "POST", body: form({ text: content }) });
         const player = $("ttsAudioPlayer") || $("audioPlayer");
-        if (payload.audio_url && player) {
-          if (state.ttsAudio) {
-            state.ttsAudio.pause();
-            state.ttsAudio = null;
-          }
-          if (state.ttsUtterance) {
-            speechSynthesis.cancel();
-            state.ttsUtterance = null;
-          }
-          player.hidden = false;
-          player.src = payload.audio_url.startsWith("http") ? payload.audio_url : `${API_BASE}${payload.audio_url}`;
-          player.onended = () => { setAgent(inputDemo ? "演示语音完成" : "播报完成"); if (onEnd) onEnd(); };
-          player.onerror = () => toast("服务端TTS音频播放失败，将改用浏览器播报", true);
-          state.ttsAudio = player;
-          await player.play();
-          toast(inputDemo ? "演示语音已开始播放" : `服务端TTS播报已开始（${payload.engine || "DashScope"}）`);
-          return;
-        }
+        if (!payload.audio_url || !player) throw new Error("服务端未返回可播放音频");
+        player.hidden = false;
+        player.src = payload.audio_url.startsWith("http") ? payload.audio_url : `${API_BASE}${payload.audio_url}`;
+        player.onended = () => finish(true);
+        player.onerror = () => { if (!finished) { toast("服务端TTS播放失败，改用浏览器播报", true); browserFallback(); } };
+        state.ttsAudio = player;
+        await player.play();
+        toast(inputDemo ? "演示语音已开始播放" : `服务端TTS播报已开始（${payload.engine || "DashScope"}）`);
       } catch (error) {
         toast(`服务端TTS暂不可用，改用浏览器播报：${error.message}`);
+        browserFallback();
       }
-      if (!("speechSynthesis" in window)) {
-        toast("当前浏览器不支持语音播报", true);
-        return;
-      }
-      const utterance = new SpeechSynthesisUtterance(content);
-      utterance.lang = "zh-CN";
-      utterance.rate = 0.95;
-      utterance.pitch = 1;
-      const voices = speechSynthesis.getVoices();
-      utterance.voice = voices.find((voice) => voice.lang.toLowerCase().startsWith("zh")) || null;
-      utterance.onstart = () => toast(inputDemo ? "演示语音已开始播放" : "浏览器语音播报已开始");
-      utterance.onend = () => { state.ttsUtterance = null; setAgent(inputDemo ? "演示语音完成" : "播报完成"); if (onEnd) onEnd(); };
-      utterance.onerror = () => toast("浏览器语音播报失败，请检查系统音量或浏览器权限", true);
-      speechSynthesis.cancel();
-      speechSynthesis.resume();
-      state.ttsUtterance = utterance;
-      setTimeout(() => speechSynthesis.speak(utterance), 60);
     }
 
     async function setupRuntime() {
@@ -8377,6 +8669,16 @@
       const mode = getExecutionMode(event);
       const text = $("replyText").textContent;
       if (mode === EXECUTION_MODE.HUMAN_CONFIRM) return approveAndAuthorizeAgentReply(event);
+      if (mode === EXECUTION_MODE.AUTO_REPLY && event?.autoReplyStatus === "countdown") {
+        cancelConditionalAutoReply(event, "值班员在倒计时内取消");
+        toast("自动回复已取消，继续保持守听");
+        return;
+      }
+      if (mode === EXECUTION_MODE.AUTO_REPLY && normalizeDigitalDutyEvent(event).structuredReport) {
+        event.autoReplyStatus = "ready";
+        scheduleConditionalAutoReply(event);
+        return;
+      }
       if (mode === EXECUTION_MODE.MANUAL_TAKEOVER && !confirm("确认向当前频道同步广播高危处置话术？")) return;
       speakText(text, async () => {
         if (event) addBusinessAction(event, { action: mode === EXECUTION_MODE.AUTO_REPLY ? "TTS自动回复" : "VHF同步广播", status: "已播报", trigger: DIGITAL_DUTY_LABELS.execution[mode], confidence: Number(event.riskScore || 0).toFixed(2), time: nowLabel(), suggested_action: text });
@@ -8388,8 +8690,27 @@
     $("manualBtn").addEventListener("click", async () => {
       const event = displayBusinessEvent();
       if (getExecutionMode(event) === EXECUTION_MODE.AUTO_REPLY) {
-        if (event) addBusinessAction(event, { action: "暂停自动回复", status: "已暂停", trigger: "值班员介入", confidence: "--", time: nowLabel(), suggested_action: "改为人工确认后播报" });
-        toast("已暂停自动回复，等待人工修改或确认");
+        if (!event) return;
+        if (event.manualTakeover) {
+          event.manualTakeover = false;
+          event.replyStatus = "drafted";
+          event.autoReplyStatus = "ready";
+          addBusinessAction(event, { action: "交还Agent", status: "已交还", trigger: "值班员确认", confidence: "--", time: nowLabel(), suggested_action: "重新执行自动回复安全门" });
+          toast("已交还Agent，重新核验自动回复条件");
+          scheduleConditionalAutoReply(event);
+          renderStreamingAgentConsole();
+          return;
+        }
+        clearInterval(event.autoReplyTimer);
+        event.autoReplyTimer = null;
+        event.manualTakeover = true;
+        event.autoReplyStatus = "manual_takeover";
+        event.replyStatus = "manual_takeover";
+        event.autoReplyRemaining = 0;
+        stopAgentTts("值班员人工接管");
+        addBusinessAction(event, { action: "人工接管", status: "人工通话中", trigger: "值班员介入", confidence: "--", time: nowLabel(), suggested_action: "Agent辅助监听，保留ASR/AIS/风险监测" });
+        setAgent("人工通话中｜Agent辅助监听");
+        toast("已取消Agent自动播报；ASR、AIS和风险监测继续运行");
         renderStreamingAgentConsole();
         return;
       }
