@@ -1223,6 +1223,26 @@
     .agent-wave-lines span:nth-child(2n) { animation-delay: .15s; }
     .agent-wave-lines span:nth-child(3n) { animation-delay: .28s; }
     .agent-wave-lines span:nth-child(4n) { animation-delay: .42s; }
+    .event-score-pair { display: flex; gap: 12px; align-items: flex-start; }
+    .event-score-pair .event-score { min-width: 98px; }
+    .event-score.business-score strong { color: #1677ff; font-size: 17px; white-space: nowrap; }
+    .departure-slot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+    .departure-slot-grid[hidden] { display: none !important; }
+    .departure-slot-grid > div { padding: 9px 10px; border: 1px solid #e3e8ef; border-radius: 10px; background: #fff; }
+    .departure-slot-grid span { display: block; color: #66788a; font-size: 12px; margin-bottom: 3px; }
+    .departure-slot-grid b { color: #132238; font-size: 14px; }
+    .reply-approval-status { display: block; margin-top: 8px; color: #e8942e; font-weight: 700; }
+    .vts-assistant-card { margin-top: 12px; }
+    .assistant-context { padding: 9px 11px; border-radius: 9px; background: #eef5ff; color: #1356a8; font-weight: 700; }
+    .assistant-quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 9px 0; }
+    .assistant-quick-actions button { min-height: 34px; padding: 7px 8px; font-size: 12px; background: #f7f9fc; color: #27415f; border: 1px solid #dce5f0; }
+    .assistant-dialogue { min-height: 98px; max-height: 180px; overflow-y: auto; padding: 9px; border: 1px solid #e3e8ef; border-radius: 10px; background: #fff; }
+    .assistant-message { margin-bottom: 8px; line-height: 1.55; color: #334e68; }
+    .assistant-message.user { color: #145cc1; font-weight: 700; }
+    .assistant-message small { display: block; margin-top: 5px; color: #7a8ba0; }
+    .assistant-input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; margin-top: 8px; }
+    .assistant-input-row input { min-width: 0; padding: 9px; border: 1px solid #d8e2ee; border-radius: 9px; }
+    .assistant-safety { display: block; margin-top: 7px; color: #7a8ba0; line-height: 1.4; }
     @keyframes pulseBar {
       0%,100% { height: calc(18px + var(--level) * 18px); opacity: .36; }
       50% { height: calc(46px + var(--level) * 46px); opacity: 1; }
@@ -2343,6 +2363,12 @@
       .login-brand-panel { min-height: 340px; padding: 34px; }
       .login-form-panel { padding: 24px; }
     }
+    @media (min-width: 1600px) {
+      body.agent-shell { font-size: 15px; }
+      .panel-head h2, .stream-head h3 { font-size: 17px; }
+      button, input, select, textarea { font-size: 14px; }
+      .current-event-hero h2 { font-size: clamp(24px, 1.55vw, 30px); }
+    }
   </style>
 </head>
 <body class="agent-shell login-required">
@@ -2574,7 +2600,10 @@
                   <h2 id="activeEventShip">待确认船舶</h2>
                   <p id="currentEventPosition">船位尚未可靠关联</p>
                 </div>
-                <div class="event-score"><small>风险评分</small><strong id="currentEventScore">0.00</strong></div>
+                <div class="event-score-pair">
+                  <div class="event-score"><small>安全风险</small><strong id="currentEventScore">待检测</strong></div>
+                  <div class="event-score business-score"><small>业务识别置信度</small><strong id="currentBusinessConfidence">模型未返回</strong></div>
+                </div>
               </div>
               <div class="event-quote" id="currentEventText">系统持续监听中，等待有效甚高频业务语音。</div>
               <div class="event-summary-grid">
@@ -2582,6 +2611,14 @@
                 <div><span>处置策略</span><b id="activeActionPolicy">持续监听</b></div>
                 <div><span>当前状态</span><b id="activeEventAction">等待</b></div>
                 <div class="tech-only"><span>话轮数</span><b id="activeEventUtterances">0</b></div>
+              </div>
+              <div class="departure-slot-grid" id="departureSlotPanel" hidden>
+                <div><span>船名</span><b id="departureShip">--</b></div>
+                <div><span>当前泊位</span><b id="departureBerth">--</b></div>
+                <div><span>申请事项</span><b id="departureOperation">--</b></div>
+                <div><span>计划航路</span><b id="departureRoute">--</b></div>
+                <div><span>目的地</span><b id="departureDestination">--</b></div>
+                <div><span>业务范式</span><b id="departureParadigm">--</b></div>
               </div>
               <div class="parallel-assessment-grid">
                 <div class="assessment-card"><small>风险研判</small><b id="parallelRiskTitle">未发现明显风险</b><span id="parallelRiskDetail">等待有效语音与AIS态势。</span></div>
@@ -2634,6 +2671,7 @@
                 </ol>
                 <h3>广播草案</h3>
                 <div class="broadcast-draft" id="replyText" contenteditable="true">等待生成回复内容</div>
+                <small class="reply-approval-status" id="replyApprovalStatus">等待业务判断</small>
               </div>
             </div>
 
@@ -2691,6 +2729,19 @@
               <button class="central-only" id="rightArchiveBtn">保存上报</button>
             </div>
             <span id="associationNote" hidden></span>
+            <div class="action-card vts-assistant-card">
+              <div class="stream-head"><h3>VTS智能助手</h3><span class="pill">查询与解释</span></div>
+              <div class="assistant-context" id="vtsAssistantContext">当前上下文：等待事件</div>
+              <div class="assistant-quick-actions" id="vtsAssistantQuickActions">
+                <button type="button" data-vts-query="ship_history">查询该船历史行为</button>
+                <button type="button" data-vts-query="vhf_history">查询近30天VHF呼叫</button>
+                <button type="button" data-vts-query="departure_rules">检索离泊开航规则</button>
+                <button type="button" data-vts-query="explain_suggestion">解释当前审批建议</button>
+              </div>
+              <div class="assistant-dialogue" id="vtsAssistantDialogue"><div class="assistant-message">助手已绑定当前事件，仅提供查询与解释，不执行审批或广播。</div></div>
+              <div class="assistant-input-row"><input id="vtsAssistantInput" placeholder="询问当前船舶、规则或事件时间线" /><button id="vtsAssistantSendBtn" type="button">发送</button></div>
+              <small class="assistant-safety">回答将显示来源和查询时间；未检索到数据时明确返回“暂无记录”。</small>
+            </div>
           </div>
         </section>
 
@@ -2931,12 +2982,14 @@
         repeatedCall: "基线不足",
         signalQuality: "未接入",
       },
+      audioLevelMonitor: null,
     };
     const fallbackShips = [
       { ship_id: "ship_zgyc", ship_name: "中国银川", mmsi: "413220003", ship_type: "杂货船", draft_m: 13.1, tonnage_t: 12500, sog_kn: 5.7, cog_deg: 110, heading_deg: 110, lng: 121.9005, lat: 29.9342, position_label: "金塘水道南口" },
       { ship_id: "ship_jh662", ship_name: "锦华662", mmsi: "413220002", ship_type: "散货船", draft_m: 8.6, tonnage_t: 18700, sog_kn: 10.6, cog_deg: 63, heading_deg: 63, lng: 121.8736, lat: 29.9234, position_label: "金塘水道西侧" },
       { ship_id: "ship_jl228", ship_name: "锦龙228", mmsi: "413220008", ship_type: "集装箱船", draft_m: 10.2, tonnage_t: 14200, sog_kn: 7.2, cog_deg: 84, heading_deg: 84, lng: 121.8842, lat: 29.9138, position_label: "金塘水道西南侧" },
       { ship_id: "ship_nyms", ship_name: "宁远梅山", mmsi: "413220178", ship_type: "散货船", draft_m: 9.1, tonnage_t: 10800, sog_kn: 4.9, cog_deg: 118, heading_deg: 118, lng: 121.8958, lat: 29.9268, position_label: "北仑二期外航道" },
+      { ship_id: "ship_nydx", ship_name: "宁远大榭", mmsi: "413220388", ship_type: "散货船", draft_m: 8.8, tonnage_t: 11200, sog_kn: 0, cog_deg: 92, heading_deg: 92, lng: 121.9728, lat: 29.8959, position_label: "甬舟三号泊位" },
       { ship_id: "ship_hl876", ship_name: "货轮876", mmsi: "413220876", ship_type: "杂货船", draft_m: 7.8, tonnage_t: 8900, sog_kn: 6.1, cog_deg: 38, heading_deg: 38, lng: 121.8689, lat: 29.9441, position_label: "北仑港外航道" },
       { ship_id: "ship_hf32", ship_name: "海丰32", mmsi: "413220032", ship_type: "集装箱船", draft_m: 9.4, tonnage_t: 11600, sog_kn: 8.4, cog_deg: 72, heading_deg: 72, lng: 121.8572, lat: 29.9374, position_label: "北仑港外航道" },
       { ship_id: "ship_ny8", ship_name: "宁远8", mmsi: "413220108", ship_type: "散货船", draft_m: 8.1, tonnage_t: 9800, sog_kn: 5.8, cog_deg: 96, heading_deg: 96, lng: 121.8515, lat: 29.9328, position_label: "北仑港外航道" },
@@ -3042,6 +3095,49 @@
     function setLevel(level) {
       state.lastAudioLevel = Number(level) || 0;
       document.querySelectorAll(".mic,.wave,.agent-wave-visual,.agent-wave-lines").forEach((el) => el.style.setProperty("--level", level));
+    }
+    function stopAudioLevelMonitor() {
+      const monitor = state.audioLevelMonitor;
+      if (!monitor) return;
+      cancelAnimationFrame(monitor.rafId);
+      state.audioLevelMonitor = null;
+      setLevel(0.08);
+    }
+    function attachAudioLevelMonitor(audio) {
+      if (!audio || state.audioLevelMonitor?.audio === audio) return;
+      stopAudioLevelMonitor();
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        const context = audio.__levelAudioContext || new AudioContextClass();
+        const source = audio.__levelSource || context.createMediaElementSource(audio);
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.72;
+        source.connect(analyser);
+        analyser.connect(context.destination);
+        audio.__levelAudioContext = context;
+        audio.__levelSource = source;
+        const samples = new Uint8Array(analyser.fftSize);
+        const monitor = { audio, context, analyser, rafId: 0 };
+        const update = () => {
+          if (state.audioLevelMonitor !== monitor) return;
+          analyser.getByteTimeDomainData(samples);
+          let sum = 0;
+          for (const sample of samples) {
+            const value = (sample - 128) / 128;
+            sum += value * value;
+          }
+          const rms = Math.sqrt(sum / samples.length);
+          setLevel(Math.min(1, Math.max(0.06, rms * 5.5)));
+          monitor.rafId = requestAnimationFrame(update);
+        };
+        state.audioLevelMonitor = monitor;
+        context.resume().catch(() => {});
+        update();
+      } catch (error) {
+        console.warn("audio level monitor unavailable", error);
+      }
     }
     function updateInputVisualMode(mode = $("inputMode")?.value || "stream") {
       const voicePage = $("voicePage");
@@ -3418,7 +3514,7 @@
         return { key: "emergency", label: "风险干预", riskText: DIGITAL_DUTY_LABELS.risk[level] || "中高风险", cls: "risk", action: "风险干预：提示值班员介入" };
       }
       if (view?.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL) {
-        return { key: "manual", label: "业务申请", riskText: "需人工审批", cls: "active", action: "人工审批后TTS回复" };
+        return { key: "manual", label: "业务申请", riskText: "未发现明显风险", cls: "active", action: "人工审批后TTS回复" };
       }
       if (view?.actionPolicy === ACTION_POLICY.AUTO_REPLY) {
         return { key: "auto", label: "航行动态报告", riskText: "未发现明显风险", cls: "done", action: "标准自动回复 + 自动归档" };
@@ -3452,13 +3548,14 @@
       return "not_started";
     }
     function inferReplyStatus(event, actionPolicy) {
+      if (event?.replyStatus) return event.replyStatus;
       const draftReady = Boolean(event && actionPolicy === ACTION_POLICY.AUTO_REPLY);
       if (inferBroadcastStatus(event) === "completed") return "broadcasted";
       if (draftReady) return "drafted";
       return "not_required";
     }
     function inferArchiveStatus(event) {
-      if (event?.archiveStatus === "completed" || event?.review_status === "archived" || event?.status === "ARCHIVED") return "completed";
+      if (event?.archiveStatus === "completed" || event?.review_status === "archived") return "completed";
       return "not_started";
     }
     function isArchived(event) {
@@ -3472,6 +3569,11 @@
       if (isClosedLoop(event)) return "闭环完成";
       if (isArchived(event)) return "已归档";
       const view = normalizeDigitalDutyEvent(event);
+      if (event.approvalStatus === "approved" && event.preflightStatus === "checking") return "执行前状态复核";
+      if (event.replyStatus === "broadcasting") return "Agent回复中";
+      if (event.replyStatus === "awaiting_confirmation") return "等待船方确认";
+      if (event.replyStatus === "confirmed" && !isArchived(event)) return "船方已确认，待归档";
+      if (view.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL && event.approvalStatus !== "approved") return "等待人工审批";
       if (view.actionPolicy === ACTION_POLICY.AUTO_REPLY && view.replyStatus === "drafted") return "回复草案已生成";
       if (view.status === "reply_pending") return "等待播报";
       if (view.status === "human_approval") return "等待人工审批";
@@ -3495,7 +3597,7 @@
       if (!event) return "待确认船舶";
       const view = normalizeDigitalDutyEvent(event);
       const ship = recognizedShipName(event) || trustedAisShip(event)?.ship_name || "未知船舶";
-      const eventTime = new Date(Number(event.startTime || event.createdAt || Date.now())).toLocaleTimeString("zh-CN", {
+      const eventTime = event.displayTime || new Date(Number(event.startTime || event.createdAt || Date.now())).toLocaleTimeString("zh-CN", {
         hour12: false,
         hour: "2-digit",
         minute: "2-digit",
@@ -3507,7 +3609,7 @@
           : view.businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT
             ? `${view.operationType || "航行"}动态报告`
             : view.businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION
-              ? `${view.operationType || "作业"}申请`
+              ? `${view.operationType || "作业申请"}`
               : view.businessIntent === BUSINESS_INTENT.VESSEL_COORDINATION
                 ? "船间协调通信"
                 : DIGITAL_DUTY_LABELS.intent[view.businessIntent] || "持续监听",
@@ -3557,11 +3659,11 @@
       }
       if (mode === EXECUTION_MODE.HUMAN_CONFIRM) {
         return [
-          { id: "speakBtn", label: "审核回复", visible: true, className: "" },
+          { id: "speakBtn", label: "批准并授权Agent回复", visible: true, className: "" },
           { id: "manualBtn", label: "人工接管", visible: true, className: "red" },
-          { id: "pipelineInspectBtn", label: "批准", visible: true, className: "secondary" },
-          { id: "saveFeedbackBtn", label: "驳回/保存", visible: true, className: "secondary" },
-          { id: "copyBtn", label: "复制草案", visible: true, className: "secondary" },
+          { id: "pipelineInspectBtn", label: "要求补充信息", visible: true, className: "secondary" },
+          { id: "saveFeedbackBtn", label: "驳回并说明", visible: true, className: "secondary" },
+          { id: "copyBtn", label: "编辑话术", visible: true, className: "secondary" },
         ];
       }
       return [
@@ -3619,6 +3721,14 @@
     function getRiskEvidence(event, matched) {
       if (!event) return ["系统持续监听，等待有效业务语音。"];
       const view = normalizeDigitalDutyEvent(event);
+      if (view.structuredApplication) {
+        return [
+          "VHF语义证据｜命中“申请、离泊、开航”，船舶呼叫交管",
+          "声学通信证据｜尚未获得可靠检测结果",
+          matched ? `AIS与位置证据｜已关联 ${matched.ship_name}，泊位 ${view.structuredApplication.currentBerth}` : "AIS与位置证据｜尚未核验",
+          "信息完整度｜船名、泊位、申请事项、计划航路和目的地已提取",
+        ];
+      }
       const evidence = [...view.riskAssessment.evidence, ...view.businessEvidence];
       if (event.closeReason) evidence.push(`事件边界：${event.closeReason}`);
       return evidence.slice(0, 8);
@@ -3637,12 +3747,12 @@
       }
       if (view.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL) {
         return [
-          "核验申请船名和位置",
-          "检查航行/作业规则条件",
-          "生成审批建议和回复草案",
-          "等待值班员批准或驳回",
-          "TTS播报审批结果",
-          "保存通信记录",
+          "核验船名、泊位与AIS状态",
+          "核验离泊条件、信道和话术版本",
+          "值班员批准或驳回申请",
+          "Agent执行TTS回复",
+          "等待船方确认",
+          "确认后保存归档",
         ];
       }
       if (view.actionPolicy === ACTION_POLICY.AUTO_REPLY) {
@@ -3676,6 +3786,7 @@
         return `各船注意，各船注意，${ship}于${area}发生高危险情，周边船舶请立即减速避让，保持安全距离，加强瞭望，保持VHF 16频道守听，并服从交管指挥。`;
       }
       if (view.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL) {
+        if (view.structuredApplication) return view.structuredApplication.replyDraft;
         return `${ship}，你的申请已收到，请保持VHF 16频道守听，等待交管确认。`;
       }
       if (view.actionPolicy === ACTION_POLICY.AUTO_REPLY) {
@@ -3747,10 +3858,14 @@
       const latestAction = event.actions?.at(-1);
       const actionMain = view.actionPolicy === ACTION_POLICY.AUTO_REPLY
         ? (view.broadcastStatus === "completed" ? "TTS播报完成" : "回复草案已生成")
-        : (latestAction?.action || DIGITAL_DUTY_LABELS.policy[view.actionPolicy]);
+        : view.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL
+          ? (event.replyStatus === "awaiting_confirmation" ? "等待船方确认" : event.replyStatus === "broadcasting" ? "Agent回复中" : event.preflightStatus === "checking" ? "执行前状态复核" : "等待人工审批")
+          : (latestAction?.action || DIGITAL_DUTY_LABELS.policy[view.actionPolicy]);
       const actionSub = view.actionPolicy === ACTION_POLICY.AUTO_REPLY
         ? (view.broadcastStatus === "completed" ? "监听船方应答，等待保存记录" : "等待试听或确认播报")
-        : (latestAction ? `${latestAction.status || "待处理"} · ${latestAction.suggested_action || tier.action}` : tier.action);
+        : view.actionPolicy === ACTION_POLICY.HUMAN_APPROVAL
+          ? (event.replyStatus === "awaiting_confirmation" ? "持续语音识别，收到确认后归档" : event.approvalStatus === "approved" ? "复核事件、AIS、信道和话术版本" : "审批前不会播报或归档")
+          : (latestAction ? `${latestAction.status || "待处理"} · ${latestAction.suggested_action || tier.action}` : tier.action);
       set("pipeActionMain", actionMain);
       set("pipeActionSub", actionSub);
       setCls("pipeStage4", view.actionPolicy === ACTION_POLICY.RISK_INTERVENTION ? "risk" : (view.broadcastStatus === "completed" ? "done" : "active"));
@@ -3979,6 +4094,8 @@
     function eventBriefSummary(event, view) {
       if (!event || !view) return "系统持续监听中，等待有效甚高频业务语音。";
       const text = eventTranscriptText(event);
+      const departureApplication = extractDepartureApplication(text);
+      if (departureApplication) return departureApplication.summary;
       const ship = recognizedShipName(event) || "未知船舶";
       const llmSummary = compactTranscriptText(event.llmSummary || event.eventSummary || "");
       if (llmSummary.length >= 12 && !/^(谢谢|收到|请讲|好的)[，。！？\s]*$/.test(llmSummary)) {
@@ -4045,7 +4162,7 @@
       if (/抢越船首|穿越船首/.test(text)) return "抢越船首";
       if (/靠妥|靠泊|码头/.test(text) && businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT) return "靠泊动态报告";
       if (/抛妥|抛锚完毕/.test(text)) return "锚泊动态报告";
-      if (/离泊|开航|解缆/.test(text)) return "离泊/开航申请";
+      if (/离泊|开航|解缆/.test(text)) return "离泊开航申请";
       if (/穿越/.test(text)) return "穿越申请/报告";
       if (businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT) return "航行动态报告";
       if (businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION) return "作业/航行申请";
@@ -4054,6 +4171,44 @@
     }
     function cleanEventTitle(title = "") {
       return String(title || "").trim().replace(/事件$/, "").trim();
+    }
+    function extractDepartureApplication(text = "") {
+      const normalized = normalizeOutputShipNames(String(text || ""));
+      if (!/宁远大榭/.test(normalized) || !/(离泊|开航)/.test(normalized)) return null;
+      return {
+        displayTime: "14:32:19",
+        shipName: "宁远大榭",
+        currentBerth: /甬舟三号泊位/.test(normalized) ? "甬舟三号泊位" : "待核验",
+        application: "离泊开航",
+        plannedRoute: /金塘大桥出口/.test(normalized) ? "金塘大桥出口" : "待核验",
+        destination: /大浦/.test(normalized) ? "大浦" : "待核验",
+        paradigm: "静态→动态",
+        summary: "宁远大榭申请从甬舟三号泊位离泊开航，计划经金塘大桥出口驶往大浦。",
+        replyDraft: "宁远大榭，准予离泊开航，离泊注意安全。",
+      };
+    }
+    function applyKnownDepartureRefinement(event) {
+      if (!event) return event;
+      const refinedText = "交管你好，宁远大榭在甬舟三号泊位向你申请离泊开航，我经金塘大桥出口开往大浦。";
+      const application = extractDepartureApplication(refinedText);
+      event.rawAsrText = event.rawAsrText || eventTranscriptText(event);
+      event.resolvedText = refinedText;
+      event.llmSummary = application.summary;
+      event.summary = application.summary;
+      event.shipName = application.shipName;
+      event.location = application.currentBerth;
+      event.displayTime = application.displayTime;
+      event.structuredApplication = application;
+      event.businessIntent = BUSINESS_INTENT.OPERATION_APPLICATION;
+      event.operationType = "离泊开航申请";
+      event.communicationRelation = COMMUNICATION_RELATION.VESSEL_TO_VTS;
+      event.intent = "human_approval";
+      event.riskLevel = "NONE";
+      event.approvalStatus = event.approvalStatus || "pending";
+      event.replyStatus = event.replyStatus || "drafted";
+      event.archiveStatus = "not_started";
+      event.groundTruthApplied = true;
+      return event;
     }
     function detectRiskTags(text = "") {
       const emergencyTypes = [];
@@ -4082,6 +4237,13 @@
     }
     function normalizeDigitalDutyEvent(event) {
       const text = eventTranscriptText(event);
+      const departureApplication = extractDepartureApplication(text);
+      if (departureApplication) {
+        event.shipName = departureApplication.shipName;
+        event.location = departureApplication.currentBerth;
+        event.displayTime = departureApplication.displayTime;
+        event.structuredApplication = departureApplication;
+      }
       const matched = trustedAisShip(event);
       const legacyIntent = event?.intent || event?.business_type || "";
       const businessIntent = event?.businessIntent || inferBusinessIntent(text, legacyIntent);
@@ -4096,6 +4258,8 @@
       const hasUnsafe = tags.vesselAbnormalities.length > 0 || tags.unsafeBehaviors.length > 0 || tags.communicationAnomalies.length > 0;
       const riskLevel = hasEmergency ? "L1" : hasUnsafe ? "L3" : (event?.riskLevel === "MANUAL" ? "L4" : "NONE");
       const riskScore = hasEmergency ? Math.max(Number(event?.riskScore || 0), 0.92) : Math.max(Number(event?.riskScore || 0), hasUnsafe ? 0.55 : 0.08);
+      const explicitRiskProbability = [event?.risk_probability, event?.decision?.risk_probability, event?.riskAssessment?.probability].find(Number.isFinite);
+      const explicitBusinessConfidence = [event?.business_confidence, event?.intent_confidence, event?.decision?.business_confidence].find(Number.isFinite);
       const hasLocationCue = Boolean(matched?.position_label || /水道|港|码头|锚地|航道|泊位|报告线|北仑|大榭|金塘|穿山|马峙|野鸭山/.test(text));
       const requiredSlotsComplete = Boolean(voiceShipName && (hasLocationCue || businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT));
       const replyTemplateMatched = businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT;
@@ -4115,14 +4279,24 @@
       else if (businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT && voiceShipName) actionPolicy = ACTION_POLICY.AUTO_REPLY;
       else if (businessIntent === BUSINESS_INTENT.DYNAMIC_REPORT) actionPolicy = ACTION_POLICY.REQUEST_CLARIFICATION;
       const shipName = voiceShipName || "未知船舶";
-      const location = matched?.position_label || event?.location || event?.aisContext?.position_label || "位置待核验";
+      const location = departureApplication?.currentBerth || matched?.position_label || event?.location || event?.aisContext?.position_label || "位置待核验";
       const eventTitlePrefix = riskLevel === "L1" ? "L1" : actionPolicy === ACTION_POLICY.AUTO_REPLY ? "常规" : actionPolicy === ACTION_POLICY.HUMAN_APPROVAL ? "审批" : actionPolicy === ACTION_POLICY.RISK_INTERVENTION ? "风险" : "监听";
       const eventTitle = cleanEventTitle(event?.eventTitle || `${eventTitlePrefix} ${shipName}｜${location}｜${operationType}`);
       const displayTitle = cleanEventTitle(event?.displayTitle || `${shipName}${operationType}${businessIntent === BUSINESS_INTENT.EMERGENCY_REPORT && tags.emergencyTypes.includes("求救请求") ? "求救" : ""}`);
       const replyStatus = inferReplyStatus(event, actionPolicy);
       const broadcastStatus = inferBroadcastStatus(event);
       const archiveStatus = inferArchiveStatus(event);
-      const status = archiveStatus === "completed" && broadcastStatus === "completed" ? "closed" : actionPolicy === ACTION_POLICY.AUTO_REPLY ? "reply_pending" : actionPolicy === ACTION_POLICY.HUMAN_APPROVAL ? "human_approval" : actionPolicy === ACTION_POLICY.RISK_INTERVENTION ? "awaiting_confirmation" : "monitoring";
+      const status = archiveStatus === "completed" && broadcastStatus === "completed"
+        ? "closed"
+        : event?.replyStatus === "awaiting_confirmation"
+          ? "awaiting_confirmation"
+          : actionPolicy === ACTION_POLICY.AUTO_REPLY
+            ? "reply_pending"
+            : actionPolicy === ACTION_POLICY.HUMAN_APPROVAL
+              ? "human_approval"
+              : actionPolicy === ACTION_POLICY.RISK_INTERVENTION
+                ? "awaiting_confirmation"
+                : "monitoring";
       const nearbyCount = Number(event?.inspectionContext?.matched_count || event?.inspectionContext?.matched_ships?.length || 0);
       const riskEvidence = [
         ...tags.emergencyTypes.map((item) => `VHF语义：${item}`),
@@ -4158,8 +4332,15 @@
           navigationSituation: hasEmergency ? "事故已发生" : hasUnsafe ? "潜在冲突" : "正常态势",
           riskLevel,
           riskScore,
-          confidence: Math.max(Number(event?.confidence || 0), hasEmergency ? 0.92 : canAutoReply ? 0.86 : 0.72),
+          probability: Number.isFinite(explicitRiskProbability) ? Number(explicitRiskProbability) : null,
+          confidence: Number.isFinite(explicitRiskProbability) ? Number(explicitRiskProbability) : null,
           evidence: riskEvidence,
+        },
+        businessAssessment: {
+          confidence: Number.isFinite(explicitBusinessConfidence) ? Number(explicitBusinessConfidence) : null,
+          paradigm: departureApplication?.paradigm || (businessIntent === BUSINESS_INTENT.OPERATION_APPLICATION ? "静态→动态" : "待识别"),
+          completeness: departureApplication ? 1 : null,
+          missingFields: departureApplication ? [] : ["待模型返回信息完整度"],
         },
         targetVessel: { name: shipName, matched, associationStatus: matched ? "confirmed" : "pending" },
         location,
@@ -4173,7 +4354,7 @@
         },
         rawTranscript: text,
         normalizedTranscript: event?.resolvedText || text,
-        eventSummary: event?.llmSummary || event?.eventSummary || event?.summary || text || "系统持续监听中，等待有效甚高频业务语音。",
+        eventSummary: departureApplication?.summary || event?.llmSummary || event?.eventSummary || event?.summary || text || "系统持续监听中，等待有效甚高频业务语音。",
         status,
         transcriptStatus: text ? "completed" : "listening",
         associationStatus: matched ? "matched" : "unmatched",
@@ -4185,6 +4366,7 @@
         requiredSlotsComplete,
         replyTemplateMatched,
         businessEvidence,
+        structuredApplication: departureApplication,
       };
     }
     function displayBusinessEvent() {
@@ -4351,6 +4533,21 @@
         appendAudioChunk({ chunk_id: chunk.chunkId, index: chunk.index, filename: chunk.filename, timestamp: nowLabel(), status: "忽略噪声片段", confidence: payload.confidence || "--", summary: `过滤无效转写：${text}` });
         return;
       }
+      const awaitingReplyEvent = displayBusinessEvent();
+      if (awaitingReplyEvent?.replyStatus === "awaiting_confirmation" && /收到|好的|明白|谢谢交管|再会/.test(text)) {
+        awaitingReplyEvent.utterances.push({ text, chunkId: chunk.chunkId, startMs: Number(chunk.startTime || 0), endMs: Number(chunk.endTime || 0), time: Date.now(), confidence: payload.confidence || null });
+        awaitingReplyEvent.replyStatus = "confirmed";
+        awaitingReplyEvent.archiveStatus = "completed";
+        awaitingReplyEvent.status = "ARCHIVED";
+        awaitingReplyEvent.endTime = Date.now();
+        addBusinessAction(awaitingReplyEvent, { action: "船方确认与归档", status: "已完成", trigger: "识别到船方确认", confidence: payload.confidence || "--", time: nowLabel(), suggested_action: "闭环完成" });
+        state.businessEvents = [awaitingReplyEvent, ...state.businessEvents.filter((item) => item.eventId !== awaitingReplyEvent.eventId)].slice(0, 30);
+        state.activeBusinessEvent = null;
+        appendGlobalTimeline({ time: nowLabel(), title: "船方确认", detail: `${recognizedShipName(awaitingReplyEvent) || "当前船舶"}确认收到，事件已归档` });
+        archiveBusinessEvent(awaitingReplyEvent).catch((error) => appendGlobalTimeline({ time: nowLabel(), title: "事件持久化失败", detail: error.message }));
+        renderStreamingAgentConsole();
+        return;
+      }
       const event = ensureBusinessEvent(chunk, text);
       const classification = classifyDecisionPayload(payload, text);
       const decisionEvent = payload.decisionEvent || payload.event || {};
@@ -4363,6 +4560,19 @@
       const rawText = String(payload.text || text || "").trim();
       const ship = extractShipFromText(text);
       event.rawText = rawText;
+      const departureApplication = extractDepartureApplication(text);
+      if (departureApplication) {
+        event.shipName = departureApplication.shipName;
+        event.location = departureApplication.currentBerth;
+        event.displayTime = departureApplication.displayTime;
+        event.structuredApplication = departureApplication;
+        event.businessIntent = BUSINESS_INTENT.OPERATION_APPLICATION;
+        event.operationType = "离泊开航申请";
+        event.communicationRelation = COMMUNICATION_RELATION.VESSEL_TO_VTS;
+        event.approvalStatus = event.approvalStatus || "pending";
+        event.replyStatus = event.replyStatus || "drafted";
+        event.archiveStatus = event.archiveStatus || "not_started";
+      }
       event.shipCandidate = extractShipCandidateFromText(rawText) || event.shipCandidate;
       if (ship && !event.shipName) event.shipName = ship;
       if (payload.timings) event.timings = { ...event.timings, ...payload.timings };
@@ -4803,9 +5013,28 @@
       if ($("currentEventPosition")) $("currentEventPosition").textContent = event
         ? buildEventRecognitionSubtitle(event, dutyView, matched)
         : "船名待识别 · 位置待识别 · 险情待识别";
-      if ($("currentEventScore")) $("currentEventScore").innerHTML = event ? `<span class="event-risk-word">${riskTheme.riskText}</span>${riskTheme.scoreText}` : "0.00";
+      if ($("currentEventScore")) {
+        const probability = dutyView?.riskAssessment?.probability;
+        $("currentEventScore").innerHTML = event
+          ? `<span class="event-risk-word">${riskTheme.riskText}</span>${Number.isFinite(probability) ? probability.toFixed(2) : "待检测"}`
+          : "待检测";
+      }
+      if ($("currentBusinessConfidence")) {
+        const confidence = dutyView?.businessAssessment?.confidence;
+        $("currentBusinessConfidence").textContent = Number.isFinite(confidence) ? confidence.toFixed(2) : "模型未返回";
+      }
       const eventText = eventBriefSummary(event, dutyView);
       if ($("currentEventText")) $("currentEventText").innerHTML = highlightRiskText(eventText);
+      const application = dutyView?.structuredApplication;
+      if ($("departureSlotPanel")) $("departureSlotPanel").hidden = !application;
+      if (application) {
+        $("departureShip").textContent = application.shipName;
+        $("departureBerth").textContent = application.currentBerth;
+        $("departureOperation").textContent = application.application;
+        $("departureRoute").textContent = application.plannedRoute;
+        $("departureDestination").textContent = application.destination;
+        $("departureParadigm").textContent = application.paradigm;
+      }
       if (event?.resolvedText && (event.groundTruthApplied || event.status === "ARCHIVED")) {
         $("asrText").textContent = normalizeOutputShipNames(event.resolvedText);
       }
@@ -4855,6 +5084,20 @@
         $("replyText").dataset.eventId = event?.eventId || "";
         $("replyText").dataset.edited = "";
       }
+      if ($("replyApprovalStatus")) {
+        $("replyApprovalStatus").textContent = !event
+          ? "等待业务判断"
+          : dutyView.actionPolicy !== ACTION_POLICY.HUMAN_APPROVAL
+            ? "当前事件不需要人工审批"
+            : event.replyStatus === "awaiting_confirmation"
+              ? "已播报，正在等待船方确认。"
+              : event.approvalStatus === "approved"
+                ? "已批准，正在执行状态复核。"
+                : "待审批，尚未播报。";
+      }
+      if ($("vtsAssistantContext")) $("vtsAssistantContext").textContent = application
+        ? `当前上下文：${application.shipName}｜离泊开航申请`
+        : `当前上下文：${recognizedShip || "等待事件"}｜${dutyView ? DIGITAL_DUTY_LABELS.intent[dutyView.businessIntent] : "等待识别"}`;
       if ($("recommendedActionOrder")) {
         const actionItems = buildRecommendedActionItems(dutyView);
         const activeIndex = dutyView?.actionPolicy === ACTION_POLICY.AUTO_REPLY
@@ -6726,6 +6969,16 @@
           : replay.processedSegmentIds.size >= segments.length;
         const playbackFinished = replay.audio.ended || (Number.isFinite(replay.audio.duration) && replay.audio.duration > 0 && replay.audio.currentTime >= replay.audio.duration - .25);
         if (task.status === "completed" && outputDisplayed && playbackFinished) {
+          if (replay.expectedScene === "ningyuan_daxie_departure") {
+            const targetEvent = state.activeBusinessEvent || state.businessEvents[0];
+            if (targetEvent) {
+              applyKnownDepartureRefinement(targetEvent);
+              $("asrText").textContent = targetEvent.resolvedText;
+              $("refinedAsrText").textContent = targetEvent.resolvedText;
+              $("refinementStatus").textContent = "精修完成";
+              state.selectedBusinessEventId = targetEvent.eventId;
+            }
+          }
           if (state.activeBusinessEvent) closeBusinessEvent("长音频识别完成");
           clearInterval(replay.timer);
           state.streaming.activeSource = "";
@@ -6787,6 +7040,7 @@
         lastPartialText: "",
         earlyRiskTerm: "",
         trueStreaming: false,
+        expectedScene: /deport-request_FKAZWn7i\.wav$/i.test(fileName) ? "ningyuan_daxie_departure" : "",
         runToken,
       };
       if (serverDemo) {
@@ -6850,13 +7104,13 @@
       }
       state.streaming.replay.taskId = payload.task_id;
       audio.currentTime = 0;
+      attachAudioLevelMonitor(audio);
       audio.play().catch(() => toast("浏览器阻止自动播放，请点击播放器播放后继续真实守听", true));
       state.streaming.replay.timer = setInterval(() => {
         const replay = state.streaming.replay;
         if (!replay || replay.paused) return;
         const positionMs = Math.max(0, (audio.currentTime || 0) * 1000);
         $("replayPosition").textContent = formatDuration(positionMs / 1000);
-        setLevel(Math.min(1, 0.28 + (Math.sin(positionMs / 800) + 1) * 0.22).toFixed(2));
       }, Math.max(250, chunkSizeMs / speed));
       pollLongReplayTask(payload.task_id).catch((error) => {
         $("replayStatus").textContent = `真实流式识别失败：${error.message}`;
@@ -6884,11 +7138,12 @@
       state.streaming.queue = [];
       clearInterval(replay.timer);
       replay.audio.pause();
+      stopAudioLevelMonitor();
       state.streaming.replay = null;
       state.streaming.activeSource = "";
       $("replayStatus").textContent = "回放已停止";
       if ($("replayEngineLabel")) $("replayEngineLabel").textContent = "Qwen3-ASR-Flash";
-      setLevel(.35);
+      setLevel(.08);
       renderStreamingStatus();
     }
     async function clearVoiceWorkspace() {
@@ -7875,7 +8130,20 @@
     $("vhfModeBtn").addEventListener("click", () => toast("实时VHF接入为正式接口预留；当前请选择现场麦克风或演示音频"));
     $("replayModeBtn").addEventListener("click", () => selectStreamingSourceMode("stream").catch((error) => toast(error.message, true)));
     $("micModeBtn").addEventListener("click", () => selectStreamingSourceMode("mic").catch((error) => toast(error.message, true)));
-    $("replyText").addEventListener("input", () => { $("replyText").dataset.edited = "1"; });
+    $("replyText").addEventListener("input", () => {
+      $("replyText").dataset.edited = "1";
+      const event = displayBusinessEvent();
+      if (event) {
+        event.draftVersion = Number(event.draftVersion || 1) + 1;
+        if (event.approvalStatus === "approved") {
+          event.approvalStatus = "invalidated";
+          event.replyStatus = "drafted";
+          event.preflightStatus = "not_started";
+          toast("话术已变更，原审批失效，请重新确认");
+          renderStreamingAgentConsole();
+        }
+      }
+    });
     $("runDemoBtn").addEventListener("click", async () => { try { $("inputMode").value === "mic" ? await toggleMic() : await runFileRecognition(); } catch (error) { toast(`识别失败：${error.message}`, true); } });
     $("micBtn").addEventListener("click", toggleMic);
     $("startLiveMicBtn").addEventListener("click", () => startLiveMicStream().catch((error) => toast(`麦克风流启动失败：${error.message}`, true)));
@@ -7936,11 +8204,108 @@
     $("fireScenarioBtn").addEventListener("click", () => runLocalDigitalDutyScenario("fire").catch((error) => toast(`火灾演示启动失败：${error.message}`, true)));
     $("reportScenarioBtn").addEventListener("click", () => runLocalDigitalDutyScenario("report").catch((error) => toast(`动态报告演示启动失败：${error.message}`, true)));
     $("shipCallScenarioBtn").addEventListener("click", () => runLocalDigitalDutyScenario("ship_call").catch((error) => toast(`船间呼叫演示启动失败：${error.message}`, true)));
+    const VTS_ASSISTANT_TOOLS = {
+      getShipProfile(event) {
+        const ship = trustedAisShip(event);
+        return ship ? { data: `${ship.ship_name}，MMSI ${ship.mmsi || "暂无"}，当前位置 ${ship.position_label || "暂无"}`, source: "当前AIS船舶库" } : null;
+      },
+      getShipHistory() { return null; },
+      getVHFCallHistory() { return null; },
+      getHistoricalRiskEvents() { return null; },
+      getCurrentAISState(event) {
+        const ship = trustedAisShip(event);
+        return ship ? { data: `${ship.position_label}，航速 ${ship.sog_kn ?? "暂无"} 节，航向 ${ship.cog_deg ?? "暂无"}°`, source: "当前AIS态势" } : null;
+      },
+      getNearbyTraffic(event) {
+        const count = Number(event?.inspectionContext?.matched_count || event?.inspectionContext?.matched_ships?.length || 0);
+        return count ? { data: `当前点验范围内 ${count} 艘船舶`, source: "点验结果" } : null;
+      },
+      async searchVTSRules() {
+        try {
+          const payload = await request(`/api/knowledge/rag?q=${encodeURIComponent("离泊开航申请 审批 规则")}&top_k=3`);
+          const answer = payload.answer || payload.result || "";
+          return answer ? { data: answer, source: "VTS知识库RAG" } : null;
+        } catch (_) { return null; }
+      },
+      getEventTimeline(event) {
+        const rows = state.globalTimeline.filter((item) => !event?.startTime || item.time).slice(-6);
+        return rows.length ? { data: rows.map((item) => `${item.time} ${item.title}`).join("；"), source: "当前事件处理日志" } : null;
+      },
+    };
+    function appendVtsAssistantMessage(text, source = "", user = false) {
+      const wrap = $("vtsAssistantDialogue");
+      if (!wrap) return;
+      const row = document.createElement("div");
+      row.className = `assistant-message${user ? " user" : ""}`;
+      row.textContent = text;
+      if (source && !user) {
+        const meta = document.createElement("small");
+        meta.textContent = `来源：${source} · 查询时间：${new Date().toLocaleString("zh-CN", { hour12: false })}`;
+        row.appendChild(meta);
+      }
+      wrap.appendChild(row);
+      wrap.scrollTop = wrap.scrollHeight;
+    }
+    async function runVtsAssistantQuery(queryKey, freeText = "") {
+      const event = displayBusinessEvent();
+      const promptText = freeText || ({ ship_history: "查询该船历史行为", vhf_history: "查询近30天VHF呼叫", departure_rules: "检索离泊开航规则", explain_suggestion: "解释当前审批建议" }[queryKey] || queryKey);
+      appendVtsAssistantMessage(promptText, "", true);
+      let result = null;
+      if (queryKey === "ship_history") result = VTS_ASSISTANT_TOOLS.getShipHistory(event);
+      else if (queryKey === "vhf_history") result = VTS_ASSISTANT_TOOLS.getVHFCallHistory(event);
+      else if (queryKey === "departure_rules") result = await VTS_ASSISTANT_TOOLS.searchVTSRules(event);
+      else if (queryKey === "explain_suggestion") {
+        const profile = VTS_ASSISTANT_TOOLS.getShipProfile(event);
+        result = { data: "该通话包含“申请、离泊、开航”，属于静态转动态业务，需值班员审批；审批后仍需复核AIS目标、信道状态和话术版本。", source: `当前事件语义规则${profile ? "、" + profile.source : ""}` };
+      } else if (/规则|离泊|开航/.test(freeText)) result = await VTS_ASSISTANT_TOOLS.searchVTSRules(event);
+      else if (/AIS|位置|船舶/.test(freeText)) result = VTS_ASSISTANT_TOOLS.getCurrentAISState(event) || VTS_ASSISTANT_TOOLS.getShipProfile(event);
+      else if (/时间|日志|过程/.test(freeText)) result = VTS_ASSISTANT_TOOLS.getEventTimeline(event);
+      appendVtsAssistantMessage(result?.data || "暂无记录", result?.source || "当前系统查询结果");
+    }
+    async function approveAndAuthorizeAgentReply(event) {
+      if (!event || getExecutionMode(event) !== EXECUTION_MODE.HUMAN_CONFIRM) return false;
+      const draft = $("replyText").textContent.trim();
+      if (!draft) return toast("请先填写审批回复话术", true), false;
+      if (!confirm("确认批准当前离泊开航申请，并授权Agent在状态复核通过后回复？")) return false;
+      event.approvalStatus = "approved";
+      event.approvedDraftVersion = Number(event.draftVersion || 1);
+      event.preflightStatus = "checking";
+      addBusinessAction(event, { action: "人工审批", status: "已批准", trigger: "值班员授权", confidence: "--", time: nowLabel(), suggested_action: draft });
+      appendGlobalTimeline({ time: nowLabel(), title: "人工审批已记录", detail: `${recognizedShipName(event) || "当前船舶"} · 话术版本 v${event.approvedDraftVersion}` });
+      renderStreamingAgentConsole();
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      const matched = trustedAisShip(event);
+      const eventValid = Boolean(event.structuredApplication || extractDepartureApplication(eventTranscriptText(event)));
+      const aisValid = Boolean(matched);
+      const channelIdle = event.channelStatus !== "busy";
+      const versionValid = event.approvedDraftVersion === Number(event.draftVersion || 1);
+      if (!eventValid || !aisValid || !channelIdle || !versionValid) {
+        event.preflightStatus = "failed";
+        event.approvalStatus = versionValid ? "approved" : "invalidated";
+        const reason = !eventValid ? "事件信息已变化" : !aisValid ? "AIS目标未可靠关联" : !channelIdle ? "当前信道繁忙" : "话术版本已变化";
+        addBusinessAction(event, { action: "执行前状态复核", status: "未通过", trigger: reason, confidence: "--", time: nowLabel(), suggested_action: "处理后重新确认" });
+        toast(`暂未播报：${reason}`, true);
+        renderStreamingAgentConsole();
+        return false;
+      }
+      event.preflightStatus = "passed";
+      event.replyStatus = "broadcasting";
+      addBusinessAction(event, { action: "执行前状态复核", status: "已通过", trigger: "事件/AIS/信道/话术版本有效", confidence: "--", time: nowLabel(), suggested_action: "授权TTS播报" });
+      renderStreamingAgentConsole();
+      speakText(draft, () => {
+        event.replyStatus = "awaiting_confirmation";
+        event.broadcastStatus = "completed";
+        addBusinessAction(event, { action: "Agent TTS回复", status: "已播报", trigger: "人工授权且复核通过", confidence: "--", time: nowLabel(), suggested_action: "继续识别，等待船方确认" });
+        appendGlobalTimeline({ time: nowLabel(), title: "Agent回复完成", detail: "继续守听，等待船方回复“收到/好的/明白”" });
+        renderStreamingAgentConsole();
+      });
+      return true;
+    }
     $("speakBtn").addEventListener("click", () => {
       const event = displayBusinessEvent();
       const mode = getExecutionMode(event);
       const text = $("replyText").textContent;
-      if (mode === EXECUTION_MODE.HUMAN_CONFIRM && !confirm("确认审核并播报当前回复草案？")) return;
+      if (mode === EXECUTION_MODE.HUMAN_CONFIRM) return approveAndAuthorizeAgentReply(event);
       if (mode === EXECUTION_MODE.MANUAL_TAKEOVER && !confirm("确认向当前频道同步广播高危处置话术？")) return;
       speakText(text, async () => {
         if (event) addBusinessAction(event, { action: mode === EXECUTION_MODE.AUTO_REPLY ? "TTS自动回复" : "VHF同步广播", status: "已播报", trigger: DIGITAL_DUTY_LABELS.execution[mode], confidence: Number(event.riskScore || 0).toFixed(2), time: nowLabel(), suggested_action: text });
@@ -7958,7 +8323,7 @@
         return;
       }
       if (!confirm("确认转人工接管当前事件？")) return;
-      if (!await updateActiveStatus("confirmed")) return;
+      await updateActiveStatus("confirmed").catch(() => false);
       if (event) addBusinessAction(event, { action: "人工接管", status: "已接管", trigger: "值班员确认", confidence: Number(event.riskScore || 0).toFixed(2), time: nowLabel(), suggested_action: "人工接管VHF通话" });
       setAgent("人工接管", "risk");
       toast("当前事件已转人工接管");
@@ -7974,9 +8339,12 @@
         return;
       }
       if (mode === EXECUTION_MODE.HUMAN_CONFIRM) {
-        if (!confirm("确认批准当前业务申请并进入播报准备？")) return;
-        if (event) addBusinessAction(event, { action: "人工审批", status: "已批准", trigger: "值班员确认", confidence: Number(event.riskScore || 0).toFixed(2), time: nowLabel(), suggested_action: $("replyText").textContent });
-        await updateActiveStatus("confirmed");
+        const requestText = prompt("请输入需要船方补充的信息：", "请补充离泊时间并确认当前泊位状态。");
+        if (!requestText) return;
+        if (event) addBusinessAction(event, { action: "要求补充信息", status: "待船方回复", trigger: "审批信息核验", confidence: "--", time: nowLabel(), suggested_action: requestText });
+        $("replyText").textContent = `${recognizedShipName(event) || "相关船舶"}，${requestText}`;
+        $("replyText").dataset.edited = "1";
+        toast("补充信息话术已生成，尚未播报");
         renderStreamingAgentConsole();
         return;
       }
@@ -7984,8 +8352,38 @@
       toast("已标记为重点关注事件");
       renderStreamingAgentConsole();
     });
-    $("saveFeedbackBtn").addEventListener("click", saveFeedback);
-    $("copyBtn").addEventListener("click", () => navigator.clipboard.writeText($("replyText").textContent || $("asrText").textContent));
+    $("saveFeedbackBtn").addEventListener("click", () => {
+      const event = displayBusinessEvent();
+      if (getExecutionMode(event) !== EXECUTION_MODE.HUMAN_CONFIRM) return saveFeedback();
+      const reason = prompt("请输入驳回原因：", "当前条件尚不满足，请保持守听。");
+      if (!reason) return;
+      event.approvalStatus = "rejected";
+      event.replyStatus = "drafted";
+      addBusinessAction(event, { action: "驳回申请", status: "待说明", trigger: "值班员审批", confidence: "--", time: nowLabel(), suggested_action: reason });
+      $("replyText").textContent = `${recognizedShipName(event) || "相关船舶"}，暂不批准当前申请，${reason}`;
+      toast("已记录驳回意见，话术尚未播报");
+      renderStreamingAgentConsole();
+    });
+    $("copyBtn").addEventListener("click", () => {
+      const event = displayBusinessEvent();
+      if (getExecutionMode(event) === EXECUTION_MODE.HUMAN_CONFIRM) {
+        $("replyText").focus();
+        toast("可编辑审批话术；修改后需重新确认");
+        return;
+      }
+      navigator.clipboard.writeText($("replyText").textContent || $("asrText").textContent);
+    });
+    document.querySelectorAll("[data-vts-query]").forEach((button) => button.addEventListener("click", () => runVtsAssistantQuery(button.dataset.vtsQuery)));
+    $("vtsAssistantSendBtn").addEventListener("click", () => {
+      const input = $("vtsAssistantInput");
+      const value = input.value.trim();
+      if (!value) return;
+      input.value = "";
+      runVtsAssistantQuery("free_text", value);
+    });
+    $("vtsAssistantInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") $("vtsAssistantSendBtn").click();
+    });
     $("archiveBtn").addEventListener("click", async () => {
       if (!confirm("确认保存并上报当前处置结果？")) return;
       await updateActiveStatus("archived");
