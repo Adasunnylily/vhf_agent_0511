@@ -8298,6 +8298,9 @@
       const answerGoal = queryKey === "explain_suggestion"
         ? "回答目标：解释当前审批建议。依次给出审批结论、风险判断、业务判断、AIS与位置核验、待核验项和下一步动作；不得执行审批。"
         : `回答目标：${promptText}`;
+      const retrievalQuery = queryKey === "explain_suggestion" && view
+        ? `${promptText} ${view.operationType} ${DIGITAL_DUTY_LABELS.intent[view.businessIntent]} 人工审批`
+        : promptText;
       const eventContext = [
         answerGoal,
         `船舶：${recognizedShipName(event) || "待确认"}`,
@@ -8319,7 +8322,7 @@
         toolResult ? `工具查询结果：${toolResult.data}；数据来源：${toolResult.source}` : "",
       ].filter(Boolean).join("\n");
       try {
-        const payload = await request(`/api/knowledge/rag?q=${encodeURIComponent(promptText)}&top_k=5&context=${encodeURIComponent(eventContext)}`);
+        const payload = await request(`/api/knowledge/rag?q=${encodeURIComponent(retrievalQuery)}&top_k=5&context=${encodeURIComponent(eventContext)}`);
         const citations = (payload.citations || []).slice(0, 3).map((item) => item.title || item.source).filter(Boolean);
         const generator = payload.llm_used ? `大模型 ${payload.generator}` : "规则与知识库降级";
         const source = [generator, toolResult?.source, citations.length ? `参考：${citations.join("、")}` : ""].filter(Boolean).join(" · ");
