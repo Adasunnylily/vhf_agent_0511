@@ -8209,8 +8209,20 @@
         const ship = trustedAisShip(event);
         return ship ? { data: `${ship.ship_name}，MMSI ${ship.mmsi || "暂无"}，当前位置 ${ship.position_label || "暂无"}`, source: "当前AIS船舶库" } : null;
       },
-      getShipHistory() { return null; },
-      getVHFCallHistory() { return null; },
+      getShipHistory(event) {
+        const shipName = event?.targetVessel?.name || event?.vesselName || "当前船舶";
+        return {
+          data: `${shipName}：近30天共记录3次常规VHF业务，最近一次为靠泊动态报告；未发现已归档的高风险事件。`,
+          source: "演示预置船舶历史数据（非真实生产记录）",
+        };
+      },
+      getVHFCallHistory(event) {
+        const shipName = event?.targetVessel?.name || event?.vesselName || "当前船舶";
+        return {
+          data: `${shipName}近30天VHF演示记录：7月28日靠泊报告已确认；7月21日进港动态报告已归档；7月12日航道位置报告已归档。`,
+          source: "演示预置VHF呼叫记录（非真实生产记录）",
+        };
+      },
       getHistoricalRiskEvents() { return null; },
       getCurrentAISState(event) {
         const ship = trustedAisShip(event);
