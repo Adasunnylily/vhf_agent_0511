@@ -16,6 +16,7 @@ from app.services.demo_inspection import InspectionTaskSimulator
 from app.services.demo_scenarios import ScenarioSimulator
 from app.services.entity_resolver import EntityResolver
 from app.services.event_repository import SQLiteEventRepository
+from app.services.agent_trace import AgentTraceStore
 from app.services.knowledge_repository import KnowledgeRepository
 from app.services.pipeline import AudioPipeline
 from app.services.preprocess import AudioPreprocessor
@@ -32,6 +33,7 @@ settings.ensure_dirs()
 storage = LocalStorage(settings)
 task_manager = InMemoryTaskManager()
 event_store = SQLiteEventRepository(settings.data_dir / "events.sqlite3")
+agent_trace_store = AgentTraceStore(settings.data_dir / "agent_run_logs.jsonl")
 knowledge_repository = KnowledgeRepository(settings.data_dir)
 preprocessor = AudioPreprocessor(storage)
 ws_manager = ChannelWebSocketManager()

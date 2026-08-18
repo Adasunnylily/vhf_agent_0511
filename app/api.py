@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 from app.domain.models import AudioSegment
 from app.config import settings, uses_cloud_clip_asr, uses_dashscope_recognition
 from app.main import (
+    agent_trace_store,
     event_store,
     entity_resolver,
     inspection_simulator,
@@ -40,6 +41,7 @@ from app.services.asr_compare import list_asr_compare_options
 from app.services.asr import ASRResult, DashScopeParaformerASRAdapter
 from app.services.audio_utils import pcm_rms, slice_wav_segment, write_pcm_wav
 from app.services.ais_risk_analyzer import AISRiskAnalyzer
+from app.services.agent_metrics import calculate_agent_metrics
 from app.services.demo_inspection import InspectionShip
 from app.services.maritime_keywords import extract_maritime_keywords
 from app.services.risk_engine import KEYWORD_GROUPS, KeywordRiskEngine
@@ -280,6 +282,51 @@ def _persist_decisions(
             payload["business_type"] = _decision_business_type(payload)
             decisions.append(payload)
     event_store.extend(decisions)
+    for decision in decisions:
+        event_id = str(decision.get("event_id") or decision.get("id") or "")
+        run_id = str(decision.get("task_id") or decision.get("segment_id") or event_id or "default")
+        agent_trace_store.extend(
+            [
+                {
+                    "run_id": run_id,
+                    "event_id": event_id,
+                    "capability": "perception",
+                    "stage": "asr_completed",
+                    "status": "success" if decision.get("asr_text") else "skipped",
+                    "source": source_type,
+                    "confidence": decision.get("asr_confidence"),
+                    "model": settings.asr_model,
+                    "input_ref": audio_path,
+                    "output": {"text": decision.get("asr_text", ""), "resolved_text": decision.get("resolved_text", "")},
+                },
+                {
+                    "run_id": run_id,
+                    "event_id": event_id,
+                    "capability": "cognition",
+                    "stage": "risk_and_business_classified",
+                    "status": "success",
+                    "source": source_type,
+                    "confidence": decision.get("intent_confidence"),
+                    "rule_version": "risk-engine-v1",
+                    "output": {
+                        "risk_level": decision.get("risk_level"),
+                        "business_type": decision.get("business_type"),
+                        "action_type": decision.get("action_type"),
+                    },
+                    "evidence": list(decision.get("evidence") or []),
+                },
+                {
+                    "run_id": run_id,
+                    "event_id": event_id,
+                    "capability": "memory",
+                    "stage": "event_archived",
+                    "status": "success",
+                    "source": source_type,
+                    "tool_name": "SQLiteEventRepository",
+                    "output": {"review_status": decision.get("review_status", "pending")},
+                },
+            ]
+        )
     return decisions
 
 
@@ -2722,6 +2769,66 @@ async def list_events() -> Dict[str, List[Dict[str, object]]]:
     return {"items": event_store.list()}
 
 
+@router.post("/agent-logs")
+async def create_agent_log(payload: Dict[str, Any] = Body(...)) -> Dict[str, object]:
+    try:
+        return agent_trace_store.append(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/agent-logs")
+async def list_agent_logs(
+    run_id: str = "",
+    event_id: str = "",
+    capability: str = "",
+    stage: str = "",
+    status: str = "",
+    limit: int = 1000,
+) -> Dict[str, object]:
+    rows = agent_trace_store.list(
+        run_id=run_id,
+        event_id=event_id,
+        capability=capability,
+        stage=stage,
+        status=status,
+        limit=limit,
+    )
+    return {"items": rows, "count": len(rows)}
+
+
+@router.get("/agent-logs/export")
+async def export_agent_logs(
+    format: str = "jsonl",
+    run_id: str = "",
+    event_id: str = "",
+    capability: str = "",
+    limit: int = 100000,
+) -> Response:
+    format_name = format.strip().lower()
+    if format_name not in {"jsonl", "json", "csv"}:
+        raise HTTPException(status_code=400, detail="format 仅支持 jsonl、json、csv。")
+    rows = agent_trace_store.list(
+        run_id=run_id,
+        event_id=event_id,
+        capability=capability,
+        limit=limit,
+    )
+    content, media_type = agent_trace_store.export(rows, format_name)
+    suffix = "jsonl" if format_name == "jsonl" else format_name
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="vhf_agent_logs.{suffix}"'},
+    )
+
+
+@router.get("/agent-logs/metrics")
+async def agent_log_metrics(run_id: str = "", event_id: str = "") -> Dict[str, object]:
+    rows = agent_trace_store.list(run_id=run_id, event_id=event_id, limit=100000)
+    return calculate_agent_metrics(rows)
+
+
 @router.get("/analytics/summary")
 async def analytics_summary() -> Dict[str, object]:
     events = event_store.list()
@@ -2868,6 +2975,26 @@ async def save_event_feedback(
     event["dialogue_review_text"] = corrected_dialogue_text or _build_dialogue_review_template(corrected_asr_text)
     event["review_status"] = "confirmed"
     event_store.append(event)
+    agent_trace_store.append(
+        {
+            "run_id": str(event.get("segment_id") or event_id),
+            "event_id": event_id,
+            "capability": "learning",
+            "stage": "human_feedback_applied",
+            "status": "success",
+            "source": "human_review",
+            "action": "correct_event",
+            "output": {
+                "corrected_text": corrected_asr_text,
+                "corrected_intent": corrected_intent,
+                "corrected_ship_name": corrected_ship_name,
+            },
+            "metadata": {
+                "previous_text": feedback.get("previous_resolved_text", ""),
+                "correction_changed": feedback.get("previous_resolved_text", "") != corrected_asr_text,
+            },
+        }
+    )
     return {"event": event, "feedback": feedback}
 
 
@@ -2895,6 +3022,18 @@ async def update_event_review_status(
     event = event_store.update_review_status(event_id, review_status)
     if not event:
         raise HTTPException(status_code=404, detail="event not found")
+    agent_trace_store.append(
+        {
+            "run_id": str(event.get("segment_id") or event_id),
+            "event_id": event_id,
+            "capability": "execution",
+            "stage": "review_status_updated",
+            "status": "success",
+            "source": "operator_action",
+            "action": review_status,
+            "output": {"review_status": review_status},
+        }
+    )
     return event
 
 
